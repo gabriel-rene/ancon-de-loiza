@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { fbm } from '../terrain/noise';
 
@@ -23,9 +23,10 @@ export function Backdrop() {
     luquillo: ridge(100, 190, (b) => 16500 + 2500 * fbm(b * 0.05, 1),
       (b, k) => 120 + 1000 * Math.exp(-(((b - 145) / 16) ** 2)) + 520 * fbm(k * 0.09, 3) * Math.exp(-(((b - 145) / 32) ** 2))),
     foothills: ridge(110, 250, (b) => 7000 + 1200 * fbm(b * 0.08, 5), (_b, k) => 40 + 140 * fbm(k * 0.15, 9)),
-    mat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.18, 0.24, 0.28), side: THREE.DoubleSide }),
-    matNear: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.08, 0.12, 0.08), side: THREE.DoubleSide }),
+    mat: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 0.14, 0.17), side: THREE.DoubleSide }),
+    matNear: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.04, 0.07, 0.035), side: THREE.DoubleSide }),
   }), []);
+  useEffect(() => () => { luquillo.dispose(); foothills.dispose(); mat.dispose(); matNear.dispose(); }, [luquillo, foothills, mat, matNear]);
   return (
     <>
       <mesh geometry={luquillo} material={mat} />
