@@ -6,7 +6,6 @@ import { CAMERA_PRESETS, type CameraPreset } from '../state/url';
 import type { Quality } from '../quality';
 
 export function DebugPanel() {
-  const debug = useStore((s) => s.debug);
   const init = useStore.getState();
 
   const [, set] = useControls(() => ({
@@ -33,5 +32,5 @@ export function DebugPanel() {
     });
   }, [set]);
 
-  return <Leva hidden={!debug} collapsed={false} />;
+  return <Leva collapsed={false} />;
 }

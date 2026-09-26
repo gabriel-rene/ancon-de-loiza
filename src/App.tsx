@@ -1,13 +1,15 @@
 import { StatsGl } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
+import { lazy, Suspense } from 'react';
 import * as THREE from 'three';
 import { QUALITY } from './quality';
 import { Cameras } from './scene/Cameras';
 import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
-import { DebugPanel } from './ui/DebugPanel';
 import { TitleCard } from './ui/TitleCard';
+
+const DebugPanel = lazy(() => import('./ui/DebugPanel').then((m) => ({ default: m.DebugPanel })));
 
 export function App() {
   const q = QUALITY[useStore((s) => s.quality)];
@@ -25,7 +27,7 @@ export function App() {
         <ReadySignal />
         {debug && <StatsGl className="stats-gl" />}
       </Canvas>
-      <DebugPanel />
+      {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
     </>
   );

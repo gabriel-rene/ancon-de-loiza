@@ -2,13 +2,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
+import { RIVER_DIR, WIND_DIR } from '../../geo/constants';
 import type { WorldFields } from '../../terrain/fields';
 import type { Sun } from '../useSun';
 import { makeInfoTexture } from '../useWorldFields';
 import { waterFragment, waterVertex } from './waterShader';
 
-const RIVER_DIR = new THREE.Vector2(1, -1).normalize();
-const WIND_DIR = new THREE.Vector2(-1, 0.35).normalize();
+const riverDirVec = new THREE.Vector2(...RIVER_DIR);
+const windDirVec = new THREE.Vector2(...WIND_DIR);
 
 export function Water({ near, far, sun, flow, reflScale, frozen }: {
   near: WorldFields; far: WorldFields; sun: Sun; flow: number; reflScale: number; frozen: boolean;
@@ -32,7 +33,7 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
           uFarInfo: { value: null }, uFarRect: { value: new THREE.Vector4() },
           uTime: { value: 0 },
           uSunDir: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() }, uSunIntensity: { value: 1 },
-          uRiverFlow: { value: new THREE.Vector2() }, uWind: { value: WIND_DIR.clone() },
+          uRiverFlow: { value: new THREE.Vector2() }, uWind: { value: windDirVec.clone() },
           uHazeColor: { value: new THREE.Color() }, uHazeAway: { value: new THREE.Color() }, uHaze: { value: 0 },
         },
         vertexShader: waterVertex,
@@ -59,7 +60,7 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
     u.uHazeColor.value.setRGB(...sun.atm.fogColor);
     u.uHazeAway.value.setRGB(...sun.atm.fogAway);
     u.uHaze.value = sun.atm.reflectionHaze;
-    u.uRiverFlow.value.copy(RIVER_DIR).multiplyScalar(flow / 0.35);
+    u.uRiverFlow.value.copy(riverDirVec).multiplyScalar(flow / 0.35);
   }, [sun, flow, u]);
 
   useEffect(() => () => { mirror.geometry.dispose(); mirror.dispose(); }, [mirror]);

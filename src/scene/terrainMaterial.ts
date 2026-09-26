@@ -1,18 +1,12 @@
 import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { SNOISE_GLSL } from './glsl/noise';
-
-/** Sun uniforms shared by every terrain material (updated in place by <Terrain>). */
-export const terrainSun = {
-  uSunDir: { value: new THREE.Vector3(0, 1, 0) },
-  uSunColor: { value: new THREE.Color(1, 1, 1) },
-  uSunI: { value: 0 },
-};
+import { sunUniforms } from './sunUniforms';
 
 export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
   return new CustomShaderMaterial({
     baseMaterial: THREE.MeshStandardMaterial,
-    uniforms: { uInfo: { value: info }, uRect: { value: rect }, ...terrainSun },
+    uniforms: { uInfo: { value: info }, uRect: { value: rect }, ...sunUniforms },
     vertexShader: /* glsl */ `
       varying vec3 vW; varying vec3 vNw;
       void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; vNw = normalize(mat3(modelMatrix) * normal); }`,
