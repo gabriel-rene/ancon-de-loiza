@@ -5,7 +5,7 @@ import type { Sun } from '../useSun';
 const frag = /* glsl */ `
 uniform mat4 uProjInv; uniform mat4 uViewInv; uniform vec3 uCamPos;
 uniform vec3 uFogColor; uniform vec3 uSunColor; uniform vec3 uSunDir;
-uniform float uDensity; uniform float uFalloff;
+uniform float uDensity; uniform float uFalloff; uniform float uSkyHaze;
 void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
   vec4 ndc = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
   vec4 view = uProjInv * ndc; view /= view.w;
@@ -21,8 +21,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     // The sky dome has no meaningful "distance"; fade the haze from strong at the
     // horizon to weak at the zenith instead of reusing the terrain distance model
     // (which underestimates coverage for steep look-up angles and lets the raw,
-    // HDR-bright sky shader show through almost unfiltered).
-    f = 0.85 * exp(-max(dir.y, 0.0) * 3.0);
+    // HDR-bright sky shader show through almost unfiltered). uSkyHaze tracks
+    // uDensity so the sky still responds to time-of-day like the terrain fog does.
+    f = uSkyHaze * exp(-max(dir.y, 0.0) * 3.0);
   } else {
     float dy = dir.y * dist;
     float ratio = abs(k * dy) > 1e-3 ? (1.0 - exp(-k * dy)) / (k * dy) : 1.0;
@@ -48,6 +49,7 @@ export class HeightFogEffect extends Effect {
         ['uSunDir', new THREE.Uniform(new THREE.Vector3(0, 1, 0))],
         ['uDensity', new THREE.Uniform(0.0006)],
         ['uFalloff', new THREE.Uniform(0.012)],
+        ['uSkyHaze', new THREE.Uniform(0.85)],
       ]),
     });
     this.cam = camera;
@@ -57,6 +59,10 @@ export class HeightFogEffect extends Effect {
     this.uniforms.get('uSunColor')!.value.setRGB(...sun.atm.sunColor);
     this.uniforms.get('uSunDir')!.value.copy(sun.dir);
     this.uniforms.get('uDensity')!.value = sun.atm.fogDensity;
+    // Sky haze tracks the same density curve as the terrain fog (0.0011 is the
+    // golden-hour density from atmosphere.ts), so the sky still responds to
+    // time-of-day instead of being a fixed constant.
+    this.uniforms.get('uSkyHaze')!.value = 0.85 * THREE.MathUtils.clamp(sun.atm.fogDensity / 0.0011, 0, 1);
   }
   update() {
     this.uniforms.get('uProjInv')!.value.copy(this.cam.projectionMatrixInverse);
