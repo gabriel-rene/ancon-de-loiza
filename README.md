@@ -35,4 +35,4 @@ Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zu
 
 The Cortijo family, the Colectivo El Ancón de Loíza, and the Archivo Negro collection *El Ancón de Loíza: Un Vínculo Histórico*, whose photographs and testimony make this reconstruction possible.
 
-Map data © OpenStreetMap contributors (ODbL).
+Map data © OpenStreetMap contributors (ODbL). The derived geography bundle `src/data/geo/loiza.json` is licensed under ODbL 1.0 — see [`src/data/geo/README.md`](src/data/geo/README.md); the rest of the repository is MIT ([LICENSE](LICENSE)).
