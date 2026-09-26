@@ -45,6 +45,7 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet);
         vec3 sunH = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4));
         float lowSun = 1.0 - smoothstep(0.15, 0.6, uSunDir.y);          // only near golden hour
+        lowSun *= smoothstep(-0.035, 0.035, uSunDir.y);                 // 0 below horizon (matches atmosphereFor's day ramp)
         vec3 bladeN = normalize(mix(vNw, normalize(vNw * 0.55 + sunH * 0.45), grassy * lowSun));
         csm_FragNormal = normalize((viewMatrix * vec4(bladeN, 0.0)).xyz);
       }`,
