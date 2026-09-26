@@ -42,7 +42,7 @@ export function buildCardGeometry(halfW: number, minY: number, maxY: number): TH
  * coverage-preserving mip chain and build the matching crossed-card geometry. Browser-only
  * (needs a live renderer).
  */
-export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], size = 256): { texture: THREE.Texture; card: THREE.BufferGeometry } {
+export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], size = 256, name = 'impostor'): { texture: THREE.Texture; card: THREE.BufferGeometry } {
   const box = new THREE.Box3(), tmp = new THREE.Box3();
   for (const p of parts) {
     if (!p.geometry.boundingBox) p.geometry.computeBoundingBox();
@@ -99,14 +99,14 @@ export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], siz
   const px = { width: w, height: h, data: new Uint8ClampedArray(buf.buffer) };
   target.dispose();
   const fill = fillTransparent(px);
-  const mips = coverageMips(px, fill, 0.5 * 255, 'impostor');
+  const mips = coverageMips(px, fill, 0.5 * 255, name);
   const texture = new THREE.DataTexture(px.data, w, h, THREE.RGBAFormat, THREE.UnsignedByteType);
   texture.mipmaps = mips.map((m) => ({ data: m.data, width: m.width, height: m.height })) as unknown as THREE.DataTexture['mipmaps'];
   texture.generateMipmaps = false;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.name = 'impostor';
+  texture.name = name;
   texture.needsUpdate = true;
   return { texture, card: buildCardGeometry(halfW, minY, maxY) };
 }

@@ -15,13 +15,13 @@ export type PlantMaterials = Record<'bark' | 'foliage', MatPair>;
 interface VariantLod {
   matrices: Float32Array; xs: Float32Array; zs: Float32Array;
   near: Uint32Array; far: Uint32Array;
-  /** Instances within REFL_LOD0 (n0), the rest of LOD0 (n1), beyond LOD0 (nFar). */
+  /** Instances within reflLod0 (n0), the rest of LOD0 (n1), beyond LOD0 (nFar). */
   n0: number; n1: number; nFar: number;
   /** LOD0 part meshes; they share one instanceMatrix attribute laid out [n0 | n1]. */
   parts: THREE.InstancedMesh[]; partMatrix: THREE.InstancedBufferAttribute;
   /**
    * Cards, instance buffer laid out [nFar | n1]: the main view draws the first nFar (far
-   * cards), the water reflection draws all nFar + n1 (everything outside REFL_LOD0).
+   * cards), the water reflection draws all nFar + n1 (everything outside reflLod0).
    */
   cards: THREE.InstancedMesh;
   own: { texture: THREE.Texture; card: THREE.BufferGeometry; mats: MatPair };
@@ -29,11 +29,6 @@ interface VariantLod {
 
 const LOD_INTERVAL = 0.25; // s
 const LOD_MOVE2 = 8 * 8;   // m², horizontal
-/**
- * Within this radius the water reflection keeps the full meshes (prop roots, trunks and crown
- * gaps must read in a nearby reflection); beyond it the reflection uses the impostor cards.
- */
-const REFL_LOD0 = 50;      // m
 
 function commit(attr: THREE.InstancedBufferAttribute, count: number) {
   attr.clearUpdateRanges();
@@ -58,19 +53,22 @@ function translucencyOf(m: THREE.Material): number {
 
 /**
  * Instanced renderer for one species: LOD0 part meshes near the camera, baked impostor cards
- * beyond `lod0` metres. The water reflection keeps the meshes within REFL_LOD0 and draws
- * everything else as cards.
- * The near/far split is recomputed every 250 ms or after an 8 m camera move (no per-frame alloc).
+ * beyond `lod0` metres. The water reflection keeps the meshes within `reflLod0` metres (prop
+ * roots and crown gaps must read in a nearby reflection; 0 = cards only) and draws everything
+ * else as cards. The split is recomputed every 250 ms or after an 8 m camera move; the
+ * repartition and matrix gathers allocate nothing.
  */
-export function InstancedSpecies({ variants, materials, instances, lod0, castShadow, farCards }: {
+export function InstancedSpecies({ variants, materials, instances, lod0, reflLod0, castShadow, farCards, name = 'plant' }: {
   variants: PlantPart[][]; materials: PlantMaterials; instances: PlantInstance[];
-  lod0: number; castShadow: boolean; farCards: boolean;
+  lod0: number; reflLod0: number; castShadow: boolean; farCards: boolean;
+  /** Species name, used to label impostor textures (and their coverage warnings). */
+  name?: string;
 }) {
   const gl = useThree((s) => s.gl);
   const frozen = useStore((s) => s.frozen);
   const group = useRef<THREE.Group>(null);
   const built = useRef<VariantLod[]>([]);
-  const lod = useRef({ lod0, farCards, castShadow, dirty: true, t: -1, cx: 0, cz: 0 });
+  const lod = useRef({ lod0, reflLod0, farCards, castShadow, dirty: true, t: -1, cx: 0, cz: 0 });
   const statsRef = useRef<{ near: number; far: number } | null>(null);
 
   useEffect(() => {
@@ -95,7 +93,7 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
         return m;
       });
 
-      const { texture, card } = bakeImpostor(gl, parts.map((p) => ({ geometry: p.geometry, material: materials[p.name].material })));
+      const { texture, card } = bakeImpostor(gl, parts.map((p) => ({ geometry: p.geometry, material: materials[p.name].material })), 256, `impostor:${name}-${v}`);
       const mats = makePlantMaterials({ part: 'foliage', map: texture, color: 0xffffff, roughness: 0.9, alphaTest: 0.5, translucency: trans, bentNormals: true });
       const cards = newInstanced(card, mats, n);
       cards.name = `veg-cards-${v}`;
@@ -144,12 +142,12 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
       }
       built.current = [];
     };
-  }, [gl, variants, materials, instances]);
+  }, [gl, variants, materials, instances, name]);
 
   useEffect(() => {
     const l = lod.current;
-    l.lod0 = lod0; l.farCards = farCards; l.castShadow = castShadow; l.dirty = true;
-  }, [lod0, farCards, castShadow]);
+    l.lod0 = lod0; l.reflLod0 = reflLod0; l.farCards = farCards; l.castShadow = castShadow; l.dirty = true;
+  }, [lod0, reflLod0, farCards, castShadow]);
 
   useFrame((state) => {
     setWindTime(state.clock.elapsedTime, frozen);
@@ -158,19 +156,19 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
     if (!l.dirty && t - l.t < LOD_INTERVAL && dx * dx + dz * dz < LOD_MOVE2) return;
     l.dirty = false; l.t = t; l.cx = cam.x; l.cz = cam.z;
     let sn = 0, sf = 0;
-    const dR = Math.min(REFL_LOD0, l.lod0);
+    const dR = Math.min(l.reflLod0, l.lod0);
     for (const b of built.current) {
       const [n0, n1, f] = partitionLod3(b.xs, b.zs, cam.x, cam.z, dR, l.lod0, b.near, b.far);
       b.n0 = n0; b.n1 = n1; b.nFar = f;
-      const tail = b.near.subarray(b.near.length - n1);
+      const tail = b.near.length - n1; // the n1 ring sits at the back of `near`
       const pm = b.partMatrix.array as Float32Array, cm = b.cards.instanceMatrix.array as Float32Array;
       gatherMatrices(b.matrices, b.near, n0, pm);
-      gatherMatrices(b.matrices, tail, n1, pm.subarray(n0 * 16));
+      gatherMatrices(b.matrices, b.near, n1, pm, tail, n0);
       commit(b.partMatrix, n0 + n1);
       for (const m of b.parts) { m.count = n0 + n1; m.visible = n0 + n1 > 0; m.castShadow = l.castShadow; }
-      // Far cards first, then the LOD0 ring outside REFL_LOD0 (drawn only in the reflection).
+      // Far cards first, then the LOD0 ring outside reflLod0 (drawn only in the reflection).
       gatherMatrices(b.matrices, b.far, f, cm);
-      gatherMatrices(b.matrices, tail, n1, cm.subarray(f * 16));
+      gatherMatrices(b.matrices, b.near, n1, cm, tail, f);
       commit(b.cards.instanceMatrix, f + n1);
       const cardCount = l.farCards ? f : 0;
       b.cards.count = cardCount;

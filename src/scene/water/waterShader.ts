@@ -107,9 +107,11 @@ void main() {
   // would pick up over a long, grazing sight line. At steep (near-vertical, low-fres) angles
   // the reflection barely shows anyway, but hazeCol's HDR-bright golden-hour tone (channels
   // can exceed 1) would otherwise still visibly stain it, reading as a warm patch mid-river.
-  // Also ramped in by distance: a nearby bank's reflection is a short extra path (the post fog
-  // already covers camera→water), so a flat haze washed dark reflected banks out to pale tan;
-  // far off, the reflected ray runs on to the horizon and gets the full haze.
+  // Also ramped in by distance. The reflected object's own distance is unknown here, so the
+  // camera→water distance (dist) stands in as a proxy (reflections seen close by are mostly of
+  // nearby banks; the post fog already covers the camera→water leg). A flat haze washed dark
+  // reflected banks out to pale tan; far off, where the reflected ray mostly runs on toward the
+  // horizon, the full haze applies.
   refl = mix(refl, hazeCol, uHaze * fres * (1.0 - exp(-dist / 500.0)));
 
   float sunUp = clamp(uSunDir.y * 4.0, 0.0, 1.0);

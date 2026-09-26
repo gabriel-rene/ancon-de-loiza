@@ -27,10 +27,17 @@ test('deterministic by seed, different across seeds', () => {
   expect(buildMangrove(5)[0].geometry.getAttribute('position').array).toEqual(a);
   expect(buildMangrove(6)[0].geometry.getAttribute('position').array).not.toEqual(a);
 });
-test('prop roots reach the mud 1.5–3.5 m out; no NaNs', () => {
+test('prop roots reach the mud 1.5–3.5 m out; no NaNs in positions or normals', () => {
   for (const seed of [1, 2, 3, 4]) {
     const parts = buildMangrove(seed);
-    for (const p of parts) for (const v of p.geometry.getAttribute('position').array as Float32Array) expect(Number.isFinite(v)).toBe(true);
+    for (const p of parts) for (const a of ['position', 'normal']) {
+      for (const v of p.geometry.getAttribute(a).array as Float32Array) expect(Number.isFinite(v)).toBe(true);
+    }
+    // Normals are unit length (no degenerate frames on the tubes or cards).
+    for (const p of parts) {
+      const n = p.geometry.getAttribute('normal') as THREE.BufferAttribute;
+      for (let i = 0; i < n.count; i++) expect(Math.abs(Math.hypot(n.getX(i), n.getY(i), n.getZ(i)) - 1)).toBeLessThan(1e-3);
+    }
     const pos = parts[0].geometry.getAttribute('position') as THREE.BufferAttribute;
     let far = 0, maxR = 0;
     for (let i = 0; i < pos.count; i++) if (pos.getY(i) < -0.2) {

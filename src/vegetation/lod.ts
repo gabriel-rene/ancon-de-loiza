@@ -13,11 +13,11 @@ export function partitionLod(xs: Float32Array, zs: Float32Array, cx: number, cz:
 /**
  * Three-way split for the main view + water reflection: `near` gets the instances within `dR`
  * at its front ([0, n0)) and those in (dR, d0] at its back ([len − n1, len)); `far` gets the
- * rest at its front. Returns [n0, n1, nFar]. No allocation.
+ * rest at its front. Returns [n0, n1, nFar]. dR ≤ 0 puts nothing in the first group. No allocation.
  */
 export function partitionLod3(xs: Float32Array, zs: Float32Array, cx: number, cz: number, dR: number, d0: number,
   near: Uint32Array, far: Uint32Array): [number, number, number] {
-  let a = 0, b = 0, f = 0; const r2 = dR * dR, d2 = d0 * d0, last = near.length - 1;
+  let a = 0, b = 0, f = 0; const r2 = dR > 0 ? dR * dR : -1, d2 = d0 * d0, last = near.length - 1;
   for (let i = 0; i < xs.length; i++) {
     const dx = xs[i] - cx, dz = zs[i] - cz, q = dx * dx + dz * dz;
     if (q <= r2) near[a++] = i; else if (q <= d2) near[last - b++] = i; else far[f++] = i;
@@ -40,10 +40,13 @@ export function composeInstanceMatrices(instances: readonly PlantInstance[], out
   return out;
 }
 
-/** Copy the matrices at `idx[0..n)` from `src` into the packed `dst` (no allocation). */
-export function gatherMatrices(src: Float32Array, idx: Uint32Array, n: number, dst: Float32Array) {
+/**
+ * Copy the matrices at `idx[idxOff .. idxOff + n)` from `src` into `dst`, packed from matrix slot
+ * `dstOff` on (no allocation).
+ */
+export function gatherMatrices(src: Float32Array, idx: Uint32Array, n: number, dst: Float32Array, idxOff = 0, dstOff = 0) {
   for (let k = 0; k < n; k++) {
-    const s = idx[k] * 16, d = k * 16;
+    const s = idx[idxOff + k] * 16, d = (dstOff + k) * 16;
     for (let j = 0; j < 16; j++) dst[d + j] = src[s + j];
   }
 }

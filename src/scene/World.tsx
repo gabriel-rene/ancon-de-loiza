@@ -17,9 +17,9 @@ function TestTreesTemp({ near, q }: { near: WorldFields; q: QualitySettings }) {
   const palms = useTestPalms(near), mangroves = useTestMangroves(near);
   return <>
     <InstancedSpecies variants={palms.variants} materials={palms.materials} instances={palms.instances}
-      lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />
+      lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} name="palm" />
     <InstancedSpecies variants={mangroves.variants} materials={mangroves.materials} instances={mangroves.instances}
-      lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />
+      lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} name="redMangrove" />
   </>;
 }
 

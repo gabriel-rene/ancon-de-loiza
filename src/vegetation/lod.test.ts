@@ -53,3 +53,13 @@ test('three-way split: reflection-near at the front, the rest of LOD0 at the bac
   expect(Array.from(near.slice(6 - n1)).sort()).toEqual([2, 5]);
   expect(Array.from(far.slice(0, nf))).toEqual([3]);
 });
+
+test('three-way split with dR = 0 sends nothing to the reflection-mesh group; gather offsets', () => {
+  const xs = new Float32Array([0, 30, 300]), zs = new Float32Array(3);
+  const near = new Uint32Array(3), far = new Uint32Array(3);
+  expect(partitionLod3(xs, zs, 0, 0, 0, 220, near, far)).toEqual([0, 2, 1]);
+  const src = new Float32Array(48).map((_, i) => i);
+  const dst = new Float32Array(48);
+  gatherMatrices(src, new Uint32Array([9, 2, 0]), 2, dst, 1, 1); // idx[1..3) → slots 1..3
+  expect(dst[16]).toBe(32); expect(dst[32]).toBe(0); expect(dst[0]).toBe(0);
+});

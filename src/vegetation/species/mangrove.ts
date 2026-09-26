@@ -120,9 +120,11 @@ interface Stem { at: (t: number, o: THREE.Vector3) => THREE.Vector3; y0: number;
 
 /**
  * One prop root from `S` arching out to the mud at `E` (y = −0.3): it leaves the stem heading
- * outward and a little down, then bends over and enters the mud nearly vertically.
+ * outward and a little down, then bends over and enters the mud nearly vertically. aFlex ramps
+ * from `flex0` (the parent's value at the attachment point) to 0 in the mud, so the root stays
+ * joined to a swaying branch/stem.
  */
-function propRoot(rng: Rng, S: THREE.Vector3, E: THREE.Vector3, r0: number) {
+function propRoot(rng: Rng, S: THREE.Vector3, E: THREE.Vector3, r0: number, flex0: number) {
   const d = new THREE.Vector3(E.x - S.x, 0, E.z - S.z);
   const horiz = d.length();
   d.normalize();
@@ -130,8 +132,8 @@ function propRoot(rng: Rng, S: THREE.Vector3, E: THREE.Vector3, r0: number) {
   const P1 = S.clone().addScaledVector(d, horiz * (0.4 + 0.15 * rng())).setY(S.y + drop * (-0.05 + 0.2 * rng()));
   const P2 = E.clone().addScaledVector(d, -horiz * (0.1 + 0.12 * rng())).setY(E.y + drop * (0.4 + 0.2 * rng()));
   const at = bezier(S.clone(), P1, P2, E.clone());
-  const geo = tube(rng, at, (t) => r0 * (1.2 - 0.35 * t + 0.4 * Math.pow(1 - t, 8)), ROOT_RADIAL, ROOT_SEG, () => 0, 0.1 + 0.3 * rng());
-  return { geo, at };
+  const geo = tube(rng, at, (t) => r0 * (1.2 - 0.35 * t + 0.4 * Math.pow(1 - t, 8)), ROOT_RADIAL, ROOT_SEG, (t) => flex0 * (1 - t), 0.1 + 0.3 * rng());
+  return { geo, at, flex0 };
 }
 
 /** Leaf cards filling a flat-bottomed ellipsoidal crown, denser at its shell. */
@@ -238,34 +240,40 @@ export function buildMangrove(seed: number): PlantPart[] {
   const nRoot = 10 + Math.floor(rng() * 7); // 10–16 in total
   const nFork = Math.floor(nRoot * (0.25 + 0.15 * rng()));
   const nPrimary = nRoot - nFork;
-  const primaries: { at: (t: number, o: THREE.Vector3) => THREE.Vector3; a: number; R: number; r0: number }[] = [];
+  const primaries: { at: (t: number, o: THREE.Vector3) => THREE.Vector3; a: number; R: number; r0: number; flex0: number }[] = [];
   const rootAz0 = rng() * Math.PI * 2;
   for (let k = 0; k < nPrimary; k++) {
     const a = rootAz0 + (k / nPrimary) * Math.PI * 2 + (rng() - 0.5) * (Math.PI / nPrimary);
     const S = new THREE.Vector3();
     const fromBranch = k === 0 && rng() < 0.6;
+    let flex0: number;
     if (fromBranch) {
-      branches[k % branches.length](0.15 + 0.2 * rng(), S);
+      const tb = 0.15 + 0.2 * rng();
+      branches[k % branches.length](tb, S);
+      flex0 = lerp(0.1, 0.35, tb);               // branch aFlex at the attachment
     } else {
       // Nearest-facing stem, at a height in 0.6–2.3 m on it.
       const st = stems[Math.floor(rng() * nStem)];
       const y = lerp(Math.max(0.6, st.y0 + 0.1), Math.min(2.3, st.y1 - 0.15), Math.pow(rng(), 0.8));
-      st.at(clamp01((y - st.y0) / (st.y1 - st.y0)), S);
+      const ts = clamp01((y - st.y0) / (st.y1 - st.y0));
+      st.at(ts, S);
+      flex0 = 0.1 * ts;                          // stem aFlex at the attachment
     }
     const R = Math.min(3.5, Math.max(1.5, 1.5 + 1.6 * rng() + 0.35 * S.y));
     const E = new THREE.Vector3(Math.cos(a) * R, ROOT_END_Y, Math.sin(a) * R);
     const r0 = 0.04 + 0.02 * rng();
-    const { geo, at } = propRoot(rng, S, E, r0);
+    const { geo, at } = propRoot(rng, S, E, r0, flex0);
     bark.push(geo);
-    primaries.push({ at, a, R, r0 });
+    primaries.push({ at, a, R, r0, flex0 });
   }
   for (let k = 0; k < nFork; k++) {
     const p = primaries[Math.floor(rng() * primaries.length)];
-    const S = p.at(0.3 + 0.25 * rng(), new THREE.Vector3());
+    const tp = 0.3 + 0.25 * rng();
+    const S = p.at(tp, new THREE.Vector3());
     const a = p.a + (rng() < 0.5 ? -1 : 1) * (0.25 + 0.35 * rng());
     const R = Math.min(3.5, p.R + 0.5 + 0.7 * rng());
     const E = new THREE.Vector3(Math.cos(a) * R, ROOT_END_Y, Math.sin(a) * R);
-    bark.push(propRoot(rng, S, E, Math.max(0.035, p.r0 * 0.85)).geo);
+    bark.push(propRoot(rng, S, E, Math.max(0.035, p.r0 * 0.85), p.flex0 * (1 - tp)).geo);
   }
 
   // Aerial drop roots: thin, nearly vertical, from mid-branch to the mud.
