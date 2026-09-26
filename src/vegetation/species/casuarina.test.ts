@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { WIND_DIR } from '../../geo/constants';
-import { buildCasuarina } from './casuarina';
+import { buildCasuarina, TRUNK_RADIAL, TRUNK_VERTS } from './casuarina';
 
 const tris = (g: THREE.BufferGeometry) => (g.index ? g.index.count : g.attributes.position.count) / 3;
 
@@ -40,12 +40,14 @@ test('trunk leans downwind (toward WIND_DIR), at most ~6°', () => {
   for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
     const bark = buildCasuarina(seed)[0].geometry;
     const pos = bark.getAttribute('position') as THREE.BufferAttribute;
-    // The trunk is the first tube in the merged bark: its top ring is the highest trunk ring.
+    // The trunk is the first tube in the merged bark (TRUNK_VERTS vertices, rings of R); its
+    // highest vertex lies on the top trunk ring.
+    const R = TRUNK_RADIAL + 1;
     let top = 0;
-    for (let i = 0; i < 8 * 11; i++) if (pos.getY(i) > pos.getY(top)) top = i;
-    const ring = Math.floor(top / 8) * 8;
+    for (let i = 0; i < TRUNK_VERTS; i++) if (pos.getY(i) > pos.getY(top)) top = i;
+    const ring = Math.floor(top / R) * R;
     let cx = 0, cz = 0, cy = 0;
-    for (let i = ring; i < ring + 8; i++) { cx += pos.getX(i) / 8; cy += pos.getY(i) / 8; cz += pos.getZ(i) / 8; }
+    for (let i = ring; i < ring + R; i++) { cx += pos.getX(i) / R; cy += pos.getY(i) / R; cz += pos.getZ(i) / R; }
     const along = cx * WIND_DIR[0] + cz * WIND_DIR[1];
     expect(Math.atan2(Math.hypot(cx, cz), cy)).toBeLessThan(7 * Math.PI / 180);
     sum += along;

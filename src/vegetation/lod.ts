@@ -13,16 +13,19 @@ export function partitionLod(xs: Float32Array, zs: Float32Array, cx: number, cz:
 /**
  * Three-way split for the main view + water reflection: `near` gets the instances within `dR`
  * at its front ([0, n0)) and those in (dR, d0] at its back ([len − n1, len)); `far` gets the
- * rest at its front. Returns [n0, n1, nFar]. dR ≤ 0 puts nothing in the first group. No allocation.
+ * rest at its front. Returns [n0, n1, nFar] (written into `out` when given — no allocation).
+ * dR ≤ 0 puts nothing in the first group.
  */
-export function partitionLod3(xs: Float32Array, zs: Float32Array, cx: number, cz: number, dR: number, d0: number,
-  near: Uint32Array, far: Uint32Array): [number, number, number] {
+export function partitionLod3<T extends Uint32Array | [number, number, number] = [number, number, number]>(xs: Float32Array, zs: Float32Array,
+  cx: number, cz: number, dR: number, d0: number, near: Uint32Array, far: Uint32Array, out?: T): T {
   let a = 0, b = 0, f = 0; const r2 = dR > 0 ? dR * dR : -1, d2 = d0 * d0, last = near.length - 1;
   for (let i = 0; i < xs.length; i++) {
     const dx = xs[i] - cx, dz = zs[i] - cz, q = dx * dx + dz * dz;
     if (q <= r2) near[a++] = i; else if (q <= d2) near[last - b++] = i; else far[f++] = i;
   }
-  return [a, b, f];
+  const o = out ?? ([0, 0, 0] as unknown as T);
+  o[0] = a; o[1] = b; o[2] = f;
+  return o;
 }
 
 /**

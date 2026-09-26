@@ -49,10 +49,10 @@ const WIND_VERTEX = /* glsl */ `
 
 /**
  * Impostor cards have no crown self-occlusion and their up-bent normals see more sky than the
- * real crown's sides, so their indirect (sky) light is damped to keep the LOD swap from
- * brightening the tree.
+ * real crown's sides, so their indirect (sky) light is damped (`uCardAO`, ambient occlusion
+ * factor) to keep the LOD swap from brightening the tree. Shared by every card material.
  */
-const CARD_AO = 0.3;
+export const cardUniforms = { uCardAO: { value: 0.3 } };
 
 /**
  * Foliage: subtle view-dependent back-light (looking toward the sun through the leaves) folded
@@ -61,7 +61,7 @@ const CARD_AO = 0.3;
  * keeps the geometry's outward-bent normals on both faces instead of flipping back faces.
  */
 const foliageFragment = (bentNormals: boolean) => /* glsl */ `
-  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans;
+  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans;${bentNormals ? ' uniform float uCardAO;' : ''}
   varying float vFlex;
   varying vec3 vPlantW;
   void main() {
@@ -76,7 +76,7 @@ const foliageFragment = (bentNormals: boolean) => /* glsl */ `
     ${bentNormals ? `// The card's bent normals point sideways/up, i.e. edge-on to a viewer facing the card
     // (grazing Fresnel -> pale sky sheen). Lean them toward the viewer like a rounded crown.
     csm_FragNormal = normalize(normalize(vNormal) + normalize(vViewPosition));
-    csm_AO = ${CARD_AO.toFixed(2)};` : ''}
+    csm_AO = uCardAO;` : ''}
   }`;
 
 export interface PlantMaterialOpts {
@@ -100,7 +100,8 @@ export function makePlantMaterials(opts: PlantMaterialOpts): { material: THREE.M
     vertexShader: WIND_VERTEX,
     fragmentShader: foliage ? foliageFragment(!!opts.bentNormals) : undefined,
     uniforms: foliage
-      ? { ...windUniforms, uSunDir: sunUniforms.uSunDir, uSunI: sunUniforms.uSunI, uTrans: { value: opts.translucency ?? 0 } }
+      ? { ...windUniforms, uSunDir: sunUniforms.uSunDir, uSunI: sunUniforms.uSunI, uTrans: { value: opts.translucency ?? 0 },
+        ...(opts.bentNormals ? cardUniforms : {}) }
       : { ...windUniforms },
     color: opts.color,
     map: opts.map ?? null,

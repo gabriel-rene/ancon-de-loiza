@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { cellRng } from '../rng';
 import type { PlantPart } from '../types';
+import { tube, type Curve } from './tube';
 
 /*
  * Red mangrove (Rhizophora mangle), the fringe tree at the water's edge (research §5). Numbers
@@ -56,60 +57,10 @@ function barkColor(rng: Rng, x: number, y: number, z: number, redness: number, o
   return out.multiplyScalar(lerp(0.4, 1, smooth(0.5, 3.2, r + 0.25 * Math.max(0, 1 - y))));
 }
 
-/**
- * Tube along `at(t)` (t ∈ [0,1]) with parallel-transported frames (no twist), radius `rad(t)`,
- * `radial` sides and `segs` segments. Vertex colours from `barkColor`, aFlex from `flex(t)`.
- */
-function tube(rng: Rng, at: (t: number, o: THREE.Vector3) => THREE.Vector3, rad: (t: number) => number,
-  radial: number, segs: number, flex: (t: number) => number, redness: number) {
-  const pos: number[] = [], nrm: number[] = [], uv: number[] = [], col: number[] = [], fl: number[] = [], idx: number[] = [];
-  const P = new THREE.Vector3(), Q = new THREE.Vector3(), T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3();
-  const d = new THREE.Vector3(), prevT = new THREE.Vector3(), c = new THREE.Color();
-  const q = new THREE.Quaternion();
-  const tangent = (t: number, o: THREE.Vector3) => {
-    const e = 1e-3, a = Math.max(0, t - e), b = Math.min(1, t + e);
-    return o.subVectors(at(b, Q), at(a, P)).normalize();
-  };
-  for (let i = 0; i <= segs; i++) {
-    const t = i / segs;
-    tangent(t, T);
-    if (i === 0) {
-      // Any initial normal perpendicular to T.
-      N.set(0, 1, 0);
-      if (Math.abs(T.y) > 0.9) N.set(1, 0, 0);
-      N.sub(d.copy(T).multiplyScalar(N.dot(T))).normalize();
-    } else {
-      q.setFromUnitVectors(prevT, T);
-      N.applyQuaternion(q).sub(d.copy(T).multiplyScalar(N.dot(T))).normalize();
-    }
-    prevT.copy(T);
-    B.crossVectors(T, N);
-    at(t, P);
-    const r = rad(t);
-    for (let j = 0; j <= radial; j++) {
-      const a = (j / radial) * Math.PI * 2;
-      d.copy(N).multiplyScalar(Math.cos(a)).addScaledVector(B, Math.sin(a));
-      const x = P.x + d.x * r, y = P.y + d.y * r, z = P.z + d.z * r;
-      pos.push(x, y, z);
-      nrm.push(d.x, d.y, d.z);
-      uv.push(j / radial, t);
-      barkColor(rng, x, y, z, redness, c);
-      // Soft side shading: the tube's underside is a little darker (self-occlusion).
-      c.multiplyScalar(0.85 + 0.15 * (0.5 + 0.5 * d.y));
-      col.push(c.r, c.g, c.b);
-      fl.push(flex(t));
-    }
-    if (i > 0) {
-      const r0 = (i - 1) * (radial + 1), r1 = i * (radial + 1);
-      for (let j = 0; j < radial; j++) idx.push(r0 + j, r0 + j + 1, r1 + j, r0 + j + 1, r1 + j + 1, r1 + j);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  attr(g, 'position', pos, 3); attr(g, 'normal', nrm, 3); attr(g, 'uv', uv, 2);
-  attr(g, 'color', col, 3); attr(g, 'aFlex', fl, 1);
-  g.setIndex(idx);
-  return g;
-}
+/** Shared tube with this species' bark colouring (`barkColor` per vertex, underside a little darker). */
+const barkTube = (rng: Rng, at: Curve, rad: (t: number) => number, radial: number, segs: number,
+  flex: (t: number) => number, redness: number) =>
+  tube(at, rad, radial, segs, flex, { vertex: (x, y, z, o) => barkColor(rng, x, y, z, redness, o), under: 0.15 });
 
 const bezier = (p0: THREE.Vector3, p1: THREE.Vector3, p2: THREE.Vector3, p3: THREE.Vector3) => {
   const curve = new THREE.CubicBezierCurve3(p0, p1, p2, p3);
@@ -132,7 +83,7 @@ function propRoot(rng: Rng, S: THREE.Vector3, E: THREE.Vector3, r0: number, flex
   const P1 = S.clone().addScaledVector(d, horiz * (0.4 + 0.15 * rng())).setY(S.y + drop * (-0.05 + 0.2 * rng()));
   const P2 = E.clone().addScaledVector(d, -horiz * (0.1 + 0.12 * rng())).setY(E.y + drop * (0.4 + 0.2 * rng()));
   const at = bezier(S.clone(), P1, P2, E.clone());
-  const geo = tube(rng, at, (t) => r0 * (1.2 - 0.35 * t + 0.4 * Math.pow(1 - t, 8)), ROOT_RADIAL, ROOT_SEG, (t) => flex0 * (1 - t), 0.1 + 0.3 * rng());
+  const geo = barkTube(rng, at, (t) => r0 * (1.2 - 0.35 * t + 0.4 * Math.pow(1 - t, 8)), ROOT_RADIAL, ROOT_SEG, (t) => flex0 * (1 - t), 0.1 + 0.3 * rng());
   return { geo, at, flex0 };
 }
 
@@ -215,7 +166,7 @@ export function buildMangrove(seed: number): PlantPart[] {
     const T = new THREE.Vector3(B.x + Math.cos(a) * lean + C.x * 0.3, y1, B.z + Math.sin(a) * lean + C.z * 0.3);
     const at = bezier(B, B.clone().setY(lerp(y0, y1, 0.4)), T.clone().lerp(B, 0.35).setY(lerp(y0, y1, 0.7)), T);
     const r = 0.08 + 0.06 * rng();
-    bark.push(tube(rng, at, (t) => r * (1.1 - 0.3 * t), 6, 5, (t) => 0.1 * t, 0.2));
+    bark.push(barkTube(rng, at, (t) => r * (1.1 - 0.3 * t), 6, 5, (t) => 0.1 * t, 0.2));
     stems.push({ at, y0, y1 });
   }
 
@@ -232,7 +183,7 @@ export function buildMangrove(seed: number): PlantPart[] {
     const M2 = S.clone().lerp(E, 0.7).setY(E.y + 0.15);
     const at = bezier(S, M1, M2, E);
     const r = 0.06 + 0.02 * rng();
-    bark.push(tube(rng, at, (t) => r * (1 - 0.55 * t), 5, 5, (t) => lerp(0.1, 0.35, t), 0.15));
+    bark.push(barkTube(rng, at, (t) => r * (1 - 0.55 * t), 5, 5, (t) => lerp(0.1, 0.35, t), 0.15));
     branches.push(at);
   }
 
@@ -285,7 +236,7 @@ export function buildMangrove(seed: number): PlantPart[] {
     const wob = new THREE.Vector3((rng() - 0.5) * 0.25, 0, (rng() - 0.5) * 0.25);
     const at = bezier(S, S.clone().lerp(E, 0.33).add(wob), S.clone().lerp(E, 0.66).sub(wob), E);
     const f0 = lerp(0.1, 0.35, tb), r = 0.018 + 0.008 * rng(); // continuous with the branch
-    bark.push(tube(rng, at, () => r, 4, 4, (t) => f0 * (1 - t), 0.35));
+    bark.push(barkTube(rng, at, () => r, 4, 4, (t) => f0 * (1 - t), 0.35));
   }
 
   const canopy = buildCanopy(rng, C, rx, ry, rz);

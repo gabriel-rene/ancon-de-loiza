@@ -63,3 +63,10 @@ test('three-way split with dR = 0 sends nothing to the reflection-mesh group; ga
   gatherMatrices(src, new Uint32Array([9, 2, 0]), 2, dst, 1, 1); // idx[1..3) → slots 1..3
   expect(dst[16]).toBe(32); expect(dst[32]).toBe(0); expect(dst[0]).toBe(0);
 });
+
+test('three-way split writes into a reused out array', () => {
+  const xs = new Float32Array([0, 30, 100, 300]), zs = new Float32Array(4);
+  const near = new Uint32Array(4), far = new Uint32Array(4), out = new Uint32Array(3);
+  expect(partitionLod3(xs, zs, 0, 0, 50, 220, near, far, out)).toBe(out);
+  expect(Array.from(out)).toEqual([2, 1, 1]);
+});

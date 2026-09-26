@@ -6,3 +6,12 @@ export function vegStatsText() {
   vegStats.forEach((s) => { near += s.near; far += s.far; });
   return `${near} / ${far}`;
 }
+
+/**
+ * Vegetation build costs (ms): every placement run (`placeRuns`; the first is the cold start,
+ * later ones reuse cached masks) and the summed impostor bake time; plus the instance counts
+ * per species of the last run. Exposed as `window.__ANCON_VEG__` in dev builds for measurement.
+ */
+export const vegTiming = { placeRuns: [] as number[], bakeMs: 0, counts: {} as Record<string, { near: number; far: number }> };
+declare global { interface Window { __ANCON_VEG__?: typeof vegTiming } }
+if (typeof window !== 'undefined' && import.meta.env?.DEV) window.__ANCON_VEG__ = vegTiming;

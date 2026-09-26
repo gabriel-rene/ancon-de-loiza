@@ -47,8 +47,9 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
     // Let other systems (vegetation LOD) swap what the mirror sees for the reflection render.
     const inner = r.onBeforeRender;
     r.onBeforeRender = function (...args: Parameters<THREE.Object3D['onBeforeRender']>) {
-      reflectionHooks.before.forEach((f) => f());
-      try { inner.apply(this, args); } finally { reflectionHooks.after.forEach((f) => f()); }
+      // `before` runs inside the try so a throwing hook still gets every `after` (restoring the
+      // main-view LOD) instead of leaving the swap half-applied.
+      try { reflectionHooks.before.forEach((f) => f()); inner.apply(this, args); } finally { reflectionHooks.after.forEach((f) => f()); }
     };
     return r;
   }, [size.width, size.height, dpr, reflScale]);

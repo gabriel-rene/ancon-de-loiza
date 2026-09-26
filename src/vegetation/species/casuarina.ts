@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { WIND_DIR } from '../../geo/constants';
 import { cellRng } from '../rng';
 import type { PlantPart } from '../types';
+import { tube, type Curve } from './tube';
 
 /*
  * Casuarina (Casuarina equisetifolia, "pino australiano"), the tree of the Piñones dunes behind
@@ -18,7 +19,6 @@ import type { PlantPart } from '../types';
  */
 
 type Rng = () => number;
-type Curve = (t: number, o: THREE.Vector3) => THREE.Vector3;
 const DEG = Math.PI / 180;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
@@ -36,51 +36,10 @@ function attr(g: THREE.BufferGeometry, name: string, data: number[], size: numbe
 const BARK_DARK = lin(0x3a3129), BARK_GREY = lin(0x5e554b), BARK_BRANCH = lin(0x6a6157);
 
 /**
- * Tube along `at(t)` with parallel-transported frames, radius `rad(t)`. Vertex colours from
- * `color(t, out)` (once per ring), aFlex from `flex(t)`.
+ * Trunk tube resolution. The trunk is the first tube merged into `bark`, so its vertices are
+ * the first TRUNK_VERTS, ring by ring (TRUNK_RADIAL + 1 per ring, TRUNK_SEGS + 1 rings).
  */
-function tube(at: Curve, rad: (t: number) => number, radial: number, segs: number,
-  flex: (t: number) => number, color: (t: number, out: THREE.Color) => THREE.Color) {
-  const pos: number[] = [], nrm: number[] = [], uv: number[] = [], col: number[] = [], fl: number[] = [], idx: number[] = [];
-  const P = new THREE.Vector3(), Q = new THREE.Vector3(), T = new THREE.Vector3(), N = new THREE.Vector3(), B = new THREE.Vector3();
-  const d = new THREE.Vector3(), prevT = new THREE.Vector3(), c = new THREE.Color(), q = new THREE.Quaternion();
-  for (let i = 0; i <= segs; i++) {
-    const t = i / segs, e = 1e-3;
-    T.subVectors(at(Math.min(1, t + e), Q), at(Math.max(0, t - e), P)).normalize();
-    if (i === 0) {
-      N.set(0, 1, 0);
-      if (Math.abs(T.y) > 0.9) N.set(1, 0, 0);
-      N.sub(d.copy(T).multiplyScalar(N.dot(T))).normalize();
-    } else {
-      q.setFromUnitVectors(prevT, T);
-      N.applyQuaternion(q).sub(d.copy(T).multiplyScalar(N.dot(T))).normalize();
-    }
-    prevT.copy(T);
-    B.crossVectors(T, N);
-    at(t, P);
-    const r = rad(t);
-    color(t, c);
-    for (let j = 0; j <= radial; j++) {
-      const a = (j / radial) * Math.PI * 2;
-      d.copy(N).multiplyScalar(Math.cos(a)).addScaledVector(B, Math.sin(a));
-      pos.push(P.x + d.x * r, P.y + d.y * r, P.z + d.z * r);
-      nrm.push(d.x, d.y, d.z);
-      uv.push(j / radial, t);
-      const s = 0.82 + 0.18 * (0.5 + 0.5 * d.y);           // underside a little darker
-      col.push(c.r * s, c.g * s, c.b * s);
-      fl.push(flex(t));
-    }
-    if (i > 0) {
-      const r0 = (i - 1) * (radial + 1), r1 = i * (radial + 1);
-      for (let j = 0; j < radial; j++) idx.push(r0 + j, r0 + j + 1, r1 + j, r0 + j + 1, r1 + j + 1, r1 + j);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  attr(g, 'position', pos, 3); attr(g, 'normal', nrm, 3); attr(g, 'uv', uv, 2);
-  attr(g, 'color', col, 3); attr(g, 'aFlex', fl, 1);
-  g.setIndex(idx);
-  return g;
-}
+export const TRUNK_RADIAL = 7, TRUNK_SEGS = 10, TRUNK_VERTS = (TRUNK_RADIAL + 1) * (TRUNK_SEGS + 1);
 
 /** Card rows (top = attachment, bottom = hanging tips) and the aFlex at the tips. */
 const CARD_ROWS = 3, TIP_FLEX = 0.9;
@@ -113,8 +72,8 @@ export function buildCasuarina(seed: number): PlantPart[] {
   const tint = new THREE.Color();
   bark.push(tube(trunkAt,
     (t) => lerp(0.28, 0.08, Math.pow(t, 0.9)) + 0.12 * Math.pow(Math.max(0, 1 - t * (H + 0.3) / 1.2), 2),
-    7, 10, trunkFlex,
-    (t, o) => o.copy(BARK_DARK).lerp(BARK_GREY, 0.25 + 0.5 * rng() * smooth(0, 0.6, t)).multiplyScalar(0.85 + 0.25 * rng())));
+    TRUNK_RADIAL, TRUNK_SEGS, trunkFlex,
+    { ring: (t, o) => { o.copy(BARK_DARK).lerp(BARK_GREY, 0.25 + 0.5 * rng() * smooth(0, 0.6, t)).multiplyScalar(0.85 + 0.25 * rng()); }, under: 0.18 }));
 
   const nBranch = 16 + Math.floor(rng() * 7);
   const Rmax = H * (0.2 + 0.06 * rng());
@@ -203,7 +162,7 @@ export function buildCasuarina(seed: number): PlantPart[] {
     const bFlex = (s: number) => lerp(f0, 0.6, Math.sqrt(s));
     const r0 = lerp(0.075, 0.03, f) * (0.85 + 0.3 * rng());
     bark.push(tube(at, (t) => r0 * (1 - 0.7 * t), 4, 3, bFlex,
-      (_t, o) => o.copy(BARK_GREY).lerp(BARK_BRANCH, 0.5 * rng()).multiplyScalar(0.85 + 0.2 * rng())));
+      { ring: (_t, o) => { o.copy(BARK_GREY).lerp(BARK_BRANCH, 0.5 * rng()).multiplyScalar(0.85 + 0.2 * rng()); }, under: 0.18 }));
     const nCard = 5 + Math.floor(rng() * 5);
     for (let c = 0; c < nCard; c++) {
       const s = lerp(0.15, 1, (c + 0.3 + 0.4 * rng()) / nCard);
