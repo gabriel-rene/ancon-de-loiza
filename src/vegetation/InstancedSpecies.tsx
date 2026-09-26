@@ -95,6 +95,9 @@ export function InstancedSpecies({ variants, materials, instances, lod0, reflLod
     vegTiming.bakeMs += performance.now() - t0;
     setBakes(out);
     return () => {
+      // Clear the bakes before disposing them, so the mesh-build effect below (which may still be
+      // scheduled to run on stale `bakes`) sees null and skips instead of using disposed resources.
+      setBakes(null);
       for (const b of out) if (b) { b.card.dispose(); b.texture.dispose(); b.mats.material.dispose(); b.mats.depth.dispose(); }
     };
   }, [gl, variants, materials, name]);

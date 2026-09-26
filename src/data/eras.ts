@@ -28,17 +28,20 @@ const POST_DAM = { bankOffset: s(0, ['S26'], 'M'), flow: s(0.35, ['S15'], 'L', t
 const MANGROVE = s(1, ['S22', 'S34'], 'H');
 const veg = (coconut: Sourced<number>, casuarina: Sourced<number>) => ({ redMangrove: MANGROVE, coconut, casuarina });
 // coconut: coast shifted from sugar to coconut collection (S23); groves mature through the 20th c. (inferred timing).
-// casuarina: gives Piñones its name; forest proclaimed 1918 (S22, S28); planting timeline not sourced (inferred),
-// except 1959 onward where modern coastal photos show mature Casuarina on the skyline (S19b, M, not inferred).
+// casuarina: gives Piñones its name; forest proclaimed 1918 (S22, S28); introduced, mass planting
+// early–mid 20th c. (S28, inferred timing). From 1959 onward, modern coastal photos (2026) at the
+// old landing show mature Casuarina on the skyline — S19b is "1 Ancón de Loíza.jpg" (the companion
+// bank-vegetation photo); S19 ("2 Ancón de Loíza.jpg") is the spit/low-scrub photo and does not show
+// casuarina, so it is dropped from these era citations (inferred: true, confidence kept at M).
 const VEG = {
-  '1840': veg(s(0.35, ['S23'], 'L', true), s(0.15, ['S22', 'S28'], 'L', true)),
-  '1900': veg(s(0.6, ['S23'], 'M', true), s(0.3, ['S22', 'S28'], 'L', true)),
+  '1840': veg(s(0.35, ['S23'], 'L', true), s(0, ['S28'], 'L', true)),
+  '1900': veg(s(0.6, ['S23'], 'M', true), s(0.05, ['S28'], 'L', true)),
   '1925': veg(s(0.9, ['S23'], 'L', true), s(0.55, ['S22', 'S28'], 'L', true)),
   '1935': veg(s(1.0, ['S23'], 'L', true), s(0.8, ['S22', 'S28'], 'L', true)),
-  '1959': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19'], 'M')),
-  '1975': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19'], 'M')),
-  '1984': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19'], 'M')),
-  '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19'], 'M')),
+  '1959': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1975': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1984': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
 } satisfies Record<EraId, ReturnType<typeof veg>>;
 
 export const ERAS: Era[] = [

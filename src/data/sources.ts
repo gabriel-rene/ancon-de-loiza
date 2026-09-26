@@ -24,5 +24,6 @@ export const SOURCES: Record<string, { title: string; url: string }> = {
   S28: { title: 'Wikipedia — Piñones State Forest', url: 'https://en.wikipedia.org/wiki/Pi%C3%B1ones_State_Forest' },
   S30: { title: 'Wikipedia — Puerto Rico Highway 187', url: 'https://en.wikipedia.org/wiki/Puerto_Rico_Highway_187' },
   S19: { title: 'Wikimedia Commons — "2 Ancón de Loíza.jpg" (CC BY 4.0)', url: 'https://commons.wikimedia.org/wiki/File:2_Anc%C3%B3n_de_Lo%C3%ADza.jpg' },
+  S19b: { title: 'Wikimedia Commons — "1 Ancón de Loíza.jpg" (CC BY 4.0)', url: 'https://commons.wikimedia.org/wiki/File:1_Anc%C3%B3n_de_Lo%C3%ADza.jpg' },
   S34: { title: 'Estuario de la Bahía de San Juan — "Bosque Estatal de Piñones"', url: 'https://estuario.org/bosque-estatal-de-pinones/' },
 };

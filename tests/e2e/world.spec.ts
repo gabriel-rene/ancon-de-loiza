@@ -10,7 +10,7 @@ const SHOTS: { era: EraId; cam: string; t: number }[] = [
   { era: '1975', cam: 'bank', t: golden('1975') },              // July: 18.50 AST
   { era: '1984', cam: 'aerial', t: +(golden('1984') - 1).toFixed(2) }, // late afternoon, sun ~18° up
   { era: '1986', cam: 'mouth', t: golden('1986', 'am') },       // morning sun rising over the sea
-  // Phase 2a: vegetation per era (1840: sparse palms and casuarinas; 1975: full coastal belts).
+  // Phase 2a: vegetation per era (1840: sparse palms, no casuarina yet; 1975: full coastal belts).
   { era: '1840', cam: 'bank', t: golden('1840') },
   { era: '1975', cam: 'ride', t: golden('1975') },
 ];
