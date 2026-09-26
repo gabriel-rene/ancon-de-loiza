@@ -24,3 +24,22 @@ test('parses water, coastline, land and nearby roads', () => {
   expect(g.roads).toHaveLength(1); // far track filtered out
   expect(g.roads[0]).toMatchObject({ ref: 'PR-187', bridge: true, kind: 'primary' });
 });
+
+const RELATION_XML = `<?xml version="1.0"?><osm>
+<node id="1" lat="18.4340" lon="-65.8830"/><node id="2" lat="18.4340" lon="-65.8810"/>
+<node id="3" lat="18.4360" lon="-65.8810"/><node id="4" lat="18.4360" lon="-65.8830"/>
+<way id="20"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="1"/></way>
+<relation id="30">
+  <member type="way" ref="20" role="outer"/>
+  <member type="way" ref="99" role="outer"/>
+  <tag k="type" v="multipolygon"/>
+  <tag k="natural" v="wetland"/>
+</relation>
+</osm>`;
+
+test('emits land from a multipolygon relation, skipping missing members', () => {
+  const g = parseOsm(RELATION_XML, 2000);
+  expect(g.land).toHaveLength(1);
+  expect(g.land[0].kind).toBe('wetland');
+  expect(g.land[0].ring.length).toBe(3); // closing node dropped
+});

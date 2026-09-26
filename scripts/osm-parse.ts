@@ -12,6 +12,7 @@ export function parseOsm(xml: string, keepRoadsWithin: number): GeoBundle {
   for (const n of doc.node ?? []) nodes.set(n.id, project(Number(n.lat), Number(n.lon)));
   const tags = (e: Tagged) => Object.fromEntries((e.tag ?? []).map((t) => [t.k, t.v]));
   const out: GeoBundle = { origin: { ...ORIGIN }, water: [], land: [], coastline: [], roads: [] };
+  const wayRings = new Map<string, { ring: XZ[]; closed: boolean }>();
 
   for (const w of doc.way ?? []) {
     const t = tags(w);
@@ -20,11 +21,28 @@ export function parseOsm(xml: string, keepRoadsWithin: number): GeoBundle {
     if (pts.length < 2) continue;
     const closed = refs.length > 3 && refs[0] === refs[refs.length - 1];
     const ring = closed ? pts.slice(0, -1) : pts;
+    wayRings.set(w.id, { ring, closed });
     if (t.natural === 'coastline') out.coastline.push(pts);
     else if (t.natural === 'water' && closed && t.water !== 'wastewater') out.water.push({ kind: t.water === 'river' ? 'river' : 'pond', ring });
     else if (LAND[t.natural] && closed) out.land.push({ kind: LAND[t.natural], ring });
     else if (t.highway && pts.some(([x, z]) => Math.abs(x) < keepRoadsWithin && Math.abs(z) < keepRoadsWithin)) {
       out.roads.push({ id: w.id, kind: t.highway, ...(t.name ? { name: t.name } : {}), ...(t.ref ? { ref: t.ref } : {}), bridge: t.bridge === 'yes', points: pts });
+    }
+  }
+
+  for (const rel of doc.relation ?? []) {
+    const t = tags(rel);
+    if (t.type !== 'multipolygon') continue;
+    const isWater = t.natural === 'water' && t.water !== 'wastewater';
+    const landKind = LAND[t.natural];
+    if (!isWater && !landKind) continue;
+    const members: { type: string; ref: string; role: string }[] = rel.member ?? [];
+    for (const m of members) {
+      if (m.type !== 'way' || m.role !== 'outer') continue;
+      const w = wayRings.get(m.ref);
+      if (!w || !w.closed) continue;
+      if (isWater) out.water.push({ kind: t.water === 'river' ? 'river' : 'pond', ring: w.ring });
+      else out.land.push({ kind: landKind, ring: w.ring });
     }
   }
   return out;
