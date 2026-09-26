@@ -2,7 +2,14 @@ import { describe, expect, test } from 'vitest';
 import { ERAS, ERA_IDS, getEra, type Sourced } from './eras';
 import { SOURCES } from './sources';
 
-const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [e.summary, e.river.bankOffset, e.river.flow];
+const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
+  e.summary,
+  e.river.bankOffset,
+  e.river.flow,
+  e.vegetation.redMangrove,
+  e.vegetation.coconut,
+  e.vegetation.casuarina,
+];
 
 describe('eras', () => {
   test('ids are unique and chronological', () => {
@@ -13,6 +20,12 @@ describe('eras', () => {
     for (const e of ERAS) for (const f of sourcedFields(e)) {
       expect(f.sources.length > 0 || f.inferred === true, `${e.id}`).toBe(true);
       for (const s of f.sources) expect(SOURCES[s], `${e.id} → ${s}`).toBeDefined();
+    }
+  });
+  test('vegetation densities are in [0, 1.5]', () => {
+    for (const e of ERAS) for (const v of [e.vegetation.redMangrove, e.vegetation.coconut, e.vegetation.casuarina]) {
+      expect(v.value).toBeGreaterThanOrEqual(0);
+      expect(v.value).toBeLessThanOrEqual(1.5);
     }
   });
   test('dates parse', () => {
