@@ -41,11 +41,12 @@ describe('placement', () => {
   test('occupancy keeps different species apart', () => {
     const big = [...all.casuarina, ...all.coconut];
     const r = Math.min(RULES.casuarina.radius, RULES.coconut.radius);
-    // sample check: first 300 against all (quadratic but small)
+    // sample check: first 300 against all; track the minimum and assert once (expect() per pair is slow on CI)
+    let min = Infinity;
     for (const a of big.slice(0, 300)) for (const b of big) {
-      if (a === b) continue;
-      expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThanOrEqual(r - 1e-6);
+      if (a !== b) min = Math.min(min, Math.hypot(a.x - b.x, a.z - b.z));
     }
+    expect(min).toBeGreaterThanOrEqual(r - 1e-6);
   });
   test('density scales counts roughly linearly', () => {
     const full = placeSpecies(f, m, 'coconut', { density: 1, seed: 3 }).length;
