@@ -17,7 +17,7 @@ export function App() {
       <Canvas
         dpr={q.dpr}
         shadows={q.shadowMap > 0 ? 'percentage' : false}
-        camera={{ fov: 42, near: 0.5, far: 40000, position: [600, 450, 700] }}
+        camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
         gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
       >
         <World />
