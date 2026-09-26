@@ -114,3 +114,12 @@ Units stay small and single-purpose. Scene components read the era config; they 
 - **Quality bar vs. procedural assets.** Mitigation: invest in shaders/lighting first (Phase 1 gate), use CC0 PBR textures.
 - **Sparse historical detail** (exact hull sizes, bridge span). Mitigation: marked as inferred; easy to update in `eras.ts`.
 - **Mobile perf** with dense vegetation. Mitigation: quality tiers from day one.
+
+## 12. Phase 2 detail — Vegetation (approved in chat 2026-09-26)
+
+- **Art source:** every plant is generated in code (geometry + canvas-painted leaf textures). No downloaded models.
+- **Species:** red mangrove (prop roots, river/lagoon edge and shallows), black/white mangrove + buttonwood (behind), coconut palm, Casuarina ("piñones"), almendro, sea grape, beach morning glory, grasses/reeds; sugar cane fields in 1840/1900.
+- **Placement:** deterministic, from world fields (water class, shore/sea/river distance, height, OSM land class) with exclusions for roads and the Loíza town core (reserved for Phase 4). Per-era density multipliers live in `eras.ts` as sourced/inferred values.
+- **Rendering:** per species, instanced full-geometry LOD0 near the camera and baked-impostor cross cards beyond; the reflection pass sees cards only (cheap reflections). All foliage sways in the ENE trade wind (shared wind uniforms, matching depth material for shadows).
+- **Shadows:** one directional shadow map that follows the camera focus with texel snapping (replaces the fixed ±350 m frustum; supersedes the CSM note in §5).
+- **Split:** 2a = Phase-1 carry-over fixes + vegetation core + red mangrove, coconut palm, Casuarina. 2b = remaining species, era-specific landscapes (cane, young groves), polish.
