@@ -8,13 +8,13 @@ import { useSun } from './useSun';
 import { useWorldFields } from './useWorldFields';
 import { Water } from './water/Water';
 import { InstancedSpecies } from '../vegetation/InstancedSpecies';
-import { useTestTrees } from '../vegetation/species/testTree';
+import { useTestPalms } from '../vegetation/species/testTree';
 import type { WorldFields } from '../terrain/fields';
 import type { QualitySettings } from '../quality';
 
-// TEMPORARY (Phase 2a Task 6 pipeline check) — delete in Task 10 along with species/testTree.ts.
+// TEMPORARY (Phase 2a Task 6 pipeline check; Task 7 swaps in palms) — delete in Task 10 along with species/testTree.ts.
 function TestTreesTemp({ near, q }: { near: WorldFields; q: QualitySettings }) {
-  const { variants, materials, instances } = useTestTrees(near);
+  const { variants, materials, instances } = useTestPalms(near);
   return <InstancedSpecies variants={variants} materials={materials} instances={instances}
     lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />;
 }

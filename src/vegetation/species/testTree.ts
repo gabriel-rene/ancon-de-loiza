@@ -6,6 +6,8 @@ import { sampleField, WATER, type WorldFields } from '../../terrain/fields';
 import type { PlantMaterials } from '../InstancedSpecies';
 import type { PlantInstance, PlantPart } from '../types';
 import { makePlantMaterials } from '../windMaterial';
+import { foliageTexture, paintFrond } from '../textures';
+import { buildPalm } from './palm';
 
 function withFlex(g: THREE.BufferGeometry, fn: (y: number) => number) {
   const pos = g.attributes.position as THREE.BufferAttribute, flex = new Float32Array(pos.count);
@@ -68,4 +70,39 @@ export function useTestTrees(near: WorldFields) {
   }, [assets]);
   const instances = useMemo(() => testInstances(near), [near]);
   return { ...assets, instances };
+}
+
+/** TEMPORARY (Task 7 visual check): five palms in front of the `bank` camera + the test scatter as palms. */
+export function useTestPalms(near: WorldFields) {
+  const assets = useMemo(() => {
+    const variants = [buildPalm(1), buildPalm(2), buildPalm(3)];
+    const map = foliageTexture(paintFrond());
+    const materials: PlantMaterials = {
+      bark: makePlantMaterials({ part: 'bark', color: 0xffffff, roughness: 0.92, vertexColors: true }),
+      foliage: makePlantMaterials({ part: 'foliage', map, color: 0xffffff, roughness: 0.8, alphaTest: 0.5, translucency: 3 }),
+    };
+    return { variants, materials, map };
+  }, []);
+  useEffect(() => () => {
+    assets.variants.flat().forEach((p) => p.geometry.dispose());
+    assets.map.dispose();
+    Object.values(assets.materials).forEach((m) => { m.material.dispose(); m.depth.dispose(); });
+  }, [assets]);
+  const instances = useMemo(() => {
+    const [ex, ez] = landmarkXZ('eastLanding'), [wx, wz] = landmarkXZ('westLanding');
+    const cam = [ex + 10, ez + 8], tgt = [wx - 40, wz - 30];
+    const fa = Math.atan2(tgt[1] - cam[1], tgt[0] - cam[0]);
+    const out: PlantInstance[] = [];
+    for (let k = 0; out.length < 5 && k < 400; k++) {
+      const a = fa + (hash(k, 1) - 0.5) * 1.2, r = 14 + 40 * hash(k, 2);
+      const x = cam[0] + Math.cos(a) * r, z = cam[1] + Math.sin(a) * r;
+      const g = near.grid, gi = Math.floor((x - g.minX) / g.cell), gj = Math.floor((z - g.minZ) / g.cell);
+      if (gi < 0 || gj < 0 || gi >= g.size || gj >= g.size || near.water[gj * g.size + gi] !== WATER.LAND) continue;
+      const y = sampleField(near, near.height, x, z);
+      if (y < 0.3 || out.some((p) => Math.hypot(p.x - x, p.z - z) < 7)) continue;
+      out.push({ x, y: y - 0.1, z, rot: (hash(k, 3) - 0.5) * 0.6, scale: 0.95 + 0.1 * hash(k, 4), variant: out.length % 3 });
+    }
+    return [...out, ...testInstances(near).map((p) => ({ ...p, variant: Math.floor(p.rot * 10) % 3 }))];
+  }, [near]);
+  return { variants: assets.variants, materials: assets.materials, instances };
 }
