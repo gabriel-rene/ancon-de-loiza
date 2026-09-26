@@ -5,11 +5,11 @@ import { makeTerrainMaterial } from './terrainMaterial';
 import { makeInfoTexture } from './useWorldFields';
 
 function buildGeometry(f: WorldFields, holeHalf = 0) {
-  const { size, cell, minX } = f.grid;
+  const { size, cell, minX, minZ } = f.grid;
   const span = cell * (size - 1);
   const geom = new THREE.PlaneGeometry(span, span, size - 1, size - 1);
   geom.rotateX(-Math.PI / 2);
-  geom.translate(minX + cell / 2 + span / 2, 0, minX + cell / 2 + span / 2);
+  geom.translate(minX + cell / 2 + span / 2, 0, minZ + cell / 2 + span / 2);
   const pos = geom.attributes.position as THREE.BufferAttribute;
   for (let k = 0; k < pos.count; k++) {
     let y = f.height[k];
@@ -22,12 +22,12 @@ function buildGeometry(f: WorldFields, holeHalf = 0) {
 }
 
 function TerrainMesh({ f, holeHalf = 0, shadows }: { f: WorldFields; holeHalf?: number; shadows: boolean }) {
-  const { geom, mat } = useMemo(() => {
+  const { geom, mat, tex } = useMemo(() => {
     const extent = f.grid.cell * f.grid.size;
     const tex = makeInfoTexture(f.info, f.grid.size);
-    return { geom: buildGeometry(f, holeHalf), mat: makeTerrainMaterial(tex, new THREE.Vector4(f.grid.minX, f.grid.minZ, extent, 0)) };
+    return { geom: buildGeometry(f, holeHalf), mat: makeTerrainMaterial(tex, new THREE.Vector4(f.grid.minX, f.grid.minZ, extent, 0)), tex };
   }, [f, holeHalf]);
-  useEffect(() => () => { geom.dispose(); mat.dispose(); }, [geom, mat]);
+  useEffect(() => () => { geom.dispose(); mat.dispose(); tex.dispose(); }, [geom, mat, tex]);
   return <mesh geometry={geom} material={mat} receiveShadow={shadows} castShadow={false} />;
 }
 
