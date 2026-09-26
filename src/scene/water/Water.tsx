@@ -33,6 +33,7 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
           uTime: { value: 0 },
           uSunDir: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() }, uSunIntensity: { value: 1 },
           uRiverFlow: { value: new THREE.Vector2() }, uWind: { value: WIND_DIR.clone() },
+          uHazeColor: { value: new THREE.Color() }, uHazeAway: { value: new THREE.Color() }, uHaze: { value: 0 },
         },
         vertexShader: waterVertex,
         fragmentShader: waterFragment,
@@ -55,10 +56,13 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
     u.uSunDir.value.copy(sun.dir);
     u.uSunColor.value.setRGB(...sun.atm.sunColor);
     u.uSunIntensity.value = sun.atm.sunIntensity;
+    u.uHazeColor.value.setRGB(...sun.atm.fogColor);
+    u.uHazeAway.value.setRGB(...sun.atm.fogAway);
+    u.uHaze.value = sun.atm.reflectionHaze;
     u.uRiverFlow.value.copy(RIVER_DIR).multiplyScalar(flow / 0.35);
   }, [sun, flow, u]);
 
-  useEffect(() => () => { mirror.dispose(); }, [mirror]);
+  useEffect(() => () => { mirror.geometry.dispose(); mirror.dispose(); }, [mirror]);
 
   useFrame((_, dt) => { if (!frozen) u.uTime.value += dt; else u.uTime.value = 10; });
 

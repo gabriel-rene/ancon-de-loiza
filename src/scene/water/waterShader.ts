@@ -19,6 +19,7 @@ uniform sampler2D uFarInfo;  uniform vec4 uFarRect;
 uniform float uTime;
 uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunIntensity;
 uniform vec2 uRiverFlow; uniform vec2 uWind;
+uniform vec3 uHazeColor; uniform vec3 uHazeAway; uniform float uHaze;
 varying vec4 vReflUv;
 varying vec3 vWorld;
 ${SNOISE_GLSL}
@@ -31,51 +32,81 @@ vec4 waterInfo(vec2 p) {
   return vec4(1.0, 0.0, 1.0, 1.0);
 }
 
-vec2 grad(vec2 p) {
-  const float e = 0.06;
-  return vec2(snoise(p + vec2(e, 0.0)) - snoise(p - vec2(e, 0.0)), snoise(p + vec2(0.0, e)) - snoise(p - vec2(0.0, e))) / (2.0 * e);
+// Noise gradient in the noise's own coordinates.
+vec2 grad(vec2 q) {
+  const float e = 0.07;
+  return vec2(snoise(q + vec2(e, 0.0)) - snoise(q - vec2(e, 0.0)), snoise(q + vec2(0.0, e)) - snoise(q - vec2(0.0, e))) / (2.0 * e);
 }
 
-vec3 waterNormal(vec2 p, float river, float dist) {
-  vec2 flow = mix(uWind * 0.8, uRiverFlow, river);
-  float fade = 1.0 - smoothstep(150.0, 1500.0, dist);           // calmer-looking far away (less aliasing)
-  vec2 g = grad(p * 0.045 - flow * uTime * 0.05) * 0.9
-         + grad(p * 0.23 - flow * uTime * 0.23 + 3.1) * 0.35
-         + grad(p * 1.1  - flow * uTime * 1.0 + 7.7) * 0.14 * fade
-         + grad(p * 3.9  - flow * uTime * 2.6 + 1.3) * 0.06 * fade;
-  float amp = mix(0.55, 0.22, river);
-  return normalize(vec3(-g.x * amp, 1.0, -g.y * amp));
+// One ripple octave in a direction-aligned frame. 'freq' is cycles per metre across the
+// crests, 'stretch' (<1) elongates features along 'dir'. The octave fades out once its
+// wavelength drops under ~3 pixels (pxm = metres per pixel), which is what removes the
+// distant speckle/aliasing instead of a fixed distance cut.
+vec2 octave(vec2 p, vec2 dir, float freq, float stretch, float speed, float seed, float pxm) {
+  vec2 perp = vec2(-dir.y, dir.x);
+  vec2 q = vec2(dot(p, dir) * stretch, dot(p, perp)) * freq;
+  q.x -= uTime * speed * freq;
+  vec2 g = grad(q + seed);
+  float w = 1.0 - smoothstep(0.12, 0.35, pxm * freq);
+  // back to world xz (chain rule: d/dp = dq/dp^T * g)
+  return (dir * g.x * stretch + perp * g.y) * w;
 }
 
 void main() {
   vec4 inf = waterInfo(vWorld.xz);
   float depth = inf.r * 15.0;
-  float river = step(0.7, inf.g);
+  float river = smoothstep(0.55, 0.85, inf.g);
   float shore = inf.b * 60.0;
   vec3 toCam = cameraPosition - vWorld;
   float dist = length(toCam);
   vec3 V = toCam / dist;
-  vec3 n = waterNormal(vWorld.xz, river, dist);
+  float pxm = max(length(fwidth(vWorld.xz)), 1e-4);
 
-  float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
-  vec2 ruv = vReflUv.xy / vReflUv.w + n.xz * 0.035;
+  // River: calm, mirror-like, fine streaks elongated along the current.
+  float flowSpd = length(uRiverFlow);
+  vec2 fdir = flowSpd > 1e-4 ? uRiverFlow / flowSpd : vec2(0.7071, -0.7071);
+  vec2 gr = octave(vWorld.xz, fdir, 0.35, 0.30, 0.25 * flowSpd, 1.3, pxm) * 0.55
+          + octave(vWorld.xz, fdir, 1.30, 0.40, 0.45 * flowSpd, 7.1, pxm) * 0.30
+          + octave(vWorld.xz, fdir, 4.20, 0.60, 0.60 * flowSpd, 3.7, pxm) * 0.15;
+  float riverAmp = 0.035 * (0.6 + 0.8 * flowSpd);
+  // Sea: trade-wind chop, crests across the wind, several octaves.
+  vec2 gs = octave(vWorld.xz, uWind, 0.045, 0.45, 1.2, 0.0, pxm) * 0.55
+          + octave(vWorld.xz, uWind, 0.16, 0.55, 1.6, 5.3, pxm) * 0.30
+          + octave(vWorld.xz, uWind, 0.60, 0.70, 1.9, 9.9, pxm) * 0.18
+          + octave(vWorld.xz, uWind, 2.10, 0.80, 2.4, 2.2, pxm) * 0.10;
+  vec2 g = mix(gs * 0.16, gr * riverAmp, river);
+  vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
+
+  // Fresnel from a flattened normal: at grazing angles tiny tilts would otherwise swing
+  // between full sky reflection and body colour (the old "blotches").
+  vec3 nF = normalize(mix(n, vec3(0.0, 1.0, 0.0), 0.6));
+  float fres = 0.02 + 0.98 * pow(1.0 - clamp(dot(nF, V), 0.0, 1.0), 5.0);
+  float distortion = mix(0.05, 0.02, river) / (1.0 + dist * 0.004);
+  vec2 ruv = vReflUv.xy / vReflUv.w + n.xz * distortion;
   vec3 refl = texture2D(tDiffuse, ruv).rgb;
+  // The mirror renders without post fog; add the haze the reflected ray would see.
+  vec3 R = reflect(-V, n);
+  vec3 hazeCol = mix(uHazeAway, uHazeColor, pow(0.5 + 0.5 * dot(R, uSunDir), 1.5));
+  refl = mix(refl, hazeCol, uHaze);
 
   float sunUp = clamp(uSunDir.y * 4.0, 0.0, 1.0);
-  vec3 riverBody = mix(vec3(0.20, 0.16, 0.09), vec3(0.035, 0.045, 0.03), 1.0 - exp(-depth * 0.7));
-  vec3 seaBody = mix(vec3(0.08, 0.36, 0.34), vec3(0.01, 0.07, 0.13), 1.0 - exp(-depth * 0.22));
-  vec3 body = mix(seaBody, riverBody, river) * (0.15 + 0.85 * sunUp) * mix(vec3(1.0), uSunColor, 0.5);
+  vec3 riverBody = mix(vec3(0.11, 0.09, 0.05), vec3(0.03, 0.035, 0.022), 1.0 - exp(-depth * 0.5));
+  vec3 seaBody = mix(vec3(0.06, 0.30, 0.28), vec3(0.008, 0.06, 0.10), 1.0 - exp(-depth * 0.22));
+  vec3 body = mix(seaBody, riverBody, river) * (0.12 + 0.88 * sunUp) * mix(vec3(1.0), uSunColor, 0.5);
 
+  // Sun glint: tight lobe up close, widening as ripples go sub-pixel (Toksvig-style),
+  // with energy roughly conserved so the glitter path reads as a soft band far away.
   vec3 H = normalize(uSunDir + V);
   float nh = max(dot(n, H), 0.0);
-  vec3 spec = uSunColor * uSunIntensity * (pow(nh, 600.0) * 3.0 + pow(nh, 60.0) * 0.08) * sunUp;
+  float rough = smoothstep(0.02, 1.2, pxm);
+  float shin = mix(mix(420.0, 1400.0, river), 90.0, rough);
+  float spec = pow(nh, shin) * shin * 0.0032 + pow(nh, 24.0) * 0.03;
+  vec3 col = mix(body, refl, fres) + uSunColor * uSunIntensity * spec * sunUp * mix(1.0, 0.7, river);
 
-  vec3 col = mix(body, refl, fres) + spec;
-
-  float band = 1.0 - smoothstep(0.0, mix(7.0, 1.2, river), shore);
+  float band = 1.0 - smoothstep(0.0, mix(7.0, 1.0, river), shore);
   float fn = snoise(vWorld.xz * 0.5 + uTime * vec2(0.25, 0.18)) * 0.5 + 0.5;
-  float foam = band * smoothstep(0.4, 0.8, fn) * mix(0.85, 0.3, river);
-  col = mix(col, vec3(0.85) * (0.2 + 0.8 * sunUp), foam);
+  float foam = band * smoothstep(0.45, 0.85, fn) * mix(0.8, 0.12, river);
+  col = mix(col, vec3(0.8) * (0.15 + 0.85 * sunUp) * mix(vec3(1.0), uSunColor, 0.3), foam);
 
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
