@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getEra, type EraId } from '../data/eras';
+import { goldenHourAST } from '../geo/sun';
 import { detectQuality, type Quality } from '../quality';
 import { parseUrlState, type CameraPreset } from './url';
 
@@ -9,9 +10,13 @@ interface AppState {
 }
 
 const fromUrl = typeof window !== 'undefined' ? parseUrlState(window.location.search) : {};
+const DEFAULT_ERA: EraId = '1975';
+
+/** Without ?t, open at the start of golden hour for the era's calendar date (seasonal, not a fixed clock time). */
+export const defaultTime = (eraId: EraId) => goldenHourAST(getEra(eraId).date);
 
 export const useStore = create<AppState>((set) => ({
-  eraId: '1975', timeOfDay: 17.4, camera: 'ride', quality: detectQuality(), debug: false, frozen: false,
+  eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false,
   ...fromUrl,
   setEra: (eraId) => set({ eraId }),
   setTime: (timeOfDay) => set({ timeOfDay }),
