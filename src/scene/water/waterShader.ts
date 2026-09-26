@@ -68,7 +68,7 @@ void main() {
   vec2 gr = octave(vWorld.xz, fdir, 0.35, 0.30, 0.25 * flowSpd, 1.3, pxm) * 0.55
           + octave(vWorld.xz, fdir, 1.30, 0.40, 0.45 * flowSpd, 7.1, pxm) * 0.30
           + octave(vWorld.xz, fdir, 4.20, 0.60, 0.60 * flowSpd, 3.7, pxm) * 0.15;
-  float riverAmp = 0.035 * (0.6 + 0.8 * flowSpd);
+  float riverAmp = 0.03 * (0.7 + 0.3 * flowSpd);
   // Sea: trade-wind chop, crests across the wind, several octaves.
   vec2 gs = octave(vWorld.xz, uWind, 0.045, 0.45, 1.2, 0.0, pxm) * 0.55
           + octave(vWorld.xz, uWind, 0.16, 0.55, 1.6, 5.3, pxm) * 0.30
