@@ -42,6 +42,7 @@ export function buildFields(geo: GeoBundle, opts: { extent: number; size: number
   const sea = new Uint8Array(N);
   floodFill(g, sea, (i) => walls[i] === 1 || water[i] !== WATER.LAND, sj * g.size + si, 1);
   for (let i = 0; i < N; i++) if (sea[i]) water[i] = WATER.SEA;
+  openRiverMouth(g, water, walls);
 
   const landCls = new Uint8Array(N);
   for (const l of geo.land) fillPolygon(g, landCls, l.ring, LAND_VALUE[l.kind]);
@@ -70,6 +71,30 @@ export function buildFields(geo: GeoBundle, opts: { extent: number; size: number
     waterInfo.set([Math.min(255, (Math.max(0, -height[k]) / 15) * 255), kind, Math.min(255, (Math.abs(s) / 60) * 255), 255], k * 4);
   }
   return { grid: g, water, landCls, shore, seaDist, height, info, waterInfo };
+}
+
+/**
+ * The rasterised coastline is a one-cell wall. Where it crosses the river mouth outside the
+ * river polygon (bankOffset 0, post-dam eras) it leaves a strip of LAND between river and
+ * sea. Open those wall cells: a LAND wall cell that touches the river (4-neighbour) and the
+ * sea (8-neighbour, the wall is often diagonal) becomes SEA. Wall cells along an ordinary
+ * beach touch only the sea, so real coastline is untouched.
+ */
+function openRiverMouth(g: Grid, water: Uint8Array, walls: Uint8Array) {
+  const n = g.size, open: number[] = [];
+  const at = (i: number, j: number) => (i < 0 || j < 0 || i >= n || j >= n ? -1 : water[j * n + i]);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i;
+    if (!walls[k] || water[k] !== WATER.LAND) continue;
+    let river = false, sea = false;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const w = at(i + di, j + dj);
+      if (w === WATER.SEA) sea = true;
+      if (w === WATER.RIVER && Math.abs(di) + Math.abs(dj) === 1) river = true;
+    }
+    if (river && sea) open.push(k);
+  }
+  for (const k of open) water[k] = WATER.SEA;
 }
 
 function landHeight(s: number, seaDist: number, cls: number, x: number, z: number) {
