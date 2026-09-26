@@ -8,15 +8,19 @@ import { useSun } from './useSun';
 import { useWorldFields } from './useWorldFields';
 import { Water } from './water/Water';
 import { InstancedSpecies } from '../vegetation/InstancedSpecies';
-import { useTestPalms } from '../vegetation/species/testTree';
+import { useTestMangroves, useTestPalms } from '../vegetation/species/testTree';
 import type { WorldFields } from '../terrain/fields';
 import type { QualitySettings } from '../quality';
 
-// TEMPORARY (Phase 2a Task 6 pipeline check; Task 7 swaps in palms) — delete in Task 10 along with species/testTree.ts.
+// TEMPORARY (Phase 2a Task 6 pipeline check; Task 7 palms, Task 8 mangroves) — delete in Task 10 along with species/testTree.ts.
 function TestTreesTemp({ near, q }: { near: WorldFields; q: QualitySettings }) {
-  const { variants, materials, instances } = useTestPalms(near);
-  return <InstancedSpecies variants={variants} materials={materials} instances={instances}
-    lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />;
+  const palms = useTestPalms(near), mangroves = useTestMangroves(near);
+  return <>
+    <InstancedSpecies variants={palms.variants} materials={palms.materials} instances={palms.instances}
+      lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />
+    <InstancedSpecies variants={mangroves.variants} materials={mangroves.materials} instances={mangroves.instances}
+      lod0={q.veg.lod0} castShadow={q.shadowMap > 0} farCards={q.veg.farCards} />
+  </>;
 }
 
 export function World() {

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { composeInstanceMatrices, gatherMatrices, partitionLod } from './lod';
+import { composeInstanceMatrices, gatherMatrices, partitionLod, partitionLod3 } from './lod';
 import * as THREE from 'three';
 
 test('splits by horizontal distance to the camera', () => {
@@ -42,4 +42,14 @@ test('gatherMatrices packs the selected 16-float blocks in order', () => {
   expect(Array.from(dst.slice(0, 16))).toEqual(Array.from(src.slice(32, 48)));
   expect(Array.from(dst.slice(16, 32))).toEqual(Array.from(src.slice(0, 16)));
   expect(dst[32]).toBe(0);
+});
+
+test('three-way split: reflection-near at the front, the rest of LOD0 at the back, far cards', () => {
+  const xs = new Float32Array([0, 30, 100, 300, 45, 200]), zs = new Float32Array(6);
+  const near = new Uint32Array(6), far = new Uint32Array(6);
+  const [n0, n1, nf] = partitionLod3(xs, zs, 0, 0, 50, 220, near, far);
+  expect([n0, n1, nf]).toEqual([3, 2, 1]);
+  expect(Array.from(near.slice(0, n0))).toEqual([0, 1, 4]);
+  expect(Array.from(near.slice(6 - n1)).sort()).toEqual([2, 5]);
+  expect(Array.from(far.slice(0, nf))).toEqual([3]);
 });

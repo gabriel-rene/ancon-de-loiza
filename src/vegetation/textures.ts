@@ -77,6 +77,93 @@ export function paintFrond(): HTMLCanvasElement {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
+/**
+ * Red-mangrove leaf card, 512×512 (≈ 1.2 m across), transparent. Rhizophora leaves are opposite
+ * and decussate, crowded at the twig ends: ~8 twigs rise from the card bottom/edges, each ending
+ * in a rosette of 20–30 thick elliptic leaves (8–13 cm) with a reddish pointed stipule at the
+ * tip. Leaves are glossy dark green (#1f3a14-ish) with a paler midrib and a soft highlight
+ * stripe; about a tenth show their paler yellow-green undersides and a few are senescent yellow.
+ * Every other pair is foreshortened (seen edge-on), as decussate pairs are in projection.
+ */
+export function paintMangroveLeaves(): HTMLCanvasElement {
+  const S = 512, px = S / 1.2; // px per metre
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 5151);
+  const top = [31, 58, 20], deep = [20, 40, 14], under = [98, 114, 56], yellow = [196, 168, 58];
+  const leaf = (x: number, y: number, ang: number, len: number, wid: number, kind: number) => {
+    g.save();
+    g.translate(x, y); g.rotate(ang);
+    const pet = len * 0.12;
+    g.strokeStyle = 'rgb(70,60,34)'; g.lineWidth = Math.max(1, wid * 0.12);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(pet, 0); g.stroke();
+    // Elliptic blade along +x from the petiole, slightly acute tip.
+    const L = len - pet, hw = wid / 2;
+    const path = () => {
+      g.beginPath(); g.moveTo(pet, 0);
+      g.bezierCurveTo(pet + L * 0.12, -hw * 1.05, pet + L * 0.72, -hw * 1.1, pet + L, 0);
+      g.bezierCurveTo(pet + L * 0.72, hw * 1.1, pet + L * 0.12, hw * 1.05, pet, 0);
+      g.closePath();
+    };
+    const v = 0.85 + 0.3 * rng();
+    const base = (kind === 1 ? under : kind === 2 ? yellow : mix(top, deep, rng())).map((q) => q * v);
+    path();
+    g.fillStyle = rgb(base); g.fill();
+    g.save(); path(); g.clip();
+    if (kind === 0) {
+      // Gloss: a soft pale stripe along one half of the blade (curved leathery surface).
+      const off = (rng() < 0.5 ? -1 : 1) * hw * 0.38;
+      const grad = g.createLinearGradient(0, off - hw * 0.45, 0, off + hw * 0.45);
+      grad.addColorStop(0, 'rgba(150,178,120,0)');
+      grad.addColorStop(0.5, `rgba(150,178,120,${0.2 + 0.15 * rng()})`);
+      grad.addColorStop(1, 'rgba(150,178,120,0)');
+      g.fillStyle = grad;
+      g.fillRect(pet + L * 0.1, off - hw * 0.45, L * 0.8, hw * 0.9);
+    }
+    // Darker rim.
+    path(); g.strokeStyle = rgb(base.map((q) => q * 0.6)); g.lineWidth = 1; g.stroke();
+    g.restore();
+    // Midrib.
+    g.strokeStyle = rgb(mix(base, kind === 1 ? [190, 190, 120] : [120, 140, 70], 0.55));
+    g.lineWidth = Math.max(0.8, wid * 0.07);
+    g.beginPath(); g.moveTo(pet, 0); g.lineTo(pet + L * 0.92, 0); g.stroke();
+    g.restore();
+  };
+  const twigs = 8;
+  for (let k = 0; k < twigs; k++) {
+    // Twig from the lower half / sides toward a tip inside the card.
+    const tx = S * (0.18 + 0.64 * rng()), ty = S * (0.12 + 0.6 * rng());
+    const bx = lerp(tx, S * (0.2 + 0.6 * rng()), 0.7), by = Math.min(S - 4, ty + S * (0.3 + 0.25 * rng()));
+    const ang = Math.atan2(ty - by, tx - bx);
+    g.strokeStyle = 'rgb(84,66,48)'; g.lineWidth = 3.5;
+    g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo((bx + tx) / 2 + (rng() - 0.5) * 30, (by + ty) / 2, tx, ty); g.stroke();
+    const pairs = 10 + Math.floor(rng() * 5); // 20–28 leaves
+    const span = 0.2 * px; // leaf-bearing twig length
+    for (let pI = 0; pI < pairs; pI++) {
+      const f = pI / (pairs - 1);                      // 0 = oldest (lowest) pair … 1 = tip
+      const d = span * (1 - f);
+      const x = tx - Math.cos(ang) * d, y = ty - Math.sin(ang) * d;
+      const edgeOn = pI % 2 === 1;
+      const len = (0.08 + 0.05 * rng()) * px * lerp(1, 0.55, f * f) * (edgeOn ? 0.85 : 1);
+      const wid = len * (0.42 + 0.08 * rng()) * (edgeOn ? 0.55 : 1);
+      const spread = lerp(1.25, 0.35, f) + (rng() - 0.5) * 0.3;
+      for (const side of [-1, 1]) {
+        const r = rng();
+        const kind = r < 0.03 ? 2 : r < 0.14 ? 1 : 0;
+        leaf(x, y, ang + side * spread + (rng() - 0.5) * 0.25, len, wid, kind);
+      }
+    }
+    // Pointed reddish stipule at the shoot tip.
+    g.save(); g.translate(tx, ty); g.rotate(ang);
+    g.fillStyle = 'rgb(150,86,60)';
+    g.beginPath(); g.moveTo(0, -3); g.lineTo(18, 0); g.lineTo(0, 3); g.closePath(); g.fill();
+    g.restore();
+  }
+  return c;
+}
+
+/** Minimal ImageData shape (so the mip maths runs in node tests too). */
+export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
+
 /** Fraction of texels whose alpha passes `cut` (alpha in 0..255). */
 function coverage(d: Uint8ClampedArray, cut: number, scale = 1) {
   let n = 0;
@@ -84,57 +171,96 @@ function coverage(d: Uint8ClampedArray, cut: number, scale = 1) {
   return n / (d.length / 4);
 }
 
+/** sRGB byte → linear 0..1 (lookup) and back. */
+const SRGB_TO_LIN = new Float32Array(256).map((_, i) => {
+  const c = i / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+});
+const linToSrgb = (v: number) => 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+
 /**
- * Box-downsample in premultiplied space; fully transparent texels get `fill` so bilinear/mip
- * filtering at silhouettes bleeds foliage colour instead of black.
+ * Box-downsample in linear light: decode sRGB → linear, premultiply by alpha, average the 2×2
+ * block, un-premultiply and re-encode. Fully transparent blocks get `fill` (sRGB bytes) so
+ * bilinear/mip filtering at silhouettes bleeds foliage colour instead of black.
  */
-function halve(src: ImageData, fill: number[]): ImageData {
+export function halve(src: Pixels, fill: number[]): Pixels {
   const w = Math.max(1, src.width >> 1), h = Math.max(1, src.height >> 1);
-  const out = new ImageData(w, h), s = src.data, d = out.data;
+  const s = src.data, d = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let r = 0, gg = 0, b = 0, a = 0;
     for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
       const sx = Math.min(src.width - 1, x * 2 + i), sy = Math.min(src.height - 1, y * 2 + j), k = (sy * src.width + sx) * 4;
       const al = s[k + 3];
-      r += s[k] * al; gg += s[k + 1] * al; b += s[k + 2] * al; a += al;
+      r += SRGB_TO_LIN[s[k]] * al; gg += SRGB_TO_LIN[s[k + 1]] * al; b += SRGB_TO_LIN[s[k + 2]] * al; a += al;
     }
     const o = (y * w + x) * 4;
-    if (a > 0) { d[o] = r / a; d[o + 1] = gg / a; d[o + 2] = b / a; } else { d[o] = fill[0]; d[o + 1] = fill[1]; d[o + 2] = fill[2]; }
+    if (a > 0) { d[o] = linToSrgb(r / a); d[o + 1] = linToSrgb(gg / a); d[o + 2] = linToSrgb(b / a); } else { d[o] = fill[0]; d[o + 1] = fill[1]; d[o + 2] = fill[2]; }
     d[o + 3] = a / 4;
   }
-  return out;
+  return { width: w, height: h, data: d };
 }
 
 /**
- * Canvas → sRGB texture with a coverage-preserving mip chain (alpha of each level rescaled so
- * the fraction of texels passing `alphaTest` matches level 0; Castaño 2010), anisotropy 8.
+ * Mean opaque colour (averaged in linear light, returned as sRGB bytes), written into the
+ * fully transparent texels of `px` so filtering bleeds foliage colour, not black/white.
  */
-export function foliageTexture(src: HTMLCanvasElement, alphaTest = 0.5): THREE.Texture {
-  const g = src.getContext('2d')!;
-  const l0 = g.getImageData(0, 0, src.width, src.height);
-  // Average opaque colour, written into transparent texels.
+export function fillTransparent(px: Pixels): number[] {
   let r = 0, gg = 0, b = 0, n = 0;
-  const d0 = l0.data;
-  for (let i = 0; i < d0.length; i += 4) if (d0[i + 3] > 128) { r += d0[i]; gg += d0[i + 1]; b += d0[i + 2]; n++; }
-  const fill = n ? [r / n, gg / n, b / n] : [80, 100, 40];
-  for (let i = 0; i < d0.length; i += 4) if (d0[i + 3] === 0) { d0[i] = fill[0]; d0[i + 1] = fill[1]; d0[i + 2] = fill[2]; }
-  const cut = alphaTest * 255, target = coverage(d0, cut);
-  const mips: ImageData[] = [l0];
-  let cur = l0;
-  while (cur.width > 1 || cur.height > 1) {
+  const d = px.data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) { r += SRGB_TO_LIN[d[i]]; gg += SRGB_TO_LIN[d[i + 1]]; b += SRGB_TO_LIN[d[i + 2]]; n++; }
+  const fill = n ? [linToSrgb(r / n), linToSrgb(gg / n), linToSrgb(b / n)].map(Math.round) : [80, 100, 40];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] === 0) { d[i] = fill[0]; d[i + 1] = fill[1]; d[i + 2] = fill[2]; }
+  return fill;
+}
+
+const SCALE_LO = 0.5, SCALE_HI = 4;
+
+/**
+ * Coverage-preserving mip chain (Castaño 2010): each level's alpha is rescaled so the fraction
+ * of texels passing `cut` matches level 0. Level 0 is `l0` itself (its transparent texels are
+ * assumed already filled). When the alpha-scale search ends pinned at a bound of its range
+ * (coverage can't be restored), warns once per chain with `name` and the level (levels
+ * smaller than 16 texels excepted).
+ */
+export function coverageMips(l0: Pixels, fill: number[], cut: number, name: string): Pixels[] {
+  const target = coverage(l0.data, cut);
+  const mips: Pixels[] = [l0];
+  let cur = l0, warned = false;
+  for (let level = 1; cur.width > 1 || cur.height > 1; level++) {
     const next = halve(cur, fill);
-    // Binary-search an alpha scale that restores the level-0 coverage.
-    let lo = 0.5, hi = 4;
+    let lo = SCALE_LO, hi = SCALE_HI;
     for (let it = 0; it < 12; it++) {
       const mid = (lo + hi) / 2;
       if (coverage(next.data, cut, mid) < target) lo = mid; else hi = mid;
     }
     const s = (lo + hi) / 2, d = next.data;
+    const eps = (SCALE_HI - SCALE_LO) / 1024;
+    // Levels under 16 texels are skipped: their coverage is quantized in ≥ 1/16 steps (the 1×1
+    // level routinely can't match) and they only serve sub-pixel-sized cards.
+    if (!warned && next.width * next.height >= 16 && (s - SCALE_LO < eps || SCALE_HI - s < eps)) {
+      warned = true;
+      console.warn(`foliageTexture "${name}": coverage alpha scale pinned at ${s < 1 ? SCALE_LO : SCALE_HI} on mip level ${level} (${next.width}×${next.height})`);
+    }
     for (let i = 3; i < d.length; i += 4) d[i] = Math.min(255, d[i] * s);
     mips.push(next);
     cur = next;
   }
+  return mips;
+}
+
+/**
+ * Canvas → sRGB texture with a coverage-preserving mip chain (alpha of each level rescaled so
+ * the fraction of texels passing `alphaTest` matches level 0; Castaño 2010), anisotropy 8.
+ * Mips are averaged in linear light. `name` labels the texture (and any coverage warning).
+ */
+export function foliageTexture(src: HTMLCanvasElement, alphaTest = 0.5, name = 'foliage'): THREE.Texture {
+  const g = src.getContext('2d')!;
+  const l0 = g.getImageData(0, 0, src.width, src.height);
+  const fill = fillTransparent(l0);
+  const mips = coverageMips(l0, fill, alphaTest * 255, name)
+    .map((m, i) => (i === 0 ? l0 : new ImageData(m.data as Uint8ClampedArray<ArrayBuffer>, m.width, m.height)));
   const tex = new THREE.Texture(l0 as unknown as HTMLImageElement);
+  tex.name = name;
   tex.mipmaps = mips;
   tex.generateMipmaps = false;
   tex.minFilter = THREE.LinearMipmapLinearFilter;

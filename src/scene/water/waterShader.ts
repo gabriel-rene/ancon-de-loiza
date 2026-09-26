@@ -107,7 +107,10 @@ void main() {
   // would pick up over a long, grazing sight line. At steep (near-vertical, low-fres) angles
   // the reflection barely shows anyway, but hazeCol's HDR-bright golden-hour tone (channels
   // can exceed 1) would otherwise still visibly stain it, reading as a warm patch mid-river.
-  refl = mix(refl, hazeCol, uHaze * fres);
+  // Also ramped in by distance: a nearby bank's reflection is a short extra path (the post fog
+  // already covers camera→water), so a flat haze washed dark reflected banks out to pale tan;
+  // far off, the reflected ray runs on to the horizon and gets the full haze.
+  refl = mix(refl, hazeCol, uHaze * fres * (1.0 - exp(-dist / 500.0)));
 
   float sunUp = clamp(uSunDir.y * 4.0, 0.0, 1.0);
   vec3 riverBody = mix(vec3(0.11, 0.09, 0.05), vec3(0.03, 0.035, 0.022), 1.0 - exp(-depth * 0.5));

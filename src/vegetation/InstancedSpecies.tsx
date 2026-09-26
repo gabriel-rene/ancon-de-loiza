@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { reflectionHooks } from '../scene/water/reflectionHooks';
 import { useStore } from '../state/store';
 import { bakeImpostor } from './impostor';
-import { composeInstanceMatrices, gatherMatrices, partitionLod } from './lod';
+import { composeInstanceMatrices, gatherMatrices, partitionLod3 } from './lod';
 import { vegStats } from './stats';
 import type { PlantInstance, PlantPart } from './types';
 import { makePlantMaterials, setWindTime } from './windMaterial';
@@ -14,18 +14,26 @@ export type PlantMaterials = Record<'bark' | 'foliage', MatPair>;
 
 interface VariantLod {
   matrices: Float32Array; xs: Float32Array; zs: Float32Array;
-  near: Uint32Array; far: Uint32Array; nNear: number; nFar: number;
-  /** LOD0 part meshes; they share one instanceMatrix attribute. */
+  near: Uint32Array; far: Uint32Array;
+  /** Instances within REFL_LOD0 (n0), the rest of LOD0 (n1), beyond LOD0 (nFar). */
+  n0: number; n1: number; nFar: number;
+  /** LOD0 part meshes; they share one instanceMatrix attribute laid out [n0 | n1]. */
   parts: THREE.InstancedMesh[]; partMatrix: THREE.InstancedBufferAttribute;
-  /** Far cards (main view). */
+  /**
+   * Cards, instance buffer laid out [nFar | n1]: the main view draws the first nFar (far
+   * cards), the water reflection draws all nFar + n1 (everything outside REFL_LOD0).
+   */
   cards: THREE.InstancedMesh;
-  /** Every instance as a card; visible only while the water reflection renders. */
-  allCards: THREE.InstancedMesh;
   own: { texture: THREE.Texture; card: THREE.BufferGeometry; mats: MatPair };
 }
 
 const LOD_INTERVAL = 0.25; // s
 const LOD_MOVE2 = 8 * 8;   // m², horizontal
+/**
+ * Within this radius the water reflection keeps the full meshes (prop roots, trunks and crown
+ * gaps must read in a nearby reflection); beyond it the reflection uses the impostor cards.
+ */
+const REFL_LOD0 = 50;      // m
 
 function commit(attr: THREE.InstancedBufferAttribute, count: number) {
   attr.clearUpdateRanges();
@@ -50,7 +58,8 @@ function translucencyOf(m: THREE.Material): number {
 
 /**
  * Instanced renderer for one species: LOD0 part meshes near the camera, baked impostor cards
- * beyond `lod0` metres, and an "all cards" mesh that replaces both inside the water reflection.
+ * beyond `lod0` metres. The water reflection keeps the meshes within REFL_LOD0 and draws
+ * everything else as cards.
  * The near/far split is recomputed every 250 ms or after an 8 m camera move (no per-frame alloc).
  */
 export function InstancedSpecies({ variants, materials, instances, lod0, castShadow, farCards }: {
@@ -90,17 +99,11 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
       const mats = makePlantMaterials({ part: 'foliage', map: texture, color: 0xffffff, roughness: 0.9, alphaTest: 0.5, translucency: trans, bentNormals: true });
       const cards = newInstanced(card, mats, n);
       cards.name = `veg-cards-${v}`;
-      const allCards = newInstanced(card, mats, n);
-      allCards.name = `veg-allcards-${v}`;
-      allCards.instanceMatrix.array.set(matrices);
-      allCards.count = n;
-      commit(allCards.instanceMatrix, n);
-      allCards.visible = false;
 
-      for (const m of [...partMeshes, cards, allCards]) g.add(m);
+      for (const m of [...partMeshes, cards]) g.add(m);
       out.push({
-        matrices, xs, zs, near: new Uint32Array(n), far: new Uint32Array(n), nNear: 0, nFar: 0,
-        parts: partMeshes, partMatrix, cards, allCards, own: { texture, card, mats },
+        matrices, xs, zs, near: new Uint32Array(n), far: new Uint32Array(n), n0: 0, n1: 0, nFar: 0,
+        parts: partMeshes, partMatrix, cards, own: { texture, card, mats },
       });
     });
     built.current = out;
@@ -110,16 +113,17 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
     vegStats.set(stats, stats);
     const before = () => {
       for (const b of built.current) {
-        for (const m of b.parts) m.visible = false;
-        b.cards.visible = false;
-        b.allCards.visible = true;
+        for (const m of b.parts) { m.count = b.n0; m.visible = b.n0 > 0; }
+        b.cards.count = b.nFar + b.n1;
+        b.cards.visible = b.cards.count > 0;
       }
     };
     const after = () => {
       for (const b of built.current) {
-        for (const m of b.parts) m.visible = b.nNear > 0;
-        b.cards.visible = lod.current.farCards && b.nFar > 0;
-        b.allCards.visible = false;
+        const nNear = b.n0 + b.n1;
+        for (const m of b.parts) { m.count = nNear; m.visible = nNear > 0; }
+        b.cards.count = lod.current.farCards ? b.nFar : 0;
+        b.cards.visible = b.cards.count > 0;
       }
     };
     reflectionHooks.before.add(before);
@@ -132,7 +136,7 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
       vegStats.delete(stats);
       statsRef.current = null;
       for (const b of out) {
-        for (const m of [...b.parts, b.cards, b.allCards]) { g.remove(m); m.dispose(); }
+        for (const m of [...b.parts, b.cards]) { g.remove(m); m.dispose(); }
         b.own.card.dispose();
         b.own.texture.dispose();
         b.own.mats.material.dispose();
@@ -154,19 +158,25 @@ export function InstancedSpecies({ variants, materials, instances, lod0, castSha
     if (!l.dirty && t - l.t < LOD_INTERVAL && dx * dx + dz * dz < LOD_MOVE2) return;
     l.dirty = false; l.t = t; l.cx = cam.x; l.cz = cam.z;
     let sn = 0, sf = 0;
+    const dR = Math.min(REFL_LOD0, l.lod0);
     for (const b of built.current) {
-      const [a, f] = partitionLod(b.xs, b.zs, cam.x, cam.z, l.lod0, b.near, b.far);
-      b.nNear = a; b.nFar = f;
-      gatherMatrices(b.matrices, b.near, a, b.partMatrix.array as Float32Array);
-      commit(b.partMatrix, a);
-      for (const m of b.parts) { m.count = a; m.visible = a > 0; m.castShadow = l.castShadow; }
+      const [n0, n1, f] = partitionLod3(b.xs, b.zs, cam.x, cam.z, dR, l.lod0, b.near, b.far);
+      b.n0 = n0; b.n1 = n1; b.nFar = f;
+      const tail = b.near.subarray(b.near.length - n1);
+      const pm = b.partMatrix.array as Float32Array, cm = b.cards.instanceMatrix.array as Float32Array;
+      gatherMatrices(b.matrices, b.near, n0, pm);
+      gatherMatrices(b.matrices, tail, n1, pm.subarray(n0 * 16));
+      commit(b.partMatrix, n0 + n1);
+      for (const m of b.parts) { m.count = n0 + n1; m.visible = n0 + n1 > 0; m.castShadow = l.castShadow; }
+      // Far cards first, then the LOD0 ring outside REFL_LOD0 (drawn only in the reflection).
+      gatherMatrices(b.matrices, b.far, f, cm);
+      gatherMatrices(b.matrices, tail, n1, cm.subarray(f * 16));
+      commit(b.cards.instanceMatrix, f + n1);
       const cardCount = l.farCards ? f : 0;
-      gatherMatrices(b.matrices, b.far, cardCount, b.cards.instanceMatrix.array as Float32Array);
-      commit(b.cards.instanceMatrix, cardCount);
       b.cards.count = cardCount;
       b.cards.visible = cardCount > 0;
       b.cards.castShadow = l.castShadow;
-      sn += a; sf += cardCount;
+      sn += n0 + n1; sf += cardCount;
     }
     const s = statsRef.current;
     if (s) { s.near = sn; s.far = sf; }

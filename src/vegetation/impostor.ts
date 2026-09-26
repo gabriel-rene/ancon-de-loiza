@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { coverageMips, fillTransparent } from './textures';
 
 type PartIn = { geometry: THREE.BufferGeometry; material: THREE.Material };
 type Tinted = THREE.Material & { map?: THREE.Texture | null; color?: THREE.Color; vertexColors?: boolean };
@@ -37,8 +38,9 @@ export function buildCardGeometry(halfW: number, minY: number, maxY: number): TH
 }
 
 /**
- * Bake a side view of a plant (unlit albedo, alpha = coverage) into an sRGB, mipmapped texture
- * and build the matching crossed-card geometry. Browser-only (needs a live renderer).
+ * Bake a side view of a plant (unlit albedo, alpha = coverage) into an sRGB texture with a
+ * coverage-preserving mip chain and build the matching crossed-card geometry. Browser-only
+ * (needs a live renderer).
  */
 export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], size = 256): { texture: THREE.Texture; card: THREE.BufferGeometry } {
   const box = new THREE.Box3(), tmp = new THREE.Box3();
@@ -51,17 +53,13 @@ export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], siz
   const aspect = (maxY - minY) / (2 * halfW);
   const w = size, h = Math.max(4, Math.min(size * 4, Math.round(size * aspect)));
 
-  const target = new THREE.WebGLRenderTarget(w, h, {
-    colorSpace: THREE.SRGBColorSpace, generateMipmaps: true,
-    minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter,
-  });
+  const target = new THREE.WebGLRenderTarget(w, h, { colorSpace: THREE.SRGBColorSpace, generateMipmaps: false });
   // Looking along -Z from y = 0, so the ortho frame's top/bottom are world Y directly.
   const cam = new THREE.OrthographicCamera(-halfW, halfW, maxY, minY, 0.01, 4 * halfW + 2);
   cam.position.set(0, 0, 2 * halfW + 1); cam.updateMatrixWorld();
 
   const scene = new THREE.Scene();
   const mats: THREE.MeshBasicMaterial[] = [];
-  let tint = new THREE.Color(0.12, 0.16, 0.07);
   for (const p of parts) {
     const src = p.material as Tinted;
     const m = new THREE.MeshBasicMaterial({
@@ -69,7 +67,6 @@ export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], siz
       color: src.color ?? 0xffffff, vertexColors: !!src.vertexColors, side: THREE.DoubleSide,
     });
     mats.push(m);
-    if (src.color) tint = src.color;
     scene.add(new THREE.Mesh(p.geometry, m));
   }
 
@@ -79,10 +76,10 @@ export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], siz
   const prevColor = _clear.clone();
   const prevAutoClear = renderer.autoClear;
   const prevShadowAuto = renderer.shadowMap.autoUpdate;
-  // Clear to the (last) part's tint with alpha 0 so mip/bilinear filtering at the silhouette
-  // bleeds foliage colour rather than black into the card edges.
+  // Transparent texels are refilled with the mean plant colour after readback, so the clear
+  // colour itself never reaches the filtered card edges.
   renderer.setRenderTarget(target);
-  renderer.setClearColor(tint, 0);
+  renderer.setClearColor(0x000000, 0);
   renderer.autoClear = true;
   renderer.shadowMap.autoUpdate = false;
   renderer.clear(true, true, true);
@@ -93,9 +90,23 @@ export function bakeImpostor(renderer: THREE.WebGLRenderer, parts: PartIn[], siz
   renderer.shadowMap.autoUpdate = prevShadowAuto;
 
   for (const m of mats) m.dispose();
-  const texture = target.texture;
+  // Read the bake back (sRGB bytes, bottom row first — the same row order a DataTexture
+  // uploads) and build a coverage-preserving, linear-light mip chain: plain GPU mips average
+  // thin stems/roots below the alpha cut within a few levels, so distant cards (and the
+  // low-res water reflection) lost their trunks and prop roots.
+  const buf = new Uint8Array(w * h * 4);
+  renderer.readRenderTargetPixels(target, 0, 0, w, h, buf);
+  const px = { width: w, height: h, data: new Uint8ClampedArray(buf.buffer) };
+  target.dispose();
+  const fill = fillTransparent(px);
+  const mips = coverageMips(px, fill, 0.5 * 255, 'impostor');
+  const texture = new THREE.DataTexture(px.data, w, h, THREE.RGBAFormat, THREE.UnsignedByteType);
+  texture.mipmaps = mips.map((m) => ({ data: m.data, width: m.width, height: m.height })) as unknown as THREE.DataTexture['mipmaps'];
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.name = 'impostor';
-  // The render target owns the GL texture; disposing the texture must release the target too.
-  texture.addEventListener('dispose', () => target.dispose());
+  texture.needsUpdate = true;
   return { texture, card: buildCardGeometry(halfW, minY, maxY) };
 }

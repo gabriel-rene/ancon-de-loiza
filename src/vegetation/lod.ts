@@ -11,6 +11,21 @@ export function partitionLod(xs: Float32Array, zs: Float32Array, cx: number, cz:
 }
 
 /**
+ * Three-way split for the main view + water reflection: `near` gets the instances within `dR`
+ * at its front ([0, n0)) and those in (dR, d0] at its back ([len − n1, len)); `far` gets the
+ * rest at its front. Returns [n0, n1, nFar]. No allocation.
+ */
+export function partitionLod3(xs: Float32Array, zs: Float32Array, cx: number, cz: number, dR: number, d0: number,
+  near: Uint32Array, far: Uint32Array): [number, number, number] {
+  let a = 0, b = 0, f = 0; const r2 = dR * dR, d2 = d0 * d0, last = near.length - 1;
+  for (let i = 0; i < xs.length; i++) {
+    const dx = xs[i] - cx, dz = zs[i] - cz, q = dx * dx + dz * dz;
+    if (q <= r2) near[a++] = i; else if (q <= d2) near[last - b++] = i; else far[f++] = i;
+  }
+  return [a, b, f];
+}
+
+/**
  * Column-major 4×4 matrices (16 floats per instance, three.js layout): translation (x, y, z),
  * rotation `rot` about +Y, uniform `scale`.
  */
