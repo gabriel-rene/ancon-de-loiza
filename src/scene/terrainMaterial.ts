@@ -47,7 +47,7 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         // sun far better than the flat ground plane (irradiance ~ cos(elevation), not
         // sin), which is what makes pasture glow at golden hour. Unshadowed; fine while
         // nothing casts shadows on the terrain.
-        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - wet);
+        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet);
         csm_Emissive = c * uSunColor * uSunI * 0.12 * length(uSunDir.xz) * grassy * step(0.0, uSunDir.y);
       }`,
   });

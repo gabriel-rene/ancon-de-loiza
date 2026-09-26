@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../geo/atmosphere';
+import { patchSkyShader } from './skyShader';
 import type { Sun } from './useSun';
 
 const FOCUS = new THREE.Vector3(0, 0, 0);
@@ -21,12 +22,7 @@ function SkyDome({ dir, atm }: { dir: THREE.Vector3; atm: Atmosphere }) {
     const m = s.material as THREE.ShaderMaterial;
     m.uniforms.uGain = { value: 1 };
     m.uniforms.uShoulder = { value: 2.5 };
-    m.fragmentShader = m.fragmentShader
-      .replace('uniform float showSunDisc;', 'uniform float showSunDisc;\nuniform float uGain;\nuniform float uShoulder;')
-      .replace('gl_FragColor = vec4( texColor, 1.0 );', `
-        vec3 skyC = max(texColor - sundiscColor, 0.0) * uGain;
-        skyC /= 1.0 + dot(skyC, vec3(0.2126, 0.7152, 0.0722)) / uShoulder;
-        gl_FragColor = vec4(skyC + sundiscColor * uGain * 0.004, 1.0);`);
+    m.fragmentShader = patchSkyShader(m.fragmentShader);
     s.scale.setScalar(30000);
     return s;
   }, []);
