@@ -128,3 +128,25 @@ Units stay small and single-purpose. Scene components read the era config; they 
 - **Placement grid:** placement always runs on a fixed 512×512 grid regardless of the tier's terrain resolution, so instance counts don't depend on render quality.
 - **Shadows:** one directional shadow map that follows the camera focus with texel snapping (replaces the fixed ±350 m frustum; supersedes the CSM note in §5).
 - **Split:** 2a = Phase-1 carry-over fixes + vegetation core + red mangrove, coconut palm, Casuarina. 2b = remaining species, era-specific landscapes (cane, young groves), polish.
+
+## 13. Phase 3 detail — The ancón, crossing loop, crew, decade picker (approved in chat 2026-09-26)
+
+Phase order changed: Phase 3 runs before Phase 2b, and a minimal decade picker is pulled forward from Phase 6 (research-backed values per `docs/research/ancon-research.md` §2 and the decade table).
+
+- **Art source:** vessels, rigging and people are generated in code (no downloaded models or animation clips), same as vegetation.
+- **Vessels (one builder per kind, parameters per era in `eras.ts`, each value Sourced):**
+  - `1840`, `1900`: small timber barge, poled; `1840` adds a shore rope (Lombera inset) [S3].
+  - `1925`: wooden plank platform, two mangrove poles — one pushes, one steers [S1][S4].
+  - `1935`–`1975`: wooden platform on stringers with end aprons, deck length grows with capacity 1 → 2 → 4 → 6 cars [S1] (sizes inferred from research §2.2: 1-car ≈ 7.5 × 3.2 m).
+  - `1984`: steel-plate pontoon ≈ 20 × 7.5 m, welded seams, hinged end ramps, low curb, rope guides, fouling at the waterline [S1][S4].
+  - `1986`: the steel barge moored and idle at the Loíza landing.
+- **Crossing geometry:** landings from research §1.1 — east (Loíza) 18.4342, -65.8815; west (Torrecilla Baja) 18.4355, -65.8831 — projected to world space; the crossing line runs between them (~200–230 m). Landings sit inside the vegetation clearings added in 2a.
+- **Propulsion:**
+  - Poles (≤ `1925`): 2 polers walk the deck and push; the helmsman's pole acts as rudder.
+  - Ropes (`1935`–`1984`): two taut ropes from bank posts to bank posts, through deck guides; 2–3 haulers pull hand over hand. Ropes sag into the water while the vessel waits (catenary, 1 draw call each).
+- **Crossing loop:** a deterministic state machine — `load → castOff → cross → dock → unload`, then the reverse trip — ≈ 3 min per crossing at 1× (time-scalable), pure function of elapsed time + era so screenshots are reproducible (`?freeze=1`, `?t=`). The current pushes the vessel slightly downstream (along `RIVER_DIR`); the crew corrects it. The hull pitches/rolls a little with the water and draws a small wake/foam trail in the water shader.
+- **People:** simple stylised figures built from primitives (no faces), era clothing palettes (research §6), procedural poses for `pole`, `haul`, `stand`, `walk`. Crew only plus a few standing passengers; vehicles, carts and animals on deck come in Phase 4.
+- **Decade picker (minimal):** a bottom rail of 8 decade buttons, touch-sized for phones, keyboard ← →, updates the URL. Switching is instant (no crossfade — Phase 6). Vegetation placement results are cached per (densities, bankOffset, tier) so a switch does not stall.
+- **Cameras:** `ride` becomes a deck camera attached to the moving vessel (third-person, like the quality-bar reference). The default view on load is `ride` at golden hour.
+- **Performance:** vessel + crew + ropes ≤ 1.5 ms at q=high, DPR 2; the site still meets ≥ 60 fps on `ride`.
+- **Testing:** unit tests for the crossing state machine (phases, timings, reverse trip, determinism), vessel builders (size per era, triangle budgets), rope sag; e2e shots per vessel kind; the picker changes era and URL with no console errors.
