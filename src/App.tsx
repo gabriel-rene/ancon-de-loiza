@@ -12,8 +12,7 @@ export function App() {
       dpr={q.dpr}
       shadows={q.shadowMap > 0}
       camera={{ fov: 42, near: 0.5, far: 40000, position: [600, 450, 700] }}
-      gl={{ antialias: false, powerPreference: 'high-performance' }}
-      onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; }}
+      gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
     >
       <World />
       <OrbitControls target={[0, 0, 0]} />
