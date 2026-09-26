@@ -1,13 +1,19 @@
 import { Environment } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../geo/atmosphere';
+import { shadowFocus } from './shadowFocus';
 import { patchSkyShader } from './skyShader';
 import type { Sun } from './useSun';
 
-const FOCUS = new THREE.Vector3(0, 0, 0);
+// Module-level temporaries reused every frame in the shadow-follow useFrame below — no
+// per-frame allocation.
+const tmpDir = new THREE.Vector3();
+const camPosArr: [number, number, number] = [0, 0, 0];
+const camDirArr: [number, number, number] = [0, 0, 0];
+const sunDirArr: [number, number, number] = [0, 0, 0];
 
 /**
  * three's (linear, HDR) Preetham sky with an output gain and a hue-preserving shoulder.
@@ -39,18 +45,26 @@ function SkyDome({ dir, atm }: { dir: THREE.Vector3; atm: Atmosphere }) {
   return <primitive object={sky} />;
 }
 
-export function SkyAndLight({ sun, shadowMap }: { sun: Sun; shadowMap: number }) {
+export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMap: number; shadowHalf: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
   const { atm } = sun;
 
   useEffect(() => { scene.environmentIntensity = atm.envIntensity; }, [scene, atm.envIntensity]);
-  useEffect(() => {
-    const l = light.current!;
-    l.position.copy(FOCUS).addScaledVector(sun.dir, 1500);
-    l.target.position.copy(FOCUS);
+
+  useFrame(() => {
+    const l = light.current;
+    if (!l || shadowHalf <= 0) return;
+    camPosArr[0] = camera.position.x; camPosArr[1] = camera.position.y; camPosArr[2] = camera.position.z;
+    camera.getWorldDirection(tmpDir);
+    camDirArr[0] = tmpDir.x; camDirArr[1] = tmpDir.y; camDirArr[2] = tmpDir.z;
+    sunDirArr[0] = sun.dir.x; sunDirArr[1] = sun.dir.y; sunDirArr[2] = sun.dir.z;
+    const { target, position } = shadowFocus(camPosArr, camDirArr, sunDirArr, shadowHalf, shadowMap || 1);
+    l.position.set(position[0], position[1], position[2]);
+    l.target.position.set(target[0], target[1], target[2]);
     l.target.updateMatrixWorld();
-  }, [sun.dir]);
+  });
 
   const envKey = `${sun.dir.x.toFixed(2)}${sun.dir.y.toFixed(2)}${sun.dir.z.toFixed(2)}`;
 
@@ -68,8 +82,8 @@ export function SkyAndLight({ sun, shadowMap }: { sun: Sun; shadowMap: number })
         shadow-mapSize={[shadowMap || 1, shadowMap || 1]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.6}
-        shadow-camera-left={-350} shadow-camera-right={350}
-        shadow-camera-top={350} shadow-camera-bottom={-350}
+        shadow-camera-left={-shadowHalf} shadow-camera-right={shadowHalf}
+        shadow-camera-top={shadowHalf} shadow-camera-bottom={-shadowHalf}
         shadow-camera-near={10} shadow-camera-far={4000}
       />
     </>

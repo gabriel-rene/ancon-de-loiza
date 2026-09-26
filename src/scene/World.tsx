@@ -16,7 +16,7 @@ export function World() {
   const frozen = useStore((s) => s.frozen);
   return (
     <>
-      <SkyAndLight sun={sun} shadowMap={q.shadowMap} />
+      <SkyAndLight sun={sun} shadowMap={q.shadowMap} shadowHalf={q.shadowHalf} />
       <Backdrop />
       <Terrain near={near} far={far} shadows={q.shadowMap > 0} sun={sun} />
       <Water near={near} far={far} sun={sun} flow={era.river.flow.value} reflScale={q.reflScale} frozen={frozen} />
