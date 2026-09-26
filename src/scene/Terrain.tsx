@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { WorldFields } from '../terrain/fields';
-import { makeTerrainMaterial, terrainSun } from './terrainMaterial';
+import { sunUniforms } from './sunUniforms';
+import { makeTerrainMaterial } from './terrainMaterial';
 import type { Sun } from './useSun';
 import { makeInfoTexture } from './useWorldFields';
 
@@ -34,9 +35,9 @@ function TerrainMesh({ f, holeHalf = 0, shadows }: { f: WorldFields; holeHalf?: 
 
 export function Terrain({ near, far, shadows, sun }: { near: WorldFields; far: WorldFields; shadows: boolean; sun: Sun }) {
   useEffect(() => {
-    terrainSun.uSunDir.value.copy(sun.dir);
-    terrainSun.uSunColor.value.setRGB(...sun.atm.sunColor);
-    terrainSun.uSunI.value = sun.atm.sunIntensity;
+    sunUniforms.uSunDir.value.copy(sun.dir);
+    sunUniforms.uSunColor.value.setRGB(...sun.atm.sunColor);
+    sunUniforms.uSunI.value = sun.atm.sunIntensity;
   }, [sun]);
   const holeHalf = (near.grid.cell * near.grid.size) / 2 - 20;
   return (

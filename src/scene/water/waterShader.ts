@@ -20,6 +20,7 @@ uniform float uTime;
 uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunIntensity;
 uniform vec2 uRiverFlow; uniform vec2 uWind;
 uniform vec3 uHazeColor; uniform vec3 uHazeAway; uniform float uHaze;
+uniform float uDebugWater;
 varying vec4 vReflUv;
 varying vec3 vWorld;
 ${SNOISE_GLSL}
@@ -55,6 +56,12 @@ vec2 octave(vec2 p, vec2 dir, float freq, float stretch, float speed, float seed
 
 void main() {
   vec4 inf = waterInfo(vWorld.xz);
+  if (uDebugWater > 0.5) {
+    // Raw waterInfo channels as colour: R depth/15m, G river(255)/pond(128)/sea(0), B |shore dist|/60m.
+    gl_FragColor = vec4(inf.rgb, 1.0);
+    #include <colorspace_fragment>
+    return;
+  }
   float depth = inf.r * 15.0;
   float river = smoothstep(0.55, 0.85, inf.g);
   float shore = inf.b * 60.0;
@@ -96,7 +103,16 @@ void main() {
   // The mirror renders without post fog; add the haze the reflected ray would see.
   vec3 R = reflect(-V, n);
   vec3 hazeCol = mix(uHazeAway, uHazeColor, pow(0.5 + 0.5 * dot(R, uSunDir), 1.5));
-  refl = mix(refl, hazeCol, uHaze);
+  // Weighted by fres too: haze approximates the atmospheric perspective the reflected ray
+  // would pick up over a long, grazing sight line. At steep (near-vertical, low-fres) angles
+  // the reflection barely shows anyway, but hazeCol's HDR-bright golden-hour tone (channels
+  // can exceed 1) would otherwise still visibly stain it, reading as a warm patch mid-river.
+  // Also ramped in by distance. The reflected object's own distance is unknown here, so the
+  // camera→water distance (dist) stands in as a proxy (reflections seen close by are mostly of
+  // nearby banks; the post fog already covers the camera→water leg). A flat haze washed dark
+  // reflected banks out to pale tan; far off, where the reflected ray mostly runs on toward the
+  // horizon, the full haze applies.
+  refl = mix(refl, hazeCol, uHaze * fres * (1.0 - exp(-dist / 500.0)));
 
   float sunUp = clamp(uSunDir.y * 4.0, 0.0, 1.0);
   vec3 riverBody = mix(vec3(0.11, 0.09, 0.05), vec3(0.03, 0.035, 0.022), 1.0 - exp(-depth * 0.5));

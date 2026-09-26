@@ -13,3 +13,13 @@ test('round-trips', () => {
   const s = { eraId: '1984', timeOfDay: 7.25, camera: 'bank' } as const;
   expect(parseUrlState(toSearch(s))).toEqual(s);
 });
+test('parses ?view=water debug view', () => {
+  expect(parseUrlState('?view=water')).toEqual({ debugView: 'water' });
+});
+test('rejects unknown ?view', () => {
+  expect(parseUrlState('?view=nope')).toEqual({});
+});
+test('round-trips debugView', () => {
+  const s = { debugView: 'water' } as const;
+  expect(parseUrlState(toSearch(s))).toEqual(s);
+});

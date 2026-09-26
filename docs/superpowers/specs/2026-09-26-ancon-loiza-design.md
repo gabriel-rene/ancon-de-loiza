@@ -114,3 +114,17 @@ Units stay small and single-purpose. Scene components read the era config; they 
 - **Quality bar vs. procedural assets.** Mitigation: invest in shaders/lighting first (Phase 1 gate), use CC0 PBR textures.
 - **Sparse historical detail** (exact hull sizes, bridge span). Mitigation: marked as inferred; easy to update in `eras.ts`.
 - **Mobile perf** with dense vegetation. Mitigation: quality tiers from day one.
+
+## 12. Phase 2 detail — Vegetation (approved in chat 2026-09-26)
+
+- **Art source:** every plant is generated in code (geometry + canvas-painted leaf textures). No downloaded models.
+- **Species:** red mangrove (prop roots, river/lagoon edge and shallows), black/white mangrove + buttonwood (behind), coconut palm, Casuarina ("piñones"), almendro, sea grape, beach morning glory, grasses/reeds; sugar cane fields in 1840/1900.
+- **Placement:** deterministic, from world fields (water class, shore/sea/river distance, height, OSM land class) with exclusions for roads and the Loíza town core (reserved for Phase 4). Per-era density multipliers live in `eras.ts` as sourced/inferred values.
+- **Rendering:** per species, instanced full-geometry LOD0 near the camera and baked-impostor cross cards beyond `lod0`; the water reflection draws full meshes only within a per-tier `reflLod0` radius (high 50 m, medium 25 m, low 0 m — reflection is cards-only on low) and cards beyond that. Far cards (beyond `lod0`) never cast shadows. All foliage sways in the ENE trade wind (shared wind uniforms, matching depth material for shadows).
+- **Ferry-landing clearings:** both landings are kept clear of plants, fully cleared within 22 m and fading back in by 40 m (`LANDING_CLEARING`), scaling every species' density down near the approach.
+- **Distant ring (`farRing`):** high and medium tiers additionally place a distant ring of cards on the far fields, past the near extent minus a 40 m overlap, at half the near density; low tier disables the ring (placement cost) but still draws far cards beyond its own `lod0`.
+- **Casuarina litter:** needle litter under near casuarinas is baked into a ground-tint texture sampled by the terrain material, keyed to the near field's extent.
+- **Variation:** each species gets a per-instance rotation range and shared occupancy + clump noise, so plants of the same species cluster rather than scatter uniformly.
+- **Placement grid:** placement always runs on a fixed 512×512 grid regardless of the tier's terrain resolution, so instance counts don't depend on render quality.
+- **Shadows:** one directional shadow map that follows the camera focus with texel snapping (replaces the fixed ±350 m frustum; supersedes the CSM note in §5).
+- **Split:** 2a = Phase-1 carry-over fixes + vegetation core + red mangrove, coconut palm, Casuarina. 2b = remaining species, era-specific landscapes (cane, young groves), polish.

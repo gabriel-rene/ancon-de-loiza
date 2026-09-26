@@ -3,7 +3,12 @@ import type { Quality } from '../quality';
 
 export type CameraPreset = 'ride' | 'bank' | 'aerial' | 'mouth';
 export const CAMERA_PRESETS: CameraPreset[] = ['ride', 'bank', 'aerial', 'mouth'];
-export interface UrlState { eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean }
+export type DebugView = 'water';
+export const DEBUG_VIEWS: DebugView[] = ['water'];
+export interface UrlState {
+  eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
+  debugView: DebugView | undefined;
+}
 
 export function parseUrlState(search: string): Partial<UrlState> {
   const p = new URLSearchParams(search);
@@ -18,6 +23,8 @@ export function parseUrlState(search: string): Partial<UrlState> {
   if (q === 'high' || q === 'medium' || q === 'low') out.quality = q;
   if (p.get('debug') === '1') out.debug = true;
   if (p.get('freeze') === '1') out.frozen = true;
+  const view = p.get('view');
+  if (view && (DEBUG_VIEWS as string[]).includes(view)) out.debugView = view as DebugView;
   return out;
 }
 
@@ -29,5 +36,6 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.quality) p.set('q', s.quality);
   if (s.debug) p.set('debug', '1');
   if (s.frozen) p.set('freeze', '1');
+  if (s.debugView) p.set('view', s.debugView);
   return `?${p.toString()}`;
 }

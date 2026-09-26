@@ -15,6 +15,7 @@ export interface Era {
     /** Surface flow speed, m/s. */
     flow: Sourced<number>;
   };
+  vegetation: Record<'redMangrove' | 'coconut' | 'casuarina', Sourced<number>>;
 }
 
 const s = <T>(value: T, sources: string[], confidence: Confidence, inferred = false): Sourced<T> =>
@@ -23,31 +24,59 @@ const s = <T>(value: T, sources: string[], confidence: Confidence, inferred = fa
 const PRE_DAM = { bankOffset: s(8, ['S3', 'S15'], 'L', true), flow: s(0.6, ['S3', 'S15'], 'L', true) };
 const POST_DAM = { bankOffset: s(0, ['S26'], 'M'), flow: s(0.35, ['S15'], 'L', true) };
 
+// Mangrove fringe is ancient; DRNA Piñones forest confirms red mangrove on lagoon/channel fringes.
+const MANGROVE = s(1, ['S22', 'S34'], 'H');
+const veg = (coconut: Sourced<number>, casuarina: Sourced<number>) => ({ redMangrove: MANGROVE, coconut, casuarina });
+// coconut: coast shifted from sugar to coconut collection (S23); groves mature through the 20th c. (inferred timing).
+// casuarina: gives Piñones its name; forest proclaimed 1918 (S22, S28); introduced, mass planting
+// early–mid 20th c. (S28, inferred timing). From 1959 onward, modern coastal photos (2026) at the
+// old landing show mature Casuarina on the skyline — S19b is "1 Ancón de Loíza.jpg" (the companion
+// bank-vegetation photo); S19 ("2 Ancón de Loíza.jpg") is the spit/low-scrub photo and does not show
+// casuarina, so it is dropped from these era citations (inferred: true, confidence kept at M).
+const VEG = {
+  '1840': veg(s(0.35, ['S23'], 'L', true), s(0, ['S28'], 'L', true)),
+  '1900': veg(s(0.6, ['S23'], 'M', true), s(0.05, ['S28'], 'L', true)),
+  '1925': veg(s(0.9, ['S23'], 'L', true), s(0.55, ['S22', 'S28'], 'L', true)),
+  '1935': veg(s(1.0, ['S23'], 'L', true), s(0.8, ['S22', 'S28'], 'L', true)),
+  '1959': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1975': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1984': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+} satisfies Record<EraId, ReturnType<typeof veg>>;
+
 export const ERAS: Era[] = [
   { id: '1840', label: 'Colonial crossing', years: '1820s–1890s', date: '1840-03-15',
     summary: s('An official ancón de pasaje, ordered in 1824, carries walkers, carts and animals across a fuller river on the camino real.', ['S3'], 'H'),
-    river: PRE_DAM },
+    river: PRE_DAM,
+    vegetation: VEG['1840'] },
   { id: '1900', label: 'Sugar era', years: '1900s–1910s', date: '1905-04-09',
     summary: s('The Iturregui sugar family runs the crossing for cane workers. A wooden barge is poled across.', ['S1', 'S3'], 'M'),
-    river: PRE_DAM },
+    river: PRE_DAM,
+    vegetation: VEG['1900'] },
   { id: '1925', label: 'The Cortijo ancón', years: '1920s', date: '1925-07-26',
     summary: s('Pedro Cortijo buys the ancón in 1920. A plank platform, two mangrove poles, 10 cents a crossing.', ['S1', 'S4'], 'H'),
-    river: PRE_DAM },
+    river: PRE_DAM,
+    vegetation: VEG['1925'] },
   { id: '1935', label: 'The ropes', years: '1930s–1940s', date: '1935-02-17',
     summary: s('Cars arrive. Two taut marine ropes span the river and two or three men haul the platform by hand.', ['S1', 'S4'], 'H'),
-    river: PRE_DAM },
+    river: PRE_DAM,
+    vegetation: VEG['1935'] },
   { id: '1959', label: 'Públicos', years: '1950s', date: '1959-08-02',
     summary: s('The platform grows. Shared taxis (públicos) cross. Upstream, the Carraízo dam tames the river.', ['S1', 'S4', 'S15'], 'M'),
-    river: POST_DAM },
+    river: POST_DAM,
+    vegetation: VEG['1959'] },
   { id: '1975', label: 'Weekend outings', years: '1960s–1970s', date: '1975-07-27',
     summary: s('Families cross for the day. The Cortijo bar has a terrace over the river. About six cars per trip.', ['S1', 'S4'], 'H'),
-    river: POST_DAM },
+    river: POST_DAM,
+    vegetation: VEG['1975'] },
   { id: '1984', label: 'The steel barge', years: '1980–1986', date: '1984-02-17',
     summary: s('A steel-plate barge carries six to eight cars. Next door, the PR-187 bridge rises.', ['S1', 'S4'], 'H'),
-    river: POST_DAM },
+    river: POST_DAM,
+    vegetation: VEG['1984'] },
   { id: '1986', label: 'The bridge', years: '1986', date: '1986-02-17',
     summary: s('The Puente de la Restauración opened in 1985. Regular ancón service ends in 1986.', ['S1', 'S4', 'S27'], 'H'),
-    river: POST_DAM },
+    river: POST_DAM,
+    vegetation: VEG['1986'] }
 ];
 
 export const ERA_IDS = ERAS.map((e) => e.id);

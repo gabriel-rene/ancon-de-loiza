@@ -1,23 +1,19 @@
 import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { SNOISE_GLSL } from './glsl/noise';
-
-/** Sun uniforms shared by every terrain material (updated in place by <Terrain>). */
-export const terrainSun = {
-  uSunDir: { value: new THREE.Vector3(0, 1, 0) },
-  uSunColor: { value: new THREE.Color(1, 1, 1) },
-  uSunI: { value: 0 },
-};
+import { groundUniforms } from './groundUniforms';
+import { sunUniforms } from './sunUniforms';
 
 export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
   return new CustomShaderMaterial({
     baseMaterial: THREE.MeshStandardMaterial,
-    uniforms: { uInfo: { value: info }, uRect: { value: rect }, ...terrainSun },
+    uniforms: { uInfo: { value: info }, uRect: { value: rect }, ...sunUniforms, ...groundUniforms },
     vertexShader: /* glsl */ `
       varying vec3 vW; varying vec3 vNw;
       void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; vNw = normalize(mat3(modelMatrix) * normal); }`,
     fragmentShader: /* glsl */ `
       uniform sampler2D uInfo; uniform vec4 uRect;
+      uniform sampler2D uLitter; uniform vec4 uLitterRect;
       uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunI;
       varying vec3 vW; varying vec3 vNw;
       ${SNOISE_GLSL}
@@ -37,18 +33,29 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         c = mix(c, forest, m.b);
         c = mix(c, sand, m.r);
         c = mix(c, mud, m.g);
+        // Casuarina needle litter: a brown, fibrous floor under the belts (weight from <Vegetation>).
+        vec2 lu = (vW.xz - uLitterRect.xy) / uLitterRect.z;
+        float inL = step(0.0, lu.x) * step(lu.x, 1.0) * step(0.0, lu.y) * step(lu.y, 1.0);
+        float litter = texture2D(uLitter, lu).r * inL * (1.0 - m.g);
+        vec3 needles = mix(vec3(0.13,0.075,0.04), vec3(0.21,0.13,0.07), n2) * mix(0.85, 1.1, n3);
+        c = mix(c, needles, 0.85 * litter);
         float wet = 1.0 - smoothstep(0.05, 0.7, vW.y);
         c *= mix(1.0, 0.5, wet);
         float slope = 1.0 - clamp(vNw.y, 0.0, 1.0);
         c = mix(c, mud * 1.2, smoothstep(0.2, 0.55, slope) * (1.0 - m.r));
         csm_DiffuseColor = vec4(c, 1.0);
         csm_Roughness = mix(0.95, 0.3, wet);
-        // Stand-in for grass blades until Phase 2 vegetation: vertical blades catch a low
-        // sun far better than the flat ground plane (irradiance ~ cos(elevation), not
-        // sin), which is what makes pasture glow at golden hour. Unshadowed; fine while
-        // nothing casts shadows on the terrain.
-        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet);
-        csm_Emissive = c * uSunColor * uSunI * 0.12 * length(uSunDir.xz) * grassy * step(0.0, uSunDir.y);
+        // Grass sheen: vertical blades catch a low sun far better than the flat ground
+        // plane (irradiance ~ cos(elevation), not sin), which is what makes pasture glow
+        // at golden hour. Rather than an unshadowed emissive add, tilt the shading normal
+        // toward the horizontal sun direction so the effect goes through the normal
+        // (shadowed) lighting loop and disappears inside shadows (e.g. under trees).
+        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet) * (1.0 - litter);
+        vec3 sunH = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4));
+        float lowSun = 1.0 - smoothstep(0.15, 0.6, uSunDir.y);          // only near golden hour
+        lowSun *= smoothstep(-0.035, 0.035, uSunDir.y);                 // 0 below horizon (matches atmosphereFor's day ramp)
+        vec3 bladeN = normalize(mix(vNw, normalize(vNw * 0.55 + sunH * 0.45), grassy * lowSun));
+        csm_FragNormal = normalize((viewMatrix * vec4(bladeN, 0.0)).xyz);
       }`,
   });
 }
