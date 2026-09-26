@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../geo/atmosphere';
-import { shadowFocus } from './shadowFocus';
+import { shadowFocus, type ShadowFocusResult } from './shadowFocus';
 import { patchSkyShader } from './skyShader';
 import type { Sun } from './useSun';
 
@@ -14,6 +14,7 @@ const tmpDir = new THREE.Vector3();
 const camPosArr: [number, number, number] = [0, 0, 0];
 const camDirArr: [number, number, number] = [0, 0, 0];
 const sunDirArr: [number, number, number] = [0, 0, 0];
+const focusOut: ShadowFocusResult = { target: [0, 0, 0], position: [0, 0, 0] };
 
 /**
  * three's (linear, HDR) Preetham sky with an output gain and a hue-preserving shoulder.
@@ -53,6 +54,24 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
 
   useEffect(() => { scene.environmentIntensity = atm.envIntensity; }, [scene, atm.envIntensity]);
 
+  // The shadow camera's frustum bounds are set imperatively (rather than left to the
+  // shadow-camera-* JSX props) because changing them requires an explicit
+  // updateProjectionMatrix() call — R3F's prop diffing sets the fields but does not call it,
+  // so without this effect the frustum goes stale after a quality change (shadowHalf/shadowMap).
+  useEffect(() => {
+    const l = light.current;
+    if (!l) return;
+    const cam = l.shadow.camera;
+    cam.left = -shadowHalf; cam.right = shadowHalf;
+    cam.top = shadowHalf; cam.bottom = -shadowHalf;
+    cam.near = 10; cam.far = 4000;
+    cam.updateProjectionMatrix();
+    // The shadow map render target is sized from mapSize at creation time and isn't resized
+    // in place; dispose it so three recreates it (at the current mapSize) on the next frame.
+    if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; }
+    l.shadow.needsUpdate = true;
+  }, [shadowHalf, shadowMap]);
+
   useFrame(() => {
     const l = light.current;
     if (!l || shadowHalf <= 0) return;
@@ -60,9 +79,9 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
     camera.getWorldDirection(tmpDir);
     camDirArr[0] = tmpDir.x; camDirArr[1] = tmpDir.y; camDirArr[2] = tmpDir.z;
     sunDirArr[0] = sun.dir.x; sunDirArr[1] = sun.dir.y; sunDirArr[2] = sun.dir.z;
-    const { target, position } = shadowFocus(camPosArr, camDirArr, sunDirArr, shadowHalf, shadowMap || 1);
-    l.position.set(position[0], position[1], position[2]);
-    l.target.position.set(target[0], target[1], target[2]);
+    shadowFocus(camPosArr, camDirArr, sunDirArr, shadowHalf, shadowMap || 1, focusOut);
+    l.position.set(focusOut.position[0], focusOut.position[1], focusOut.position[2]);
+    l.target.position.set(focusOut.target[0], focusOut.target[1], focusOut.target[2]);
     l.target.updateMatrixWorld();
   });
 
@@ -82,9 +101,6 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
         shadow-mapSize={[shadowMap || 1, shadowMap || 1]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.6}
-        shadow-camera-left={-shadowHalf} shadow-camera-right={shadowHalf}
-        shadow-camera-top={shadowHalf} shadow-camera-bottom={-shadowHalf}
-        shadow-camera-near={10} shadow-camera-far={4000}
       />
     </>
   );
