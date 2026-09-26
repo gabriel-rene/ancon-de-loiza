@@ -7,6 +7,7 @@ import { useStore } from '../../state/store';
 import type { WorldFields } from '../../terrain/fields';
 import type { Sun } from '../useSun';
 import { makeInfoTexture } from '../useWorldFields';
+import { reflectionHooks } from './reflectionHooks';
 import { waterFragment, waterVertex } from './waterShader';
 
 const riverDirVec = new THREE.Vector2(...RIVER_DIR);
@@ -43,6 +44,12 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
       },
     });
     r.rotation.x = -Math.PI / 2;
+    // Let other systems (vegetation LOD) swap what the mirror sees for the reflection render.
+    const inner = r.onBeforeRender;
+    r.onBeforeRender = function (...args: Parameters<THREE.Object3D['onBeforeRender']>) {
+      reflectionHooks.before.forEach((f) => f());
+      try { inner.apply(this, args); } finally { reflectionHooks.after.forEach((f) => f()); }
+    };
     return r;
   }, [size.width, size.height, dpr, reflScale]);
 

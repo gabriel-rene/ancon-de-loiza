@@ -1,9 +1,10 @@
-import { Leva, useControls } from 'leva';
+import { Leva, monitor, useControls } from 'leva';
 import { useEffect, useRef } from 'react';
 import { ERA_IDS, type EraId } from '../data/eras';
 import { useStore } from '../state/store';
 import { CAMERA_PRESETS, type CameraPreset } from '../state/url';
 import type { Quality } from '../quality';
+import { vegStatsText } from '../vegetation/stats';
 
 export function DebugPanel() {
   const init = useStore.getState();
@@ -13,6 +14,7 @@ export function DebugPanel() {
     time: { value: init.timeOfDay, min: 0, max: 24, step: 0.05, onChange: (v: number) => useStore.getState().setTime(v) },
     camera: { value: init.camera, options: CAMERA_PRESETS, onChange: (v: CameraPreset) => useStore.getState().setCamera(v) },
     quality: { value: init.quality, options: ['high', 'medium', 'low'], onChange: (v: Quality) => useStore.getState().setQuality(v) },
+    'veg near/far': monitor(vegStatsText, { graph: false, interval: 250 }),
   }));
 
   // Keep the panel in sync when the store changes from outside leva (URL parsing, future UI,
