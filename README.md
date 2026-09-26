@@ -4,7 +4,9 @@ A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza**
 
 Pick an era. Watch the crossing, the mangroves, the town, and the ferry itself change across 160 years.
 
-> Status: **Phase 0** — research and design. See the [roadmap](#roadmap).
+**Live:** https://gabriel-rene.github.io/ancon-de-loiza/
+
+> Status: **Phase 1** — the world: real terrain, river, sea, sky, sun, haze and water, at golden hour. No vegetation, ferry or buildings yet. See the [roadmap](#roadmap).
 
 ## Research
 
@@ -17,7 +19,7 @@ All scene details come from a sourced dossier: [`docs/research/ancon-research.md
 ## Roadmap
 
 - [x] Phase 0 — Repo, research, design, plan
-- [ ] Phase 1 — Terrain, river, sky, light, water
+- [x] Phase 1 — Terrain, river, sky, light, water
 - [ ] Phase 2 — Vegetation
 - [ ] Phase 3 — The ancón, per era
 - [ ] Phase 4 — Infrastructure per era
