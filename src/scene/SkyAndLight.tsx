@@ -1,15 +1,50 @@
-import { Environment, Sky } from '@react-three/drei';
+import { Environment } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import type { Atmosphere } from '../geo/atmosphere';
 import type { Sun } from './useSun';
 
 const FOCUS = new THREE.Vector3(0, 0, 0);
 
+/**
+ * three's (linear, HDR) Preetham sky with an output gain and a hue-preserving shoulder.
+ * The raw model is several times brighter than the sunlit ground and its low-sun Mie
+ * halo spans a third of the frame at values the tonemapper clips to white. The gain
+ * balances sky vs land; the luminance shoulder turns the halo into a golden glow instead
+ * of a white blotch while the sun disc (kept out of the shoulder) still blooms.
+ */
+function SkyDome({ dir, atm }: { dir: THREE.Vector3; atm: Atmosphere }) {
+  const sky = useMemo(() => {
+    const s = new Sky();
+    const m = s.material as THREE.ShaderMaterial;
+    m.uniforms.uGain = { value: 1 };
+    m.uniforms.uShoulder = { value: 2.5 };
+    m.fragmentShader = m.fragmentShader
+      .replace('uniform float showSunDisc;', 'uniform float showSunDisc;\nuniform float uGain;\nuniform float uShoulder;')
+      .replace('gl_FragColor = vec4( texColor, 1.0 );', `
+        vec3 skyC = max(texColor - sundiscColor, 0.0) * uGain;
+        skyC /= 1.0 + dot(skyC, vec3(0.2126, 0.7152, 0.0722)) / uShoulder;
+        gl_FragColor = vec4(skyC + sundiscColor * uGain * 0.004, 1.0);`);
+    s.scale.setScalar(30000);
+    return s;
+  }, []);
+  useEffect(() => () => { sky.geometry.dispose(); (sky.material as THREE.Material).dispose(); }, [sky]);
+  const u = (sky.material as THREE.ShaderMaterial).uniforms;
+  u.sunPosition.value.copy(dir).multiplyScalar(10000);
+  u.turbidity.value = atm.turbidity;
+  u.rayleigh.value = atm.rayleigh;
+  u.mieCoefficient.value = atm.mie;
+  u.mieDirectionalG.value = atm.mieG;
+  u.cloudCoverage.value = atm.cloudCoverage;
+  u.uGain.value = atm.skyGain;
+  return <primitive object={sky} />;
+}
+
 export function SkyAndLight({ sun, shadowMap }: { sun: Sun; shadowMap: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
-  const skyPos = sun.dir.clone().multiplyScalar(10000);
   const { atm } = sun;
 
   useEffect(() => { scene.environmentIntensity = atm.envIntensity; }, [scene, atm.envIntensity]);
@@ -20,14 +55,13 @@ export function SkyAndLight({ sun, shadowMap }: { sun: Sun; shadowMap: number })
     l.target.updateMatrixWorld();
   }, [sun.dir]);
 
-  const skyProps = { distance: 30000, sunPosition: skyPos, turbidity: atm.turbidity, rayleigh: atm.rayleigh, mieCoefficient: 0.006, mieDirectionalG: 0.86 };
   const envKey = `${sun.dir.x.toFixed(2)}${sun.dir.y.toFixed(2)}${sun.dir.z.toFixed(2)}`;
 
   return (
     <>
-      <Sky {...skyProps} />
+      <SkyDome dir={sun.dir} atm={atm} />
       <Environment key={envKey} resolution={128} frames={1}>
-        <Sky {...skyProps} />
+        <SkyDome dir={sun.dir} atm={atm} />
       </Environment>
       <directionalLight
         ref={light}

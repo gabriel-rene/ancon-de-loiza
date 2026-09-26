@@ -3,21 +3,27 @@ import { Bloom, EffectComposer, N8AO, Noise, SMAA, ToneMapping, Vignette } from 
 import { ToneMappingMode } from 'postprocessing';
 import { useEffect, useMemo, type ReactElement } from 'react';
 import type { Sun } from '../useSun';
+import { GradeEffect } from './GradeEffect';
 import { HeightFogEffect } from './HeightFogEffect';
 
 export function Post({ sun, ao }: { sun: Sun; ao: boolean }) {
   const camera = useThree((s) => s.camera);
   const fog = useMemo(() => new HeightFogEffect(camera), [camera]);
+  const grade = useMemo(() => new GradeEffect(), []);
   useEffect(() => fog.setAtmosphere(sun), [fog, sun]);
-  useEffect(() => () => fog.dispose(), [fog]);
+  useEffect(() => grade.set(sun.atm.exposure, [1.06, 1.0, 0.9], 1.15), [grade, sun]);
+  useEffect(() => () => { fog.dispose(); grade.dispose(); }, [fog, grade]);
   return (
     <EffectComposer multisampling={0}>
       {(
         [
           ao ? <N8AO key="ao" aoRadius={3} distanceFalloff={1.5} intensity={2.2} halfRes /> : null,
           <primitive key="fog" object={fog} />,
-          <Bloom key="bloom" mipmapBlur intensity={0.35} luminanceThreshold={3} luminanceSmoothing={0.3} />,
-          <ToneMapping key="tonemap" mode={ToneMappingMode.AGX} />,
+          // Threshold ~1 (HDR, pre-tonemap): the sun disc, the glow around it and the water
+          // glint bloom softly; the lit landscape (well under 1) does not.
+          <Bloom key="bloom" mipmapBlur intensity={0.3} luminanceThreshold={1.6} luminanceSmoothing={0.4} radius={0.6} />,
+          <primitive key="grade" object={grade} />,
+          <ToneMapping key="tonemap" mode={ToneMappingMode.ACES_FILMIC} />,
           <Vignette key="vignette" offset={0.3} darkness={0.5} />,
           <Noise key="noise" opacity={0.025} premultiply />,
           <SMAA key="smaa" />,

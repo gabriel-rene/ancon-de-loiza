@@ -11,3 +11,11 @@ test('sun below horizon gives no direct light', () => {
 test('haze is thicker near the horizon', () => {
   expect(atmosphereFor(3).fogDensity).toBeGreaterThan(atmosphereFor(60).fogDensity);
 });
+test('golden-hour haze is warm toward the sun and cool away from it', () => {
+  const a = atmosphereFor(6);
+  expect(a.fogColor[0] / a.fogColor[2]).toBeGreaterThan(1.5);
+  expect(a.fogAway[2] / a.fogAway[0]).toBeGreaterThan(1.1);
+});
+test('the sky is haziest at golden hour', () => {
+  expect(atmosphereFor(6).skyHaze).toBeGreaterThan(atmosphereFor(60).skyHaze);
+});
