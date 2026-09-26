@@ -5,6 +5,19 @@ export interface SpeciesRule {
   /** Jittered-grid spacing, m. */ spacing: number;
   /** Occupancy radius, m. */ radius: number;
   scale: [number, number]; variants: number;
+  /**
+   * Rotation about +Y is drawn from [-rot, rot] rad. Palms and casuarinas bake their lean into
+   * the local frame (palm toward local -Z, casuarina downwind along WIND_DIR), so they only get
+   * a small spin; π = fully random.
+   */
+  rot: number;
+  /**
+   * Clumping: acceptance is multiplied by 1 − strength + 2·strength·n, with n a smooth value
+   * noise (0..1) on a lattice of `scale` metres — groves and gaps instead of an even stand.
+   */
+  clump: { scale: number; strength: number;
+    /** Instance scale × (1 + size·(2n − 1)): taller plants in the heart of a grove, a rolling canopy line. */
+    size: number };
   /** Habitat suitability 0..1 at a site. */ density(s: Site): number;
 }
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -12,7 +25,7 @@ const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math
 export const RULES: Record<SpeciesId, SpeciesRule> = {
   // Rhizophora mangle: river/lagoon fringe and shallows, never the surf coast (research §5).
   redMangrove: {
-    spacing: 3.2, radius: 1.2, scale: [0.7, 1.25], variants: 3,
+    spacing: 3.2, radius: 1.2, scale: [0.7, 1.25], variants: 3, rot: Math.PI, clump: { scale: 30, strength: 0.45, size: 0.25 },
     density: (s) => {
       // Bank/shallow-water and land-fringe cutoffs are widened from a sub-cell 6/9m window to
       // 15/20m: at this world's cell size (10m at size=256, 5m at size=512) a raster cell's
@@ -28,7 +41,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards.
   coconut: {
-    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3,
+    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 45, strength: 0.8, size: 0 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3 || s.landCls === LANDCLS.WETLAND) return 0;
       const coast = s.seaDist > 12 ? 1 - smooth(180, 320, s.seaDist) : 0;
@@ -38,7 +51,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Casuarina equisetifolia ("piñones"): dunes and sand behind the beach.
   casuarina: {
-    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3,
+    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3, rot: 0.3, clump: { scale: 60, strength: 0.75, size: 0.12 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3) return 0;
       const dune = s.seaDist > 20 ? 1 - smooth(90, 220, s.seaDist) : 0;

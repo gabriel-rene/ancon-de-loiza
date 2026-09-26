@@ -10,6 +10,9 @@ const SHOTS: { era: EraId; cam: string; t: number }[] = [
   { era: '1975', cam: 'bank', t: golden('1975') },              // July: 18.50 AST
   { era: '1984', cam: 'aerial', t: +(golden('1984') - 1).toFixed(2) }, // late afternoon, sun ~18° up
   { era: '1986', cam: 'mouth', t: golden('1986', 'am') },       // morning sun rising over the sea
+  // Phase 2a: vegetation per era (1840: sparse palms and casuarinas; 1975: full coastal belts).
+  { era: '1840', cam: 'bank', t: golden('1840') },
+  { era: '1975', cam: 'ride', t: golden('1975') },
 ];
 
 for (const s of SHOTS) {
@@ -19,7 +22,7 @@ for (const s of SHOTS) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await page.goto(`?era=${s.era}&cam=${s.cam}&t=${s.t}&freeze=1&q=medium`);
     await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
-    await page.screenshot({ path: `tests/snapshots/phase1/${s.era}-${s.cam}.png` });
+    await page.screenshot({ path: `tests/snapshots/phase2a/${s.era}-${s.cam}.png` });
     expect(errors).toEqual([]);
   });
 }

@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
-import { buildVegMasks } from './masks';
+import { landmarkXZ } from '../data/landmarks';
+import { buildVegMasks, LANDING_CLEARING } from './masks';
 import { placeAll, placeSpecies } from './placement';
 import { RULES } from './rules';
 
@@ -51,6 +52,23 @@ describe('placement', () => {
     const half = placeSpecies(f, m, 'coconut', { density: 0.5, seed: 3 }).length;
     expect(half / full).toBeGreaterThan(0.35);
     expect(half / full).toBeLessThan(0.65);
+  });
+  test('per-species rotation range keeps baked leans downwind; mangroves spin freely', () => {
+    for (const id of ['coconut', 'casuarina'] as const) for (const p of all[id]) expect(Math.abs(p.rot)).toBeLessThanOrEqual(RULES[id].rot);
+    const rots = all.redMangrove.map((p) => p.rot);
+    expect(Math.max(...rots) - Math.min(...rots)).toBeGreaterThan(5);
+  });
+  test('skip and spacingMul thin the candidate set', () => {
+    const base = placeSpecies(f, m, 'coconut', { density: 1, seed: 3 }).length;
+    expect(placeSpecies(f, m, 'coconut', { density: 1, seed: 3, spacingMul: 2 }).length).toBeLessThan(base * 0.5);
+    expect(placeSpecies(f, m, 'coconut', { density: 1, seed: 3, skip: () => true })).toEqual([]);
+  });
+  test('ferry landings are kept clear', () => {
+    const cell = f.grid.cell * Math.SQRT1_2; // mask is per cell: allow half a cell diagonal
+    for (const l of ['eastLanding', 'westLanding'] as const) {
+      const [lx, lz] = landmarkXZ(l);
+      for (const p of Object.values(all).flat()) expect(Math.hypot(p.x - lx, p.z - lz)).toBeGreaterThan(LANDING_CLEARING[0] - cell);
+    }
   });
   test('instances sit on the terrain height', () => {
     for (const p of all.coconut.slice(0, 50)) expect(p.y).toBeGreaterThan(0);

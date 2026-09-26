@@ -38,7 +38,8 @@ export interface SpeciesDef {
 export const SPECIES: Record<SpeciesId, SpeciesDef> = {
   coconut: {
     build: buildPalm, paint: paintFrond,
-    bark: { color: 0xffffff, roughness: 0.92, vertexColors: true },
+    // Trunk multiplier: the pale grey vertex colours read near-white under a high sun.
+    bark: { color: 0xb8b0a4, roughness: 0.92, vertexColors: true },
     foliage: { color: 0xffffff, roughness: 0.8, translucency: 3, alphaTest: 0.5, texture: 'palmFrond' },
   },
   redMangrove: {

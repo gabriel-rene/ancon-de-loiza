@@ -5,11 +5,17 @@ import { WATER, type WorldFields } from '../terrain/fields';
 import { drawPolyline } from '../terrain/raster';
 
 export const TOWN_RADIUS = 230;
-export interface VegMasks { roadDist: Float32Array; riverDist: Float32Array; town: Float32Array }
+/** Ferry landings are kept clear of plants: fully within the first radius (m), fading out by the second. */
+export const LANDING_CLEARING: [number, number] = [22, 40];
+export interface VegMasks {
+  roadDist: Float32Array; riverDist: Float32Array; town: Float32Array;
+  /** 0..1, 1 = cleared (the two ferry landings and their approach). */
+  clear: Float32Array;
+}
 
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-/** Distances (m) to road centrelines and to river/pond water, plus a 0..1 Loíza town-core weight. */
+/** Distances (m) to road centrelines and to river/pond water, a 0..1 Loíza town-core weight and the landing clearings. */
 export function buildVegMasks(geo: GeoBundle, f: WorldFields): VegMasks {
   const g = f.grid, N = g.size * g.size;
   const road = new Uint8Array(N);
@@ -18,12 +24,14 @@ export function buildVegMasks(geo: GeoBundle, f: WorldFields): VegMasks {
   for (let i = 0; i < N; i++) river[i] = f.water[i] === WATER.RIVER || f.water[i] === WATER.POND ? 1 : 0;
   const dRoad = distanceTransform(road, g.size, g.size), dRiver = distanceTransform(river, g.size, g.size);
   const [px, pz] = landmarkXZ('plaza');
-  const roadDist = new Float32Array(N), riverDist = new Float32Array(N), town = new Float32Array(N);
+  const landings = [landmarkXZ('eastLanding'), landmarkXZ('westLanding')];
+  const roadDist = new Float32Array(N), riverDist = new Float32Array(N), town = new Float32Array(N), clear = new Float32Array(N);
   for (let j = 0; j < g.size; j++) for (let i = 0; i < g.size; i++) {
     const k = j * g.size + i, x = g.minX + (i + 0.5) * g.cell, z = g.minZ + (j + 0.5) * g.cell;
     roadDist[k] = dRoad[k] * g.cell;
     riverDist[k] = dRiver[k] * g.cell;
     town[k] = f.water[k] ? 0 : 1 - smooth(TOWN_RADIUS * 0.6, TOWN_RADIUS, Math.hypot(x - px, z - pz));
+    for (const [lx, lz] of landings) clear[k] = Math.max(clear[k], 1 - smooth(...LANDING_CLEARING, Math.hypot(x - lx, z - lz)));
   }
-  return { roadDist, riverDist, town };
+  return { roadDist, riverDist, town, clear };
 }
