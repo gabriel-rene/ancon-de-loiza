@@ -11,7 +11,7 @@ export function DebugPanel() {
 
   const [, set] = useControls(() => ({
     era: { value: init.eraId, options: ERA_IDS, onChange: (v: EraId) => useStore.getState().setEra(v) },
-    time: { value: init.timeOfDay, min: 5, max: 19.5, step: 0.05, onChange: (v: number) => useStore.getState().setTime(v) },
+    time: { value: init.timeOfDay, min: 0, max: 24, step: 0.05, onChange: (v: number) => useStore.getState().setTime(v) },
     camera: { value: init.camera, options: CAMERA_PRESETS, onChange: (v: CameraPreset) => useStore.getState().setCamera(v) },
     quality: { value: init.quality, options: ['high', 'medium', 'low'], onChange: (v: Quality) => useStore.getState().setQuality(v) },
   }));

@@ -24,6 +24,7 @@ function SkyDome({ dir, atm }: { dir: THREE.Vector3; atm: Atmosphere }) {
     m.uniforms.uShoulder = { value: 2.5 };
     m.fragmentShader = patchSkyShader(m.fragmentShader);
     s.scale.setScalar(30000);
+    s.renderOrder = -1; // draw first regardless of object id (it writes no depth)
     return s;
   }, []);
   useEffect(() => () => { sky.geometry.dispose(); (sky.material as THREE.Material).dispose(); }, [sky]);

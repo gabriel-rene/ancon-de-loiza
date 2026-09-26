@@ -25,8 +25,9 @@ export function Post({ sun, ao }: { sun: Sun; ao: boolean }) {
           <primitive key="grade" object={grade} />,
           <ToneMapping key="tonemap" mode={ToneMappingMode.ACES_FILMIC} />,
           <Vignette key="vignette" offset={0.3} darkness={0.5} />,
-          <Noise key="noise" opacity={0.025} premultiply />,
+          // SMAA before grain so the edge detector doesn't chase film noise.
           <SMAA key="smaa" />,
+          <Noise key="noise" opacity={0.025} premultiply />,
         ] as (ReactElement | null)[]
       ).filter(Boolean)}
     </EffectComposer>
