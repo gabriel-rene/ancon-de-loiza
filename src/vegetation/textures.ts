@@ -15,6 +15,7 @@ function canvas(w: number, h: number) {
 
 const mix = (a: number[], b: number[], t: number) => a.map((v, i) => v + (b[i] - v) * t);
 const rgb = (c: number[]) => `rgb(${c.map((v) => Math.round(v)).join(',')})`;
+const rgba = (c: number[], a: number) => `rgba(${c.map((v) => Math.round(v)).join(',')},${a})`;
 
 /**
  * Coconut frond, 512×1024, transparent. u across (0 left leaflet tips … 0.5 rachis … 1 right
@@ -157,6 +158,78 @@ export function paintMangroveLeaves(): HTMLCanvasElement {
     g.fillStyle = 'rgb(150,86,60)';
     g.beginPath(); g.moveTo(0, -3); g.lineTo(18, 0); g.lineTo(0, 3); g.closePath(); g.fill();
     g.restore();
+  }
+  return c;
+}
+
+/**
+ * Casuarina wisp card, 512×1024 (≈ 1.4 × 2.4 m), transparent; canvas top = the card's top edge
+ * at the branch. Casuarina "needles" are thin jointed branchlets hanging in soft tufts: a few
+ * grey-brown twigs fan down from the top, and tufts of 18–36 hair-thin strands (1.6–2.8 px,
+ * thick enough to survive a few mip levels as streaks) droop from points along them and from a
+ * jittered grid over the card body; grey-green between #4d5b3b and #6b7a54, a shade per tuft
+ * plus per-strand contrast (so tufts read as separate soft clumps), paler, browner tips.
+ * Strand alpha feathers toward the tip (the alpha test trims them to a taper), and tufts thin
+ * out toward the card edges so the card outline never reads.
+ */
+export function paintCasuarinaWisps(): HTMLCanvasElement {
+  const W = 512, Hh = 1024, M = 6;
+  const c = canvas(W, Hh), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 6161);
+  const dark = [77, 91, 59], light = [107, 122, 84], tipC = [128, 128, 92], twigC = [92, 82, 68];
+  g.lineCap = 'round';
+  /** 0 at the card's centre line … 1 at its soft elliptical edge. */
+  const edge = (x: number, y: number) => Math.hypot((x - W / 2) / (W * 0.5), (y - Hh * 0.46) / (Hh * 0.54));
+  const strand = (x0: number, y0: number, ang: number, len: number, shade: number) => {
+    // Leaves at `ang` (0 = straight down), bends under its own weight to hang vertically.
+    const sx = Math.sin(ang), sy = Math.cos(ang);
+    let x1 = x0 + sx * len * 0.55, y1 = y0 + sy * len * 0.55 + len * 0.45;
+    const mx = x0 + sx * len * 0.45, my = y0 + sy * len * 0.4;
+    // Keep inside the card (shorten rather than clip into a straight edge).
+    const k = Math.min(1, x1 < M ? (x0 - M) / Math.max(1, x0 - x1) : x1 > W - M ? (W - M - x0) / Math.max(1, x1 - x0) : 1,
+      y1 > Hh - M ? (Hh - M - y0) / Math.max(1, y1 - y0) : 1);
+    if (k < 0.25) return;
+    x1 = x0 + (x1 - x0) * k; y1 = y0 + (y1 - y0) * k;
+    // Per-tuft shade ± per-strand contrast: tufts read as separate soft clumps, strands as streaks.
+    const base = mix(dark, light, Math.min(1, Math.max(0, shade + (rng() - 0.5) * 0.7))).map((q) => q * (0.72 + 0.4 * rng()));
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, rgba(mix(base, dark, 0.3), 0.95));
+    grad.addColorStop(0.6, rgba(base, 0.8));
+    grad.addColorStop(1, rgba(mix(base, tipC, 0.5), 0.3));
+    g.strokeStyle = grad;
+    g.lineWidth = 1.6 + 1.2 * rng();
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + (rng() - 0.5) * 6, my, x1, y1); g.stroke();
+  };
+  const tuft = (x: number, y: number, spread: number, scale: number) => {
+    const n = 18 + Math.floor(rng() * 19);
+    const lean = (rng() - 0.5) * 0.5, shade = rng();
+    for (let i = 0; i < n; i++) {
+      const a = lean + (rng() - 0.5) * 2 * spread;
+      strand(x + (rng() - 0.5) * 8, y + (rng() - 0.5) * 8, a, (90 + 190 * rng()) * scale, shade);
+    }
+  };
+  // Twigs fanning down and out from the top edge, carrying tufts along their length.
+  const twigs = 7 + Math.floor(rng() * 3);
+  for (let k = 0; k < twigs; k++) {
+    const x0 = W * (0.3 + 0.4 * rng()), y0 = M + 10 * rng();
+    const x1 = W * (0.1 + 0.8 * (k + rng()) / twigs), y1 = Hh * (0.4 + 0.3 * rng());
+    const mx = lerp(x0, x1, 0.6) + (rng() - 0.5) * 40, my = lerp(y0, y1, 0.35);
+    const at = (t: number) => [lerp(lerp(x0, mx, t), lerp(mx, x1, t), t), lerp(lerp(y0, my, t), lerp(my, y1, t), t)];
+    g.strokeStyle = rgb(twigC.map((q) => q * (0.85 + 0.3 * rng())));
+    g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, x1, y1); g.stroke();
+    const nT = 5 + Math.floor(rng() * 3);
+    for (let i = 0; i < nT; i++) {
+      const [x, y] = at((i + 0.2 + 0.6 * rng()) / nT);
+      if (rng() > 1.25 - edge(x, y)) continue;               // sparser toward the edges
+      tuft(x, y, 0.35 + 0.35 * rng(), lerp(1.1, 0.75, edge(x, y)));
+    }
+  }
+  // Extra tufts on a jittered 5×7 grid filling the body of the card, thinning at its edges.
+  for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) {
+    const x = W * (0.08 + 0.84 * (i + 0.15 + 0.7 * rng()) / 5), y = Hh * (0.02 + 0.7 * (j + rng()) / 7);
+    if (rng() < edge(x, y) * edge(x, y)) continue;
+    tuft(x, y, 0.3 + 0.35 * rng(), lerp(1, 0.7, edge(x, y)));
   }
   return c;
 }

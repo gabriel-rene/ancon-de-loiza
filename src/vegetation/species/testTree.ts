@@ -6,13 +6,11 @@ import { sampleField, WATER, type WorldFields } from '../../terrain/fields';
 import type { PlantMaterials } from '../InstancedSpecies';
 import type { PlantInstance, PlantPart } from '../types';
 import { makePlantMaterials } from '../windMaterial';
-import { foliageTexture, paintFrond, paintMangroveLeaves } from '../textures';
 import geo from '../../data/geo/loiza.json';
 import type { GeoBundle } from '../../data/geo/types';
 import { buildVegMasks } from '../masks';
 import { placeSpecies } from '../placement';
-import { buildMangrove } from './mangrove';
-import { buildPalm } from './palm';
+import { makeSpeciesMaterials, SPECIES } from './index';
 
 function withFlex(g: THREE.BufferGeometry, fn: (y: number) => number) {
   const pos = g.attributes.position as THREE.BufferAttribute, flex = new Float32Array(pos.count);
@@ -80,13 +78,8 @@ export function useTestTrees(near: WorldFields) {
 /** TEMPORARY (Task 7 visual check): five palms in front of the `bank` camera + the test scatter as palms. */
 export function useTestPalms(near: WorldFields) {
   const assets = useMemo(() => {
-    const variants = [buildPalm(1), buildPalm(2), buildPalm(3)];
-    const map = foliageTexture(paintFrond(), 0.5, 'palmFrond');
-    const materials: PlantMaterials = {
-      bark: makePlantMaterials({ part: 'bark', color: 0xffffff, roughness: 0.92, vertexColors: true }),
-      foliage: makePlantMaterials({ part: 'foliage', map, color: 0xffffff, roughness: 0.8, alphaTest: 0.5, translucency: 3 }),
-    };
-    return { variants, materials, map };
+    const variants = [1, 2, 3].map((s) => SPECIES.coconut.build(s));
+    return { variants, ...makeSpeciesMaterials('coconut') };
   }, []);
   useEffect(() => () => {
     assets.variants.flat().forEach((p) => p.geometry.dispose());
@@ -115,13 +108,8 @@ export function useTestPalms(near: WorldFields) {
 /** TEMPORARY (Task 8 visual check): red mangroves with the real placement rules. */
 export function useTestMangroves(near: WorldFields) {
   const assets = useMemo(() => {
-    const variants = [buildMangrove(1), buildMangrove(2), buildMangrove(3)];
-    const map = foliageTexture(paintMangroveLeaves(), 0.5, 'mangroveLeaves');
-    const materials: PlantMaterials = {
-      bark: makePlantMaterials({ part: 'bark', color: 0xffffff, roughness: 0.9, vertexColors: true }),
-      foliage: makePlantMaterials({ part: 'foliage', map, color: 0xffffff, roughness: 0.62, alphaTest: 0.5, translucency: 1.2, vertexColors: true }),
-    };
-    return { variants, materials, map };
+    const variants = [1, 2, 3].map((s) => SPECIES.redMangrove.build(s));
+    return { variants, ...makeSpeciesMaterials('redMangrove') };
   }, []);
   useEffect(() => () => {
     assets.variants.flat().forEach((p) => p.geometry.dispose());
@@ -129,5 +117,24 @@ export function useTestMangroves(near: WorldFields) {
     Object.values(assets.materials).forEach((m) => { m.material.dispose(); m.depth.dispose(); });
   }, [assets]);
   const instances = useMemo(() => placeSpecies(near, buildVegMasks(geo as unknown as GeoBundle, near), 'redMangrove', { density: 1, seed: 7 }), [near]);
+  return { variants: assets.variants, materials: assets.materials, instances };
+}
+
+/**
+ * TEMPORARY (Task 9 visual check): casuarinas with the real placement rules. Rotation is
+ * narrowed to ±0.3 rad so the generator's downwind lean stays roughly downwind.
+ */
+export function useTestCasuarinas(near: WorldFields) {
+  const assets = useMemo(() => {
+    const variants = [1, 2, 3].map((s) => SPECIES.casuarina.build(s));
+    return { variants, ...makeSpeciesMaterials('casuarina') };
+  }, []);
+  useEffect(() => () => {
+    assets.variants.flat().forEach((p) => p.geometry.dispose());
+    assets.map.dispose();
+    Object.values(assets.materials).forEach((m) => { m.material.dispose(); m.depth.dispose(); });
+  }, [assets]);
+  const instances = useMemo(() => placeSpecies(near, buildVegMasks(geo as unknown as GeoBundle, near), 'casuarina', { density: 1, seed: 7 })
+    .map((p) => ({ ...p, rot: (p.rot / Math.PI - 1) * 0.3 })), [near]);
   return { variants: assets.variants, materials: assets.materials, instances };
 }
