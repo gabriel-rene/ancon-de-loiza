@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { getEra, type EraId } from '../data/eras';
 import { goldenHourAST } from '../geo/sun';
 import { detectQuality, type Quality } from '../quality';
-import { parseUrlState, type CameraPreset } from './url';
+import { parseUrlState, type CameraPreset, type DebugView } from './url';
 
 interface AppState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
+  debugView: DebugView | undefined;
   setEra: (id: EraId) => void; setTime: (t: number) => void; setCamera: (c: CameraPreset) => void; setQuality: (q: Quality) => void;
 }
 
@@ -16,7 +17,7 @@ const DEFAULT_ERA: EraId = '1975';
 export const defaultTime = (eraId: EraId) => goldenHourAST(getEra(eraId).date);
 
 export const useStore = create<AppState>((set) => ({
-  eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false,
+  eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false, debugView: undefined,
   ...fromUrl,
   setEra: (eraId) => set({ eraId }),
   setTime: (timeOfDay) => set({ timeOfDay }),

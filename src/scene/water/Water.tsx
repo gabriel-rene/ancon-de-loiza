@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { RIVER_DIR, WIND_DIR } from '../../geo/constants';
+import { useStore } from '../../state/store';
 import type { WorldFields } from '../../terrain/fields';
 import type { Sun } from '../useSun';
 import { makeInfoTexture } from '../useWorldFields';
@@ -35,6 +36,7 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
           uSunDir: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() }, uSunIntensity: { value: 1 },
           uRiverFlow: { value: new THREE.Vector2() }, uWind: { value: windDirVec.clone() },
           uHazeColor: { value: new THREE.Color() }, uHazeAway: { value: new THREE.Color() }, uHaze: { value: 0 },
+          uDebugWater: { value: 0 },
         },
         vertexShader: waterVertex,
         fragmentShader: waterFragment,
@@ -45,6 +47,11 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
   }, [size.width, size.height, dpr, reflScale]);
 
   const u = (mirror.material as THREE.ShaderMaterial).uniforms;
+  const debugView = useStore((s) => s.debugView);
+
+  useEffect(() => {
+    u.uDebugWater.value = debugView === 'water' ? 1 : 0;
+  }, [debugView, u]);
 
   useEffect(() => {
     const a = makeInfoTexture(near.waterInfo, near.grid.size), b = makeInfoTexture(far.waterInfo, far.grid.size);
