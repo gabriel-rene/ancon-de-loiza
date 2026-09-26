@@ -43,11 +43,12 @@ vec2 grad(vec2 q) {
 // wavelength drops under ~3 pixels (pxm = metres per pixel), which is what removes the
 // distant speckle/aliasing instead of a fixed distance cut.
 vec2 octave(vec2 p, vec2 dir, float freq, float stretch, float speed, float seed, float pxm) {
+  float w = 1.0 - smoothstep(0.12, 0.35, pxm * freq);
+  if (w <= 0.0) return vec2(0.0);                       // sub-pixel octave: skip the 4 noise taps
   vec2 perp = vec2(-dir.y, dir.x);
   vec2 q = vec2(dot(p, dir) * stretch, dot(p, perp)) * freq;
   q.x -= uTime * speed * freq;
   vec2 g = grad(q + seed);
-  float w = 1.0 - smoothstep(0.12, 0.35, pxm * freq);
   // back to world xz (chain rule: d/dp = dq/dp^T * g)
   return (dir * g.x * stretch + perp * g.y) * w;
 }
@@ -62,18 +63,26 @@ void main() {
   vec3 V = toCam / dist;
   float pxm = max(length(fwidth(vWorld.xz)), 1e-4);
 
-  // River: calm, mirror-like, fine streaks elongated along the current.
+  // The river flag is spatially coherent, so branching keeps warps uniform: river fragments
+  // pay only for river octaves, sea fragments only for sea octaves; only the thin blend band
+  // at the mouth evaluates both.
+  vec2 gr = vec2(0.0), gs = vec2(0.0);
   float flowSpd = length(uRiverFlow);
-  vec2 fdir = flowSpd > 1e-4 ? uRiverFlow / flowSpd : vec2(0.7071, -0.7071);
-  vec2 gr = octave(vWorld.xz, fdir, 0.35, 0.30, 0.25 * flowSpd, 1.3, pxm) * 0.55
-          + octave(vWorld.xz, fdir, 1.30, 0.40, 0.45 * flowSpd, 7.1, pxm) * 0.30
-          + octave(vWorld.xz, fdir, 4.20, 0.60, 0.60 * flowSpd, 3.7, pxm) * 0.15;
+  if (river > 0.0) {
+    // River: calm, mirror-like, fine streaks elongated along the current.
+    vec2 fdir = flowSpd > 1e-4 ? uRiverFlow / flowSpd : vec2(0.7071, -0.7071);
+    gr = octave(vWorld.xz, fdir, 0.35, 0.30, 0.25 * flowSpd, 1.3, pxm) * 0.55
+       + octave(vWorld.xz, fdir, 1.30, 0.40, 0.45 * flowSpd, 7.1, pxm) * 0.30
+       + octave(vWorld.xz, fdir, 4.20, 0.60, 0.60 * flowSpd, 3.7, pxm) * 0.15;
+  }
+  if (river < 1.0) {
+    // Sea: trade-wind chop, crests across the wind, several octaves.
+    gs = octave(vWorld.xz, uWind, 0.045, 0.45, 1.2, 0.0, pxm) * 0.55
+       + octave(vWorld.xz, uWind, 0.16, 0.55, 1.6, 5.3, pxm) * 0.30
+       + octave(vWorld.xz, uWind, 0.60, 0.70, 1.9, 9.9, pxm) * 0.18
+       + octave(vWorld.xz, uWind, 2.10, 0.80, 2.4, 2.2, pxm) * 0.10;
+  }
   float riverAmp = 0.03 * (0.7 + 0.3 * flowSpd);
-  // Sea: trade-wind chop, crests across the wind, several octaves.
-  vec2 gs = octave(vWorld.xz, uWind, 0.045, 0.45, 1.2, 0.0, pxm) * 0.55
-          + octave(vWorld.xz, uWind, 0.16, 0.55, 1.6, 5.3, pxm) * 0.30
-          + octave(vWorld.xz, uWind, 0.60, 0.70, 1.9, 9.9, pxm) * 0.18
-          + octave(vWorld.xz, uWind, 2.10, 0.80, 2.4, 2.2, pxm) * 0.10;
   vec2 g = mix(gs * 0.16, gr * riverAmp, river);
   vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
 
