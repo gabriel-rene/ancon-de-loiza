@@ -14,7 +14,7 @@ export const SOURCES: Record<string, { title: string; url: string }> = {
   S14: { title: 'Wikipedia — Parroquia del Espíritu Santo y San Patricio', url: 'https://en.wikipedia.org/wiki/Parroquia_del_Esp%C3%ADritu_Santo_y_San_Patricio' },
   S15: { title: 'Wikipedia — Carraízo Dam', url: 'https://en.wikipedia.org/wiki/Carra%C3%ADzo_Dam' },
   S16: { title: 'Wikipedia — Loíza barrio-pueblo', url: 'https://en.wikipedia.org/wiki/Lo%C3%ADza_barrio-pueblo' },
-  S17: { title: 'Wikipedia — Loíza barrio-pueblo', url: 'https://en.wikipedia.org/wiki/Lo%C3%ADza_barrio-pueblo' },
+  S17: { title: 'Primera Hora — DRNA manatee rescue (2026)', url: 'https://www.primerahora.com/noticias/gobierno-politica/notas/drna-encamina-rescate-de-dos-manaties-bebes-en-loiza/' },
   S21: { title: 'NOAA CO-OPS — San Juan 9755371 tidal datums', url: 'https://tidesandcurrents.noaa.gov/datums.html?id=9755371' },
   S22: { title: 'DRNA — Bosque Estatal de Piñones (2008)', url: 'https://www.drna.pr.gov/wp-content/uploads/2015/04/El-Bosque-Estatal-de-Pi%C3%B1ones.pdf' },
   S23: { title: 'Enciclopedia de Puerto Rico — Municipio de Loíza', url: 'https://enciclopediapr.org/content/municipio-de-loiza/' },
