@@ -50,15 +50,16 @@ export function sunDirection(azimuth: number, elevation: number): [number, numbe
 }
 
 /**
- * Afternoon time (AST hours) when the sun sinks through `elevation` degrees — the
- * start of the warm, low-angle "golden" light. Seasonal: ~18.5 in late July,
- * ~17.4 in December (research §1.3). Bisects between solar noon and 21:00.
+ * Time (AST hours) when the sun passes through `elevation` degrees — the warm,
+ * low-angle "golden" light. Evening by default: seasonal, ~18.5 in late July and
+ * ~17.4 in December (research §1.3). `'am'` gives the morning crossing instead.
+ * Bisects between solar noon (≈12.4 AST, sun ≥ 48° all year here) and 21:00 / 3:00.
  */
-export function goldenHourAST(dateISO: string, elevation = 6): number {
-  let lo = 12.5, hi = 21; // sun is high at lo (≥ 48° all year here) and below the horizon at hi
+export function goldenHourAST(dateISO: string, elevation = 6, side: 'am' | 'pm' = 'pm'): number {
+  let high = 12.4, low = side === 'pm' ? 21 : 3; // sun above `elevation` at `high`, below at `low`
   for (let k = 0; k < 40; k++) {
-    const mid = (lo + hi) / 2;
-    if (sunAt(dateISO, mid).elevation > elevation) lo = mid; else hi = mid;
+    const mid = (high + low) / 2;
+    if (sunAt(dateISO, mid).elevation > elevation) high = mid; else low = mid;
   }
-  return Math.round(((lo + hi) / 2) * 100) / 100;
+  return Math.round(((high + low) / 2) * 100) / 100;
 }

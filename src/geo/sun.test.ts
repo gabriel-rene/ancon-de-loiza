@@ -31,3 +31,10 @@ test('goldenHourAST puts the sun ≈ 6° up, later in July than in December', ()
 test('goldenHourAST accepts a custom elevation', () => {
   expect(goldenHourAST('1975-07-27', 2)).toBeGreaterThan(goldenHourAST('1975-07-27', 6));
 });
+test('goldenHourAST morning crossing', () => {
+  const am = goldenHourAST('2026-06-21', 6, 'am');
+  // Jun 21 sunrise ≈ 5:47 AST; 6° is ~25–30 min later, with the sun still rising.
+  expect(am).toBeGreaterThan(6.0); expect(am).toBeLessThan(6.4);
+  expect(sunAt('2026-06-21', am).elevation).toBeCloseTo(6, 0);
+  expect(sunAt('2026-06-21', am + 0.05).elevation).toBeGreaterThan(6);
+});
