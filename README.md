@@ -32,3 +32,5 @@ Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zu
 ## Acknowledgements
 
 The Cortijo family, the Colectivo El Ancón de Loíza, and the Archivo Negro collection *El Ancón de Loíza: Un Vínculo Histórico*, whose photographs and testimony make this reconstruction possible.
+
+Map data © OpenStreetMap contributors (ODbL).
