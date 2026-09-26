@@ -37,12 +37,16 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         c = mix(c, mud * 1.2, smoothstep(0.2, 0.55, slope) * (1.0 - m.r));
         csm_DiffuseColor = vec4(c, 1.0);
         csm_Roughness = mix(0.95, 0.3, wet);
-        // Stand-in for grass blades until Phase 2 vegetation: vertical blades catch a low
-        // sun far better than the flat ground plane (irradiance ~ cos(elevation), not
-        // sin), which is what makes pasture glow at golden hour. Unshadowed; fine while
-        // nothing casts shadows on the terrain.
+        // Grass sheen: vertical blades catch a low sun far better than the flat ground
+        // plane (irradiance ~ cos(elevation), not sin), which is what makes pasture glow
+        // at golden hour. Rather than an unshadowed emissive add, tilt the shading normal
+        // toward the horizontal sun direction so the effect goes through the normal
+        // (shadowed) lighting loop and disappears inside shadows (e.g. under trees).
         float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet);
-        csm_Emissive = c * uSunColor * uSunI * 0.12 * length(uSunDir.xz) * grassy * step(0.0, uSunDir.y);
+        vec3 sunH = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4));
+        float lowSun = 1.0 - smoothstep(0.15, 0.6, uSunDir.y);          // only near golden hour
+        vec3 bladeN = normalize(mix(vNw, normalize(vNw * 0.55 + sunH * 0.45), grassy * lowSun));
+        csm_FragNormal = normalize((viewMatrix * vec4(bladeN, 0.0)).xyz);
       }`,
   });
 }
