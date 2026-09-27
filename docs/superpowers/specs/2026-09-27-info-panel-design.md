@@ -47,7 +47,7 @@ export const FACTS: Record<EraId, Fact[]>;
 `Era.label` and `Era.years` in `src/data/eras.ts` become `Bilingual` (for example `{ es: 'Las sogas', en: 'The ropes' }`, `{ es: 'décadas de 1930–1940', en: '1930s–1940s' }`). All readers of these fields read them through the current language.
 
 ### 3.4 UI strings — `src/i18n/strings.ts`
-One object of `Bilingual` values for the panel and controls: button "Datos / Facts", "Cerrar / Close", "Fuente / Source", "Inferido / Inferred", the rail's `aria-label`, the language-switch labels, and the no-WebGL message.
+One object of `Bilingual` values for the panel and controls: button "Datos / Facts", "Cerrar / Close", "Fuentes / Sources", "Inferido / Inferred", the rail's `aria-label`, the language-switch labels, and the no-WebGL message.
 
 ## 4. Language state
 
@@ -60,7 +60,7 @@ One object of `Bilingual` values for the panel and controls: button "Datos / Fac
 ## 5. The panel
 
 ### 5.1 Open and close
-- A "Datos / Facts" button next to the title card (top left). The panel starts closed.
+- A "Datos / Facts" button in a small toolbar at the top left (the title card stays at the bottom left). The panel starts closed.
 - Next to it, an "ES | EN" toggle: two buttons, the current one marked `aria-pressed="true"`.
 - Close: the panel's close button, the "Datos / Facts" button again, or Esc.
 
