@@ -36,3 +36,7 @@ test('blank ?c= and ?t= are absent, not 0', () => {
   expect(parseUrlState('?c=&t=')).toEqual({});
   expect(parseUrlState('?c=%20')).toEqual({});
 });
+test('parses ?perf=1', () => {
+  expect(parseUrlState('?perf=1')).toEqual({ perf: true });
+  expect(parseUrlState(toSearch({ perf: true }))).toEqual({ perf: true });
+});

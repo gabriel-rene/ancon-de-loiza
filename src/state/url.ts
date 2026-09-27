@@ -9,6 +9,8 @@ export interface UrlState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
   crossingStart: number; showAncon: boolean;
+  /** ?perf=1: record frame times for scripts/dev/perf.mjs. */
+  perf: boolean;
 }
 
 export function parseUrlState(search: string): Partial<UrlState> {
@@ -31,6 +33,7 @@ export function parseUrlState(search: string): Partial<UrlState> {
   const c = num('c');
   if (c !== undefined && Number.isFinite(c) && c >= 0 && c < 1e6) out.crossingStart = c;
   if (p.get('ancon') === '0') out.showAncon = false;
+  if (p.get('perf') === '1') out.perf = true;
   return out;
 }
 
@@ -45,5 +48,6 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.debugView) p.set('view', s.debugView);
   if (s.crossingStart !== undefined) p.set('c', String(s.crossingStart));
   if (s.showAncon === false) p.set('ancon', '0');
+  if (s.perf) p.set('perf', '1');
   return `?${p.toString()}`;
 }

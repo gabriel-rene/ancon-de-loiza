@@ -8,7 +8,7 @@ import { parseUrlState, type CameraPreset, type DebugView } from './url';
 interface AppState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
-  crossingStart: number; crossingSpeed: number; showAncon: boolean;
+  crossingStart: number; crossingSpeed: number; showAncon: boolean; perf: boolean;
   setEra: (id: EraId) => void; setTime: (t: number) => void; setCamera: (c: CameraPreset) => void; setQuality: (q: Quality) => void;
   setCrossingSpeed: (v: number) => void;
 }
@@ -24,7 +24,7 @@ export const shiftTime = (t: number, from: EraId, to: EraId) => Math.min(24, Mat
 
 export const useStore = create<AppState>((set) => ({
   eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false, debugView: undefined,
-  crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true,
+  crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true, perf: false,
   ...fromUrl,
   setEra: (eraId) => set((s) => ({ eraId, timeOfDay: shiftTime(s.timeOfDay, s.eraId, eraId) })),
   setTime: (timeOfDay) => set({ timeOfDay }),
