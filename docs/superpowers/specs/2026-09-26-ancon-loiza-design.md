@@ -129,6 +129,7 @@ Units stay small and single-purpose. Scene components read the era config; they 
 - **Placement grid:** placement always runs on a fixed 512×512 grid regardless of the tier's terrain resolution, so instance counts don't depend on render quality.
 - **Shadows:** one directional shadow map that follows the camera focus with texel snapping (replaces the fixed ±350 m frustum; supersedes the CSM note in §5).
 - **Split:** 2a = Phase-1 carry-over fixes + vegetation core + red mangrove, coconut palm, Casuarina. 2b = remaining species, era-specific landscapes (cane, young groves), polish.
+- **Split revised 2026-09-27:** 2b = remaining species incl. ground cover + polish ([`2026-09-27-phase-2b-vegetation-design.md`](2026-09-27-phase-2b-vegetation-design.md)); 2c = cane, young groves, era landscapes.
 
 ## 13. Phase 3 detail — The ancón, crossing loop, crew, decade picker (approved in chat 2026-09-26)
 
