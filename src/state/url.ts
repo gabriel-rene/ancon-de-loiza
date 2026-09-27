@@ -8,6 +8,7 @@ export const DEBUG_VIEWS: DebugView[] = ['water'];
 export interface UrlState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
+  crossingStart: number; showAncon: boolean;
 }
 
 export function parseUrlState(search: string): Partial<UrlState> {
@@ -25,6 +26,9 @@ export function parseUrlState(search: string): Partial<UrlState> {
   if (p.get('freeze') === '1') out.frozen = true;
   const view = p.get('view');
   if (view && (DEBUG_VIEWS as string[]).includes(view)) out.debugView = view as DebugView;
+  const c = Number(p.get('c'));
+  if (p.has('c') && Number.isFinite(c) && c >= 0 && c < 1e6) out.crossingStart = c;
+  if (p.get('ancon') === '0') out.showAncon = false;
   return out;
 }
 
@@ -37,5 +41,7 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.debug) p.set('debug', '1');
   if (s.frozen) p.set('freeze', '1');
   if (s.debugView) p.set('view', s.debugView);
+  if (s.crossingStart !== undefined) p.set('c', String(s.crossingStart));
+  if (s.showAncon === false) p.set('ancon', '0');
   return `?${p.toString()}`;
 }

@@ -5,6 +5,7 @@ import { useStore } from '../state/store';
 import { CAMERA_PRESETS, type CameraPreset } from '../state/url';
 import type { Quality } from '../quality';
 import { vegStatsText } from '../vegetation/stats';
+import { anconTiming } from '../ancon/stats';
 
 export function DebugPanel() {
   const init = useStore.getState();
@@ -15,6 +16,8 @@ export function DebugPanel() {
     camera: { value: init.camera, options: CAMERA_PRESETS, onChange: (v: CameraPreset) => useStore.getState().setCamera(v) },
     quality: { value: init.quality, options: ['high', 'medium', 'low'], onChange: (v: Quality) => useStore.getState().setQuality(v) },
     'veg near/far': monitor(vegStatsText, { graph: false, interval: 250 }),
+    'crossing ×': { value: init.crossingSpeed, min: 0, max: 8, step: 0.25, onChange: (v: number) => useStore.getState().setCrossingSpeed(v) },
+    'ancón ms': monitor(() => anconTiming.cpuMs.toFixed(3), { graph: false, interval: 250 }),
   }));
 
   // Keep the panel in sync when the store changes from outside leva (URL parsing, future UI,

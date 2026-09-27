@@ -7,16 +7,21 @@ export interface QualitySettings {
    * lod0; farRing: also place the distant ring (far fields, outside the near extent) as cards.
    */
   veg: { density: number; lod0: number; reflLod0: number; farCards: boolean; farRing: boolean };
+  /** Ferry detail: rope tube segments per water span, tube sides, passenger count multiplier. */
+  ancon: { ropeSegments: number; ropeRadial: number; passengers: number };
 }
 export const QUALITY: Record<Quality, QualitySettings> = {
   high: { dpr: [1, 2], nearSize: 512, farSize: 512, reflScale: 0.5, shadowMap: 4096, shadowHalf: 140, ao: true,
-    veg: { density: 1, lod0: 220, reflLod0: 50, farCards: true, farRing: true } },
+    veg: { density: 1, lod0: 220, reflLod0: 50, farCards: true, farRing: true },
+    ancon: { ropeSegments: 40, ropeRadial: 6, passengers: 1 } },
   medium: { dpr: [1, 1.5], nearSize: 384, farSize: 256, reflScale: 0.35, shadowMap: 2048, shadowHalf: 110, ao: true,
-    veg: { density: 0.7, lod0: 150, reflLod0: 25, farCards: true, farRing: true } },
+    veg: { density: 0.7, lod0: 150, reflLod0: 25, farCards: true, farRing: true },
+    ancon: { ropeSegments: 32, ropeRadial: 6, passengers: 1 } },
   low: { dpr: [1, 1], nearSize: 256, farSize: 192, reflScale: 0.25, shadowMap: 0, shadowHalf: 0, ao: false,
     // Low keeps cards beyond LOD0 (without them the banks past 90 m were bare while the water
     // still reflected cards) but skips the distant ring (placement cost on slow devices).
-    veg: { density: 0.4, lod0: 90, reflLod0: 0, farCards: true, farRing: false } },
+    veg: { density: 0.4, lod0: 90, reflLod0: 0, farCards: true, farRing: false },
+    ancon: { ropeSegments: 20, ropeRadial: 4, passengers: 0.5 } },
 };
 
 export function detectQuality(): Quality {
