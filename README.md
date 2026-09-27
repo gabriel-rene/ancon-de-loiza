@@ -6,7 +6,7 @@ Pick an era. Watch the crossing, the mangroves, the town, and the ferry itself c
 
 **Live:** https://gabriel-rene.github.io/ancon-de-loiza/
 
-> Status: **Phase 2a** — the world (real terrain, river, sea, sky, sun, haze and water) now with code-generated vegetation per era: red mangroves on the river fringe, coconut palms and casuarinas on the coast. No ferry or buildings yet. See the [roadmap](#roadmap).
+> Status: **Phase 3** — the hand-powered ferry per era — poled barges, the growing rope-hauled platform, the 1980s steel barge and the idle 1986 barge — crossing between the real landings with its crew and passengers; a decade picker switches eras. It sails through the Phase 1–2a world: real terrain, river, sea, sky, sun, haze and water, with mangroves, coconut palms and casuarinas per era. No buildings yet. See the [roadmap](#roadmap).
 
 ## Research
 
@@ -21,11 +21,13 @@ All scene details come from a sourced dossier: [`docs/research/ancon-research.md
 - [x] Phase 0 — Repo, research, design, plan
 - [x] Phase 1 — Terrain, river, sky, light, water
 - [ ] Phase 2 — Vegetation (2a done: mangroves, palms, casuarinas; 2b: remaining species, cane, polish)
-- [ ] Phase 3 — The ancón, per era
+- [x] Phase 3 — The ancón, per era (crossing loop, crew, decade picker)
 - [ ] Phase 4 — Infrastructure per era
 - [ ] Phase 5 — Fauna
 - [ ] Phase 6 — Timeline UI, sourced facts, sound, cameras
 - [ ] Phase 7 — Performance, mobile, polish, launch
+
+Phase 3 ran before Phase 2b: the ferry is the subject, so it came first; 2b's remaining species and polish follow.
 
 ## Stack
 
