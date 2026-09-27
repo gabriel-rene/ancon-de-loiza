@@ -33,6 +33,44 @@ vec4 waterInfo(vec2 p) {
   return vec4(1.0, 0.0, 1.0, 1.0);
 }
 
+uniform vec4 uWake[16]; uniform vec4 uHull; uniform vec3 uHullSize; uniform float uWakeOn;
+uniform vec4 uWakeBox;   // hull-local (x min, x max, z min, z max) bounds of the trail incl. its spread; empty when docked
+// The ferry in the water (src/ancon/wake.ts). uWake: [x, z, age s, strength] of the trailing end,
+// newest first (WAKE_N = 16); uHull: position + cos/sin yaw; uHullSize: hull half-length, half-beam, |speed|.
+// Returns x = foam (a thin line hugging the hull + the freshest wake edges), y = ripple height
+// (signed, rings around the hull), z = wake disturbance 0..1 (roughens the mirror along the V).
+// A hand-hauled ferry at ~1 m/s: the wake is mostly broken reflection, barely any white water.
+vec3 vesselWake(vec2 p) {
+  if (uWakeOn < 0.5) return vec3(0.0);
+  vec2 d = p - uHull.xy;
+  if (dot(d, d) > 8100.0) return vec3(0.0);                       // > 90 m away: nothing to do
+  vec2 q = vec2(dot(d, vec2(uHull.z, -uHull.w)), dot(d, vec2(uHull.w, uHull.z)));   // hull-local (x along the crossing)
+  vec2 b = abs(q) - uHullSize.xy;
+  float sd = length(max(b, 0.0)) + min(max(b.x, b.y), 0.0);       // signed distance to the hull footprint
+  float spd = uHullSize.z;
+  float contact = (1.0 - smoothstep(0.0, 0.15 + 0.3 * spd, sd)) * step(-0.05, sd);
+  float ripple = sin(sd * 4.0 - uTime * 2.6) * exp(-max(sd, 0.0) * 0.35) * (0.25 + 0.75 * min(spd, 1.5));
+  float fresh = 0.0, trail = 0.0;
+  if (q.x > uWakeBox.x && q.x < uWakeBox.y && q.y > uWakeBox.z && q.y < uWakeBox.w) {   // off the trail (or docked): skip the loop
+    for (int i = 0; i < 15; i++) {
+      vec4 a = uWake[i], c = uWake[i + 1];
+      vec2 ab = c.xy - a.xy;
+      float h = dot(p - a.xy, ab) / max(dot(ab, ab), 1e-4);
+      if (h < 0.0 || h > 1.0) continue;                              // no round caps: they ring each joint (the V's spread jumps there)
+      float age = mix(a.z, c.z, h), str = mix(a.w, c.w, h);
+      float w = uHullSize.y * 0.6 + age * 0.35;                     // the wake spreads as it ages (≈ Kelvin angle at 1 m/s)
+      float dd = length(p - a.xy - ab * h);
+      if (dd > w + 2.0 || str <= 0.0) continue;                     // exp(-16) ≈ 0 beyond: skip the math
+      float e = (dd - w) * 2.0;                                     // (dd − w) / 0.5, squared below: no pow() of a negative base
+      float line = exp(-e * e);                                     // the diverging V edges
+      trail = max(trail, str * exp(-age / 10.0) * (line + 0.35 * (1.0 - smoothstep(0.0, w, dd))));
+      float f = (dd - w) * 4.0;                                     // a thinner line of bubbles (σ ≈ 0.18 m)
+      fresh = max(fresh, str * exp(-age / 2.5) * exp(-f * f));
+    }
+  }
+  return vec3(max(contact, fresh * 0.4), ripple, trail);
+}
+
 // Noise gradient in the noise's own coordinates.
 vec2 grad(vec2 q) {
   const float e = 0.07;
@@ -91,6 +129,8 @@ void main() {
   }
   float riverAmp = 0.03 * (0.7 + 0.3 * flowSpd);
   vec2 g = mix(gs * 0.16, gr * riverAmp, river);
+  vec3 wk = vesselWake(vWorld.xz);
+  g = g * (1.0 + 3.5 * wk.z) + normalize(vWorld.xz - uHull.xy + vec2(1e-4)) * wk.y * 0.05;
   vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
 
   // Fresnel from a flattened normal: at grazing angles tiny tilts would otherwise swing
@@ -131,6 +171,11 @@ void main() {
   float band = 1.0 - smoothstep(0.0, mix(7.0, 1.0, river), shore);
   float fn = snoise(vWorld.xz * 0.5 + uTime * vec2(0.25, 0.18)) * 0.5 + 0.5;
   float foam = band * smoothstep(0.45, 0.85, fn) * mix(0.8, 0.12, river);
+  float wf = clamp(wk.x * 0.6, 0.0, 1.0);
+  if (wf > 0.0) {                                   // near the ferry only: skip the noise tap elsewhere
+    float wn = snoise(vWorld.xz * 3.4 - uTime * vec2(0.3, 0.2)) * 0.5 + 0.5;
+    foam = max(foam, wf * smoothstep(0.2, 0.9, wn + 0.2 * wk.x));
+  }
   col = mix(col, vec3(0.8) * (0.15 + 0.85 * sunUp) * mix(vec3(1.0), uSunColor, 0.3), foam);
 
   gl_FragColor = vec4(col, 1.0);

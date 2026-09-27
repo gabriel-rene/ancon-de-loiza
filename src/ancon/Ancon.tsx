@@ -18,11 +18,12 @@ import { vesselSpec } from './spec';
 import { anconTiming } from './stats';
 import { emitVesselPose, sharedVesselPose } from './vesselPose';
 import { buildVessel } from './vessels';
+import { clearWakeUniforms, updateWakeUniforms } from './wakeUniforms';
 
 /**
  * The ferry for the current era. One useFrame drives everything, in order: crossing clock →
- * vessel pose (shared, see useVesselPose) → hull + apron transforms → ropes → crew → [wake: later
- * task] → timing → pose listeners (the ride camera). Nothing else computes the live pose.
+ * vessel pose (shared, see useVesselPose) → hull + apron transforms → ropes → crew → wake →
+ * timing → pose listeners (the ride camera). Nothing else computes the live pose.
  */
 export function Ancon({ near, era, q, frozen, castShadow }: {
   near: WorldFields; era: Era; q: QualitySettings; frozen: boolean; castShadow: boolean;
@@ -44,6 +45,7 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
   const seats = useMemo(() => seatAnchors(spec, layout), [spec, layout]);
   const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);
   useEffect(() => () => crew.dispose(), [crew]);
+  useEffect(() => () => clearWakeUniforms(), []);
   const mats = vesselMaterials();
   const hull = useRef<THREE.Group>(null);
   const aprons = useRef<(THREE.Group | null)[]>([]);
@@ -63,6 +65,7 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     const cam = state.camera as THREE.PerspectiveCamera;
     ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height);
     crew.update(pose, ctx);
+    updateWakeUniforms(pose, ctx);
     anconTiming.add(performance.now() - t0);
     emitVesselPose(ctx);
   });
