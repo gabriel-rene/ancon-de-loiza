@@ -16,9 +16,8 @@ export function buildSteelPontoon(spec: VesselSpec, L: DeckLayout, seed: number)
   /** ±6 % tone, then a random share (0..k) of rust. Always draws two numbers (same stream for 1984 and 1986). */
   const worn = (base: THREE.Color, k: number) => { const a = r(), b = r(); return base.clone().multiplyScalar(0.94 + 0.12 * a).lerp(STEEL.rust, k * b); };
   const straight = hl - RAKE, shellTop = top - 0.012;
-  /** Upright plate: texture v runs up the world (rust drips run down the hull, not along it). */
-  const plate = (size: [number, number, number], at: [number, number, number], c: THREE.Color) =>
-    steel.add(new THREE.BoxGeometry(size[0], size[1], size[2]).translate(at[0], at[1], at[2]), c, { grain: 'y' });
+  /** Upright plates: texture v runs up the world (rust drips run down the hull, not along it). */
+  const UPRIGHT = { grain: 'y' } as const;
   // Core shell, 3 cm inside the plating (the plates form the whole outer skin), antifouling below −0.3.
   // Painted WELD-dark: it only shows through the plate seams, which read as dark weld lines.
   steel.box([2 * straight, shellTop - FOUL_BOTTOM, 2 * hb - 0.06], [0, (shellTop + FOUL_BOTTOM) / 2, 0], STEEL.weld);
@@ -40,16 +39,16 @@ export function buildSteelPontoon(spec: VesselSpec, L: DeckLayout, seed: number)
   for (const sx of [-1, 1]) cols.push([sx * (straight + RAKE / 2), RAKE, END_BOTTOM]);
   for (const sz of [-1, 1]) for (const [x, len, fb] of cols) {
     const z = sz * (hb - PANEL_T / 2);
-    plate([len - SEAM, top - 0.02 - FOUL_TOP, PANEL_T], [x, (top - 0.02 + FOUL_TOP) / 2, z], worn(STEEL.shell, rust));
-    plate([len - SEAM, FOUL_TOP - fb, PANEL_T], [x, (FOUL_TOP + fb) / 2, z], foul());
-    plate([len - SEAM, SPLASH, PANEL_T + 0.004], [x, FOUL_TOP - SPLASH / 2, z], splash());
+    steel.box([len - SEAM, top - 0.02 - FOUL_TOP, PANEL_T], [x, (top - 0.02 + FOUL_TOP) / 2, z], worn(STEEL.shell, rust), 0, 0, UPRIGHT);
+    steel.box([len - SEAM, FOUL_TOP - fb, PANEL_T], [x, (FOUL_TOP + fb) / 2, z], foul(), 0, 0, UPRIGHT);
+    steel.box([len - SEAM, SPLASH, PANEL_T + 0.004], [x, FOUL_TOP - SPLASH / 2, z], splash(), 0, 0, UPRIGHT);
   }
   // Transom plating on both ends, same split.
   for (const sx of [-1, 1]) {
     const x = sx * (hl - PANEL_T / 2);
-    plate([PANEL_T, top - 0.02 - FOUL_TOP, 2 * hb - SEAM], [x, (top - 0.02 + FOUL_TOP) / 2, 0], worn(STEEL.shell, rust));
-    plate([PANEL_T, FOUL_TOP - END_BOTTOM, 2 * hb - SEAM], [x, (FOUL_TOP + END_BOTTOM) / 2, 0], foul());
-    plate([PANEL_T + 0.004, SPLASH, 2 * hb - SEAM], [x, FOUL_TOP - SPLASH / 2, 0], splash());
+    steel.box([PANEL_T, top - 0.02 - FOUL_TOP, 2 * hb - SEAM], [x, (top - 0.02 + FOUL_TOP) / 2, 0], worn(STEEL.shell, rust), 0, 0, UPRIGHT);
+    steel.box([PANEL_T, FOUL_TOP - END_BOTTOM, 2 * hb - SEAM], [x, (FOUL_TOP + END_BOTTOM) / 2, 0], foul(), 0, 0, UPRIGHT);
+    steel.box([PANEL_T + 0.004, SPLASH, 2 * hb - SEAM], [x, FOUL_TOP - SPLASH / 2, 0], splash(), 0, 0, UPRIGHT);
   }
   // Deck plates 1.5 × 3.75 m, butt-welded: the plates touch and the seams are dark weld beads
   // (an open 8 mm gap only shows its sunlit edges as sparkle, and the shadow map cannot darken it). Worn wheel lanes.
@@ -65,7 +64,7 @@ export function buildSteelPontoon(spec: VesselSpec, L: DeckLayout, seed: number)
   for (let i = 1; i < nx; i++) decal(0.025, 2 * hb - 0.3, -hl + i * px, top + 0.002, 0, bead);
   for (let j = 1; j < nz; j++) decal(2 * hl - 0.1, 0.025, 0, top + 0.002, -hb + j * pz, bead);
   // Curb along both sides, open at the corners (drainage).
-  for (const sz of [-1, 1]) plate([2 * hl - 0.6, 0.2, 0.15], [0, top + 0.1, sz * (hb - 0.075)], worn(STEEL.shell, rust));
+  for (const sz of [-1, 1]) steel.box([2 * hl - 0.6, 0.2, 0.15], [0, top + 0.1, sz * (hb - 0.075)], worn(STEEL.shell, rust), 0, 0, UPRIGHT);
   // Rust scabs: irregular blots 1 mm proud of the plating where the paint has failed — hanging from the
   // deck edge on the hull (with a drip tail), along the curbs and ends of the deck (clear of the wheel
   // lanes). A fixed number of candidates always draws the same numbers; the idle barge keeps more of them.

@@ -126,8 +126,9 @@ export function buildFigureGeometries(detail: Detail = 'hi'): Record<GeoKind, TH
     return [x * fold, y, z * fold * lerp(0.62, 1, t)];
   });
   // Shirt tail: an open, flared tube with soft folds, its top tucked inside the torso (y 0 → −1, z-radius TAIL_Z at the hem).
-  const tail = warp(new THREE.CylinderGeometry(0.84, 1.04, 1, hi ? 14 : 7, 1, true).translate(0, -0.5, 0), (x, y, z) => {
-    const t = -y, fold = 1 + 0.025 * Math.sin(5 * Math.atan2(z, x)) * t;
+  // Four folds on 20 sides (5 samples per fold): with 5 folds on 14 sides the hem was an aliased sawtooth.
+  const tail = warp(new THREE.CylinderGeometry(0.84, 1.04, 1, hi ? 20 : 7, 1, true).translate(0, -0.5, 0), (x, y, z) => {
+    const t = -y, fold = 1 + (hi ? 0.025 * Math.sin(4 * Math.atan2(z, x)) * t : 0);
     return [x * fold, y, z * fold * lerp(0.72, TAIL_Z / 1.04, t)];
   });
   const hips = new THREE.LatheGeometry([[0, -1.0], [0.55, -0.95], [0.9, -0.7], [1.0, -0.3], [0.98, 0.2], [0.9, 0.5], [0, 0.55]]

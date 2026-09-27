@@ -37,15 +37,18 @@ export class RopeSet {
     this.shoreSide = upstreamSide(o.geom);
     this.mode = spec.moored ? 'moor' : spec.propulsion === 'ropes' ? 'haul' : spec.shoreRope ? 'shore' : 'none';
     // Ropes stay at least ~0.6 px wide on screen: grow along the normal with distance (no shimmer at bank range).
+    // Seen from high above (aerial) the widening fades out: there a fattened rope read as a bright dashed line.
+    // Weathered manila / sisal: a muted grey-brown, not a fresh orange.
     this.material = new CustomShaderMaterial({
       baseMaterial: THREE.MeshStandardMaterial,
-      color: spec.kind === 'steelPontoon' ? 0x4a4036 : 0x8a7652, roughness: 0.95,
+      color: spec.kind === 'steelPontoon' ? 0x4a4036 : 0x74695a, roughness: 0.95,
       uniforms: { uPx: this.uPx, uR: { value: ROPE_R } },
       vertexShader: /* glsl */ `
         uniform float uPx; uniform float uR;
         void main() {
-          float d = length((modelViewMatrix * vec4(position, 1.0)).xyz);
-          csm_Position = position + normal * max(0.0, 0.6 * uPx * d - uR);
+          vec3 v = cameraPosition - (modelMatrix * vec4(position, 1.0)).xyz;
+          float d = length(v), down = smoothstep(0.5, 0.85, abs(v.y) / max(d, 1e-3));
+          csm_Position = position + normal * max(0.0, 0.6 * uPx * d * (1.0 - 0.5 * down) - uR);
         }`,
     });
     const count = this.mode === 'haul' ? 2 * (o.segments + 1) : this.mode === 'shore' ? 2 * o.segments + 1 : this.mode === 'moor' ? 9 : 0;

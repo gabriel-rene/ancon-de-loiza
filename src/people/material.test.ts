@@ -10,8 +10,8 @@ test('the figure material patches the standard shader at chunks that exist in th
   m.onBeforeCompile(sh, {} as THREE.WebGLRenderer);
   expect(sh.vertexShader).toContain('attribute float occlusion');
   expect(sh.vertexShader).toContain('vFigLocal = position');
-  expect(sh.fragmentShader).toContain('diffuseColor.rgb *= vFigAo * figFabric(vFigLocal)');
+  expect(sh.fragmentShader).toContain('diffuseColor.rgb *= figAo * figFabric(vFigLocal)');
   expect(sh.fragmentShader).toContain('figFr');
-  expect(m.customProgramCacheKey()).toBe('ancon-figure-v1');
+  expect(m.customProgramCacheKey()).toBe('ancon-figure-v2');
   m.dispose();
 });

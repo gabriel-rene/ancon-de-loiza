@@ -1,7 +1,7 @@
 // src/people/figureBatch.test.ts
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { FigureBatch, PER_KIND } from './figureBatch';
+import { FigureBatch, GEO_KINDS, HAIRS_KINDS, HATS, NO_SHADOW, PER_KIND } from './figureBatch';
 import { dressFigure, type FigureLook } from './palettes';
 import { createFigurePose, PART_INDEX, poseFigure, type FigurePose } from './rig';
 
@@ -90,4 +90,11 @@ test('commit hides every mesh with no live instance this frame (no draw call for
   batch.hide(1); batch.commit();
   expect(Object.values(vis()).every((x) => !x)).toBe(true);
   batch.dispose();
+});
+test('hands, feet and hair cast no shadow; the body and hats do', () => {
+  const b = new FigureBatch(2, new THREE.MeshStandardMaterial(), 'hi');
+  for (const k of GEO_KINDS) expect(b.meshes[k].castShadow, k).toBe(!NO_SHADOW.has(k));
+  for (const h of HAIRS_KINDS) expect(b.hair[h].castShadow).toBe(false);
+  for (const h of HATS) expect(b.hats[h].castShadow).toBe(true);
+  b.dispose();
 });

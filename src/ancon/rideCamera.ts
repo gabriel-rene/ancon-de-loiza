@@ -30,15 +30,6 @@ export function rideView(pose: VesselPose, L: DeckLayout, yaw: number, pos: THRE
   if (groundAt) clampAboveGround(pos, groundAt);
 }
 
-const inv = new THREE.Matrix4(), rot = new THREE.Matrix4();
-/** Move pos/target rigidly from the vessel's previous frame to the next, adding the scheduled orbit dYaw. */
-export function carryCamera(prev: THREE.Matrix4, next: THREE.Matrix4, dYaw: number, pos: THREE.Vector3, target: THREE.Vector3) {
-  inv.copy(prev).invert();
-  pos.applyMatrix4(inv); target.applyMatrix4(inv);
-  if (dYaw !== 0) { rot.makeRotationY(dYaw); pos.applyMatrix4(rot); target.applyMatrix4(rot); }
-  pos.applyMatrix4(next); target.applyMatrix4(next);
-}
-
 /**
  * User orbit while riding. A drag orbits about the pivot — the point of the canonical sightline over the
  * deck centre, so the view direction is unchanged at rest and the deck stays in frame however it is turned.
@@ -46,7 +37,8 @@ export function carryCamera(prev: THREE.Matrix4, next: THREE.Matrix4, dYaw: numb
  * About 1 s after the last input the orbit eases back to the canonical framing.
  */
 export const RIDE_ORBIT = {
-  minPolar: 0.25 * Math.PI, maxPolar: 0.478 * Math.PI, minScale: 0.6, maxScale: 2.5,
+  // The steepest, widest drag stays a raised deck view (≤ ~20 m up), never a top-down aerial.
+  minPolar: 0.33 * Math.PI, maxPolar: 0.478 * Math.PI, minScale: 0.6, maxScale: 1.7,
   /** Camera floor above the water surface (the terrain field is the riverbed mid-river). */
   waterClear: 1.5,
   /** Seconds after the last input before the return starts; its ease-in (s) and time constant (s). */

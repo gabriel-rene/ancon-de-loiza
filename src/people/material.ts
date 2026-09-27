@@ -26,7 +26,7 @@ float figFabric(vec3 p) {
 /**
  * The people material: MeshStandardMaterial (roughness 0.85, double-sided for open hems) × instance colour,
  * with cotton value noise, baked joint/hem occlusion from the geometry's `occlusion` attribute
- * (albedo × mix(1, 0.75, occlusion)) and a cheap fresnel sheen proportional to the diffuse light.
+ * (albedo × mix(1, 0.75, occlusion), up to 1.8× deeper on pale cloth) and a cheap fresnel sheen proportional to the diffuse light.
  * The caller owns (and disposes) it.
  */
 export function createFigureMaterial(): THREE.MeshStandardMaterial {
@@ -50,13 +50,16 @@ varying float vFigAo;
 varying vec3 vFigLocal;
 ${FABRIC_GLSL}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-diffuseColor.rgb *= vFigAo * figFabric(vFigLocal);`)
+// Pale cloth has little tonal range to shape it: the baked occlusion bites harder the brighter the albedo
+// (up to ×1.8 at white), dark cloth keeps the base term.
+float figAo = 1.0 - (1.0 - vFigAo) * (1.0 + 0.8 * dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)));
+diffuseColor.rgb *= figAo * figFabric(vFigLocal);`)
       .replace('#include <opaque_fragment>', `{
   float figFr = pow(1.0 - clamp(abs(dot(normal, normalize(vViewPosition))), 0.0, 1.0), 3.0);
   outgoingLight += figFr * 0.35 * (reflectedLight.directDiffuse + reflectedLight.indirectDiffuse);
 }
 #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'ancon-figure-v1';
+  m.customProgramCacheKey = () => 'ancon-figure-v2';
   return m;
 }

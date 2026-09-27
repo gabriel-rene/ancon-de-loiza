@@ -8,7 +8,7 @@ import { actorFrame, castActors, createActorFrame } from './crew';
 import { landingClearings } from './geometry';
 import { computeVesselPose, createVesselPose } from './pose';
 import { WATER_Y } from '../geo/constants';
-import { carryCamera, clampForRender, RIDE, RIDE_ORBIT, RideRig, rideView, rideYaw } from './rideCamera';
+import { clampForRender, RIDE, RIDE_ORBIT, RideRig, rideView, rideYaw } from './rideCamera';
 import { guideLocal, ropeRig } from './rigging';
 import { seatAnchors } from './seats';
 import { ctxFor, fields512 } from './testing';
@@ -37,14 +37,6 @@ test('rideView: behind and above the trailing end, looking ahead, on both legs',
     expect((tgt.x - p.position.x) * hx + (tgt.z - p.position.z) * hz).toBeGreaterThan(0);
     expect(pos.y).toBeGreaterThan(layout.deckY + 3);
   }
-});
-test('carrying the camera with the vessel equals re-deriving the view', () => {
-  const a = poseAt(60), b = poseAt(170), ya = rideYaw(60, false), yb = rideYaw(170, false);
-  const pos = new THREE.Vector3(), tgt = new THREE.Vector3(), pos2 = new THREE.Vector3(), tgt2 = new THREE.Vector3();
-  rideView(a, layout, ya, pos, tgt);
-  carryCamera(a.matrix, b.matrix, yb - ya, pos, tgt);
-  rideView(b, layout, yb, pos2, tgt2);
-  expect(pos.distanceTo(pos2)).toBeLessThan(1e-6); expect(tgt.distanceTo(tgt2)).toBeLessThan(1e-6);
 });
 test('the camera never dips under the bank', () => {
   const pos = new THREE.Vector3(), tgt = new THREE.Vector3();
@@ -168,4 +160,21 @@ test('a drag orbits within the polar limits, holds ~1 s after release, then ease
   }
   expect(Math.abs(rig.orbit.az) + Math.abs(rig.orbit.pol)).toBeLessThan(1e-3);
   expect(maxStep).toBeLessThan(0.3);   // ≤ 18 m/s at 60 fps round an ~18 m orbit: a glide, not a snap
+});
+
+test('the steepest, widest drag stays a raised deck view, not a top-down aerial (every era)', () => {
+  for (const e of ERAS) {
+    const c = ctxFor(e.id), rig = new RideRig(), user = new THREE.Vector3(), v = new THREE.Vector3(), sph = new THREE.Spherical();
+    const at = (clock: number) => computeVesselPose(clock, c, createVesselPose());
+    let clock = MID;
+    rig.frame(at(clock), c, null, null, false, 1 / 60);
+    for (let i = 0; i < 60; i++) {   // drag up and zoom out far past the limits
+      clock += 1 / 60;
+      sph.setFromVector3(v.subVectors(rig.eye, rig.pivot)); sph.phi -= 0.1; sph.radius *= 1.2;
+      user.setFromSpherical(sph).add(rig.pivot);
+      rig.frame(at(clock), c, user, rig.pivot, true, 1 / 60);
+    }
+    expect(rig.eye.y - c.layout.deckY, e.id).toBeLessThan(20);
+    expect(rig.eye.distanceTo(rig.pivot), e.id).toBeLessThan(40);
+  }
 });

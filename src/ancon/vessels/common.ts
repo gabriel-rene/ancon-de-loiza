@@ -16,8 +16,12 @@ const _c = new THREE.Color();
 
 type Axis = 'x' | 'y' | 'z';
 const AX: Record<Axis, number> = { x: 0, y: 1, z: 2 };
-/** Seam occlusion for a box: vertex colours on its long side faces (|n.y| < 0.5, not end grain) fade from `sideAO[0]` at its bottom to `sideAO[1]` at its top. */
-export interface BoxOpts { sideAO?: [number, number] }
+/**
+ * sideAO: seam occlusion — vertex colours on the long side faces (|n.y| < 0.5, not end grain) fade from `sideAO[0]` at
+ * the bottom to `sideAO[1]` at the top. grain: texture v axis, overriding the longest side (e.g. 'y' for upright steel
+ * plates, so rust drips run down the hull, not along it).
+ */
+export interface BoxOpts { sideAO?: [number, number]; grain?: Axis }
 
 /**
  * Planar UVs in metres / TEX_M, so texel density is the same on every part. The wood grain runs
@@ -44,10 +48,10 @@ export function worldUv(g: THREE.BufferGeometry, grain: Axis = 'z', offset: V3 =
 export class PartBuilder {
   private geos: THREE.BufferGeometry[] = [];
   get empty() { return this.geos.length === 0; }
-  /** Box; the grain runs along its longest side. */
+  /** Box; the grain runs along its longest side unless `opts.grain` says otherwise. */
   box(size: V3, at: V3, color: THREE.ColorRepresentation, rotZ = 0, rotY = 0, opts: BoxOpts = {}) {
     const g = new THREE.BoxGeometry(size[0], size[1], size[2]).toNonIndexed();
-    const grain: Axis = size[0] >= size[1] && size[0] >= size[2] ? 'x' : size[1] >= size[2] ? 'y' : 'z';
+    const grain: Axis = opts.grain ?? (size[0] >= size[1] && size[0] >= size[2] ? 'x' : size[1] >= size[2] ? 'y' : 'z');
     worldUv(g, grain, at);
     if (rotZ) g.rotateZ(rotZ);
     if (rotY) g.rotateY(rotY);

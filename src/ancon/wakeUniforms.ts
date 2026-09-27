@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createVesselPose, type PoseContext, type VesselPose } from './pose';
-import { WAKE_N, WAKE_SPREAD, WAKE_W0, writeWake } from './wake';
+import { writeWake } from './wake';
+import { WAKE_N, WAKE_SPREAD, WAKE_W0 } from './wakeConstants';
 
 /** Shared with the water material (Water.tsx swaps these objects into the Reflector's uniforms). */
 export const wakeUniforms = {

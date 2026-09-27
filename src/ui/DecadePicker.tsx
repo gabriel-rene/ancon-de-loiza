@@ -6,18 +6,20 @@ import { isTypingTarget, stepEra, withEra } from './picker';
 /** Minimal era rail (spec §13): 8 buttons, ← → keys, URL kept in sync, instant switch. */
 export function DecadePicker() {
   const eraId = useStore((s) => s.eraId);
+  /** Switches to `id`; false when it is already the era (nothing to do). */
   const choose = useCallback((id: EraId) => {
     const st = useStore.getState();
-    if (id === st.eraId) return;
+    if (id === st.eraId) return false;
     st.setEra(id);
     window.history.replaceState(null, '', withEra(window.location.search, id, useStore.getState().timeOfDay));
+    return true;
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || isTypingTarget(e.target)) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      choose(stepEra(useStore.getState().eraId, e.key === 'ArrowLeft' ? -1 : 1));
+      // At either end of the rail the key does nothing here: leave it to the page (no preventDefault).
+      if (choose(stepEra(useStore.getState().eraId, e.key === 'ArrowLeft' ? -1 : 1))) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

@@ -4,7 +4,8 @@ import { waterFragment } from '../scene/water/waterShader';
 import { CROSSING_TIMINGS as T, legDuration } from './crossing';
 import { computeVesselPose, createVesselPose } from './pose';
 import { ctxFor } from './testing';
-import { WAKE_DT, WAKE_N, writeWake } from './wake';
+import { WAKE_DT, WAKE_N, WAKE_SPREAD, WAKE_W0, writeWake } from './wake';
+import { glslFloat } from './wakeConstants';
 import { clearWakeUniforms, updateWakeUniforms, wakeUniforms } from './wakeUniforms';
 
 const ctx = ctxFor('1975'), layout = ctx.layout;
@@ -34,6 +35,7 @@ test('deterministic', () => { expect(Array.from(run(123.4))).toEqual(Array.from(
 test('the water shader declares the same number of wake samples', () => {
   expect(waterFragment).toContain(`uniform vec4 uWake[${WAKE_N}]`);
   expect(waterFragment).toContain(`i < ${WAKE_N - 1}`);
+  expect(waterFragment).toContain(`uHullSize.y * ${glslFloat(WAKE_W0)} + age * ${glslFloat(WAKE_SPREAD)}`);
   expect(waterFragment).not.toMatch(/pow\(\s*\(dd/);   // no pow() with a possibly negative base
 });
 test('the shader-side trail box holds every live sample (hull-local) and is empty when docked', () => {
@@ -52,4 +54,7 @@ test('the shader-side trail box holds every live sample (hull-local) and is empt
   updateWakeUniforms(computeVesselPose(5, ctx, createVesselPose()), ctx);
   expect(box.x).toBeGreaterThan(box.y);
   clearWakeUniforms();
+});
+test('glslFloat always writes a float literal', () => {
+  expect(glslFloat(1)).toBe('1.0'); expect(glslFloat(0.35)).toBe('0.35'); expect(glslFloat(-2)).toBe('-2.0');
 });

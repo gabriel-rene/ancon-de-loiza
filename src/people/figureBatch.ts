@@ -7,6 +7,11 @@ import { PART_INDEX, PARTS, ZERO_MATRIX, type FigurePose } from './rig';
 export const GEO_KINDS: GeoKind[] = ['hips', 'torso', 'tail', 'head', 'upperArm', 'foreArm', 'handL', 'handR', 'thigh', 'shin', 'shinFlare', 'foot', 'footBare', 'skirt'];
 export const HATS: Hat[] = ['straw', 'fedora', 'cap', 'wrap'];
 export const HAIRS_KINDS: Hair[] = ['crop', 'close', 'bun'];
+/**
+ * Small parts that cast no shadow (perf, spec §13): hands, feet and hair add a draw call each to the shadow
+ * pass for a shadow a few pixels wide, mostly inside the body's own. They still receive shadows.
+ */
+export const NO_SHADOW: ReadonlySet<GeoKind> = new Set<GeoKind>(['handL', 'handR', 'foot', 'footBare']);
 /** Slots per figure of each geometry kind, counted from PART_GEO (an alternate has its base's slots). */
 export const PER_KIND = GEO_KINDS.reduce((o, k) => {
   const base = (Object.keys(GEO_ALT) as GeoKind[]).find((b) => GEO_ALT[b] === k) ?? k;
@@ -53,20 +58,20 @@ export class FigureBatch {
   constructor(readonly max: number, material: THREE.Material, readonly detail: Detail = 'hi') {
     const g = (geoCache[detail] ??= { body: buildFigureGeometries(detail), hats: buildHatGeometries(detail), hair: buildHairGeometries(detail) });
     this.hatOf = new Uint8Array(max); this.hairOf = new Uint8Array(max); this.flare = new Uint8Array(max); this.bare = new Uint8Array(max);
-    const make = (geo: THREE.BufferGeometry, n: number, list: THREE.InstancedMesh[]) => {
+    const make = (geo: THREE.BufferGeometry, n: number, list: THREE.InstancedMesh[], castShadow = true) => {
       const m = new THREE.InstancedMesh(geo, material, n);
-      m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
+      m.castShadow = castShadow; m.receiveShadow = true; m.frustumCulled = false;
       for (let i = 0; i < n; i++) { m.setMatrixAt(i, ZERO_MATRIX); m.setColorAt(i, _c.set(0xffffff)); }
       this.group.add(m); list.push(m); this.all.push(m); this.live.push(new Uint8Array(n));
       m.visible = false;   // nothing live until set()
       return m;
     };
     this.meshes = {} as Record<GeoKind, THREE.InstancedMesh>;
-    for (const k of GEO_KINDS) { this.bodyAt[k] = this.all.length; this.meshes[k] = make(g.body[k], max * PER_KIND[k], this.bodyList); }
+    for (const k of GEO_KINDS) { this.bodyAt[k] = this.all.length; this.meshes[k] = make(g.body[k], max * PER_KIND[k], this.bodyList, !NO_SHADOW.has(k)); }
     this.hats = {} as Record<Hat, THREE.InstancedMesh>;
     for (const h of HATS) this.hats[h] = make(g.hats[h], max, this.hatList);
     this.hair = {} as Record<Hair, THREE.InstancedMesh>;
-    for (const h of HAIRS_KINDS) this.hair[h] = make(g.hair[h], max, this.hairList);
+    for (const h of HAIRS_KINDS) this.hair[h] = make(g.hair[h], max, this.hairList, false);
     this.liveN = new Int32Array(this.all.length);
   }
 

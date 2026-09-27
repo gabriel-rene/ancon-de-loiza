@@ -32,7 +32,8 @@ export class CrewSet {
     actors.forEach((a, i) => this.batch.setLook(i, a.look));
     for (let i = 0; i < n; i++) this.batch.hide(i);
     this.poles = new THREE.InstancedMesh(buildPole(1), this.poleMat, n);
-    this.poles.count = 0; this.poles.castShadow = this.poles.receiveShadow = true; this.poles.frustumCulled = false;
+    // Poles (3–4 cm thick) cast no shadow: a sub-texel line in the 4096 map, and a draw call in the shadow pass.
+    this.poles.count = 0; this.poles.castShadow = false; this.poles.receiveShadow = true; this.poles.frustumCulled = false;
     this.poles.visible = false;
     this.frames = actors.map(createActorFrame);
     this.bodies = actors.map((a) => ({ height: a.look.height, build: a.look.build, dress: a.look.dress }));

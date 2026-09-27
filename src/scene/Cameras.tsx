@@ -1,4 +1,4 @@
-import { CameraControls } from '@react-three/drei';
+import { CameraControls, CameraControlsImpl } from '@react-three/drei';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RIDE_ORBIT, RideRig } from '../ancon/rideCamera';
@@ -40,6 +40,10 @@ export function Cameras() {
   useEffect(() => {
     const c = ref.current;
     if (!riding || !c) return;
+    // Riding, only orbit and dolly: the rig re-derives the view from the vessel every frame, so a truck/pan
+    // would be discarded (the view jumps back). Restored when the ride ends.
+    const { ACTION } = CameraControlsImpl, saved = { right: c.mouseButtons.right, two: c.touches.two, three: c.touches.three };
+    c.mouseButtons.right = ACTION.NONE; c.touches.two = ACTION.TOUCH_DOLLY; c.touches.three = ACTION.NONE;
     const rig = new RideRig(), eye = new THREE.Vector3(), tgt = new THREE.Vector3();
     let dragging = false, last = -1;
     const start = () => { dragging = true; }, end = () => { dragging = false; };
@@ -52,7 +56,10 @@ export function Cameras() {
       c.update(0);
       first.current = false;
     });
-    return () => { off(); c.removeEventListener('controlstart', start); c.removeEventListener('controlend', end); };
+    return () => {
+      off(); c.removeEventListener('controlstart', start); c.removeEventListener('controlend', end);
+      c.mouseButtons.right = saved.right; c.touches.two = saved.two; c.touches.three = saved.three;
+    };
   }, [riding, eraId]);
 
   // Polar limits: ride-only (a little outside the rig's own, so the controls never re-clamp what the rig sets).
