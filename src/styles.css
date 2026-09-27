@@ -19,7 +19,7 @@ canvas { display: block; }
   font: 600 14px/1.1 ui-serif, Georgia, serif; letter-spacing: 0.02em; cursor: pointer; touch-action: manipulation;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: background-color 120ms ease; }
 .decade-rail__btn:hover { background: rgba(244, 236, 223, 0.1); }
-.decade-rail__btn[aria-pressed='true'] { background: #f4ecdf; color: #1b1a17; }
+.decade-rail__btn[aria-current='true'] { background: #f4ecdf; color: #1b1a17; }
 .decade-rail__btn:focus-visible { outline: 2px solid #f2c46d; outline-offset: 1px; }
 .decade-rail__label { font: 500 10px/1.1 ui-sans-serif, system-ui, sans-serif; opacity: 0.75; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 720px) { .decade-rail__label { display: none; } }
@@ -54,7 +54,8 @@ canvas { display: block; }
 @media (max-width: 720px) {
   .info-panel { top: auto; left: 8px; right: 8px; width: auto; max-height: 50vh;
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 64px); border-radius: 14px 14px 10px 10px;
-    animation: info-sheet-up 180ms ease-out; }
+    animation: info-sheet-up 180ms ease-out; background: #141311; }
+  body:has(#info-panel) .title-card { visibility: hidden; }
 }
 @keyframes info-sheet-up { from { transform: translateY(16px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .info-panel { animation: none; } }

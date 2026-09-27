@@ -60,6 +60,7 @@ Method: every cited URL opened with WebFetch on 2026-09-27. S3 (El Adoquín) ret
 - 1986 #1 — Dropped source S7 (does not mention La Paseadora); kept S4 only.
 - 1986 #2 — Cited S4b instead of S6, after fetching S4b and confirming both the municipal-collaboration attempt and the hurricane sentence verbatim.
 - 1986 #3 — Rewrote "un plan… propone una nueva barcaza movida por personas" to "El Colectivo espera diseñar y construir una nueva barcaza para atraer visitantes al centro histórico de Loíza." (fix round 1: "movida por personas" / "human-powered" was still not in S5, which says "human-centered barge"; S6 does not mention a new barge at all); dropped "con fondos de la Fundación Mellon" and dropped source S9 (placeholder page with no content); kept S5 (new-barge sentence) and S6 (2019/2024 parts).
+- Moved 1925 #3 ("La plataforma llevaba un solo vehículo…" / "The platform carried…") to be the first fact of 1935, reworded to "En los años 30 la plataforma…" / "In the 1930s the platform…" — the detail rests on an S4 photo caption dated to the 1930s, not to 1925. Sources (S4, S6) unchanged. 1925 now has 3 facts, 1935 has 5.
 
 ## Flagged for the user
 

@@ -1,5 +1,6 @@
 import { useEra } from '../state/store';
 import { useT } from '../i18n/useT';
+import { STRINGS } from '../i18n/strings';
 
 export function TitleCard() {
   const era = useEra();
@@ -12,7 +13,7 @@ export function TitleCard() {
       </div>
       {/* ODbL 1.0 attribution for the OpenStreetMap-derived geography (src/data/geo/README.md). */}
       <div className="osm-credit">
-        Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
+        {t(STRINGS.mapData)} <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">{t(STRINGS.osmContributors)}</a>
       </div>
     </>
   );

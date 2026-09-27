@@ -16,4 +16,6 @@ export const STRINGS = {
     es: 'Tu navegador no puede mostrar la escena 3D. Los datos de cada época siguen disponibles en «Datos».',
     en: 'Your browser cannot show the 3D scene. The facts for each era are still available under “Facts”.',
   },
+  mapData: { es: 'Datos del mapa ©', en: 'Map data ©' },
+  osmContributors: { es: 'colaboradores de OpenStreetMap', en: 'OpenStreetMap contributors' },
 } satisfies Record<string, Bilingual>;
