@@ -1,7 +1,7 @@
 import { CameraControls } from '@react-three/drei';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { carryCamera, clampAboveGround, rideView, rideYaw } from '../ancon/rideCamera';
+import { RIDE_ORBIT, RideRig } from '../ancon/rideCamera';
 import { onVesselPose } from '../ancon/vesselPose';
 import { landmarkXZ } from '../data/landmarks';
 import { useStore } from '../state/store';
@@ -36,27 +36,27 @@ export function Cameras() {
   }, [preset, riding]);
 
   // Ride: the vessel carries the camera. Runs right after <Ancon> updates the pose each frame, so the
-  // camera never lags the hull; a user orbit/dolly is kept (carried rigidly with the deck).
+  // camera never lags the hull. A drag orbits about a point over the deck and eases back ~1 s after release.
   useEffect(() => {
-    if (!riding) return;
-    const prev = new THREE.Matrix4(), pos = new THREE.Vector3(), tgt = new THREE.Vector3();
-    let init = true, lastYaw = 0;
-    return onVesselPose((pose, ctx) => {
-      const c = ref.current;
-      if (!c) return;
-      const yaw = rideYaw(pose.clock, ctx.spec.moored);
-      if (init) { rideView(pose, ctx.layout, yaw, pos, tgt, ctx.groundAt); init = false; }
-      else {
-        c.getPosition(pos); c.getTarget(tgt);
-        carryCamera(prev, pose.matrix, yaw - lastYaw, pos, tgt);
-        if (ctx.groundAt) clampAboveGround(pos, ctx.groundAt);
-      }
-      c.setLookAt(pos.x, pos.y, pos.z, tgt.x, tgt.y, tgt.z, false);
+    const c = ref.current;
+    if (!riding || !c) return;
+    const rig = new RideRig(), eye = new THREE.Vector3(), tgt = new THREE.Vector3();
+    let dragging = false, last = -1;
+    const start = () => { dragging = true; }, end = () => { dragging = false; };
+    c.addEventListener('controlstart', start); c.addEventListener('controlend', end);
+    const off = onVesselPose((pose, ctx) => {
+      const now = performance.now(), dt = last < 0 ? 0 : Math.min((now - last) / 1000, 0.1);
+      last = now;
+      rig.frame(pose, ctx, c.getPosition(eye, true), c.getTarget(tgt, true), dragging, dt);
+      c.setLookAt(rig.eye.x, rig.eye.y, rig.eye.z, rig.pivot.x, rig.pivot.y, rig.pivot.z, false);
       c.update(0);
-      prev.copy(pose.matrix); lastYaw = yaw;
       first.current = false;
     });
+    return () => { off(); c.removeEventListener('controlstart', start); c.removeEventListener('controlend', end); };
   }, [riding, eraId]);
 
-  return <CameraControls ref={ref} makeDefault minDistance={1} maxDistance={6000} maxPolarAngle={Math.PI * 0.495} />;
+  // Polar limits: ride-only (a little outside the rig's own, so the controls never re-clamp what the rig sets).
+  const minPolar = riding ? RIDE_ORBIT.minPolar - 0.02 : 0;
+  const maxPolar = riding ? RIDE_ORBIT.maxPolar + 0.02 : Math.PI * 0.495;
+  return <CameraControls ref={ref} makeDefault minDistance={1} maxDistance={6000} minPolarAngle={minPolar} maxPolarAngle={maxPolar} />;
 }
