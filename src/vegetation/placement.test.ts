@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
+import { crossingGeometry, landingClearings } from '../ancon/geometry';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
-import { landmarkXZ } from '../data/landmarks';
 import { buildVegMasks, LANDING_CLEARING } from './masks';
 import { placeAll, placeSpecies } from './placement';
 import { RULES } from './rules';
@@ -66,8 +66,7 @@ describe('placement', () => {
   });
   test('ferry landings are kept clear', () => {
     const cell = f.grid.cell * Math.SQRT1_2; // mask is per cell: allow half a cell diagonal
-    for (const l of ['eastLanding', 'westLanding'] as const) {
-      const [lx, lz] = landmarkXZ(l);
+    for (const [lx, lz] of landingClearings(crossingGeometry(f))) {
       for (const p of Object.values(all).flat()) expect(Math.hypot(p.x - lx, p.z - lz)).toBeGreaterThan(LANDING_CLEARING[0] - cell);
     }
   });

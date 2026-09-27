@@ -5,7 +5,8 @@ import type { GeoBundle } from '../data/geo/types';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { groundUniforms, NO_LITTER } from '../scene/groundUniforms';
-import { buildFields, sampleField, WATER, type WorldFields } from '../terrain/fields';
+import { sampleField, WATER, type WorldFields } from '../terrain/fields';
+import { placementFields } from '../terrain/placementFields';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
@@ -16,8 +17,6 @@ import { vegTiming } from './stats';
 import type { PlantInstance, PlantPart, SpeciesId } from './types';
 
 const G = geo as unknown as GeoBundle;
-/** Placement always runs on a 512 near grid, whatever the tier's terrain resolution (counts must not depend on it). */
-const PLACE_SIZE = 512;
 const NEAR_SEED = 1840, FAR_SEED = 1841;
 /** The distant ring (cards) starts this far inside the near field's edge and is half as dense. */
 const FAR_OVERLAP = 40, FAR_DENSITY = 0.5, FAR_OCC_CELL = 4;
@@ -34,17 +33,6 @@ function speciesAssets(id: SpeciesId): SpeciesAssets {
   return a;
 }
 
-const placeFields = new Map<number, WorldFields>();
-/** The 512 placement field set for the tier's near fields (the near fields themselves on high). */
-function placementFields(near: WorldFields, bankOffset: number): WorldFields {
-  if (near.grid.size === PLACE_SIZE) return near;
-  let f = placeFields.get(bankOffset);
-  if (!f) {
-    f = buildFields(G, { extent: near.grid.cell * near.grid.size, size: PLACE_SIZE, bankOffset });
-    placeFields.set(bankOffset, f);
-  }
-  return f;
-}
 const masks = new WeakMap<WorldFields, VegMasks>();
 function masksFor(f: WorldFields): VegMasks {
   let m = masks.get(f);
@@ -76,7 +64,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   const { density, farCards, farRing } = q.veg;
   const sets = useMemo(() => {
     const t0 = performance.now();
-    const pf = placementFields(near, bankOffset);
+    const pf = placementFields(bankOffset, near);
     const dens = {} as Record<SpeciesId, number>;
     for (const id of PLACEMENT_ORDER) dens[id] = era.vegetation[id].value * density;
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
