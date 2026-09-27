@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { useStore } from '../state/store';
@@ -10,6 +10,7 @@ import { advanceClock } from './crossing';
 import { crossingGeometry } from './geometry';
 import { vesselMaterials } from './materials';
 import { apronLift, computeVesselPose, makePoseContext } from './pose';
+import { RopeSet } from './RopeSet';
 import { vesselSpec } from './spec';
 import { anconTiming } from './stats';
 import { emitVesselPose, sharedVesselPose } from './vesselPose';
@@ -17,7 +18,7 @@ import { buildVessel } from './vessels';
 
 /**
  * The ferry for the current era. One useFrame drives everything, in order: crossing clock →
- * vessel pose (shared, see useVesselPose) → hull + apron transforms → [ropes, crew, wake: later
+ * vessel pose (shared, see useVesselPose) → hull + apron transforms → ropes → [crew, wake: later
  * tasks] → timing → pose listeners (the ride camera). Nothing else computes the live pose.
  */
 export function Ancon({ near, era, q, frozen, castShadow }: {
@@ -33,13 +34,17 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
   const layout = ctx.layout;
   const parts = useMemo(() => buildVessel(spec, layout, 1), [spec, layout]);
   useEffect(() => () => parts.forEach((p) => p.geometry.dispose()), [parts]);
+  // Posts sit on the same 512 placement fields as the crossing; only tessellation follows the tier.
+  const ropes = useMemo(() => new RopeSet({ spec, layout, geom: ctx.geom, fields: place, segments: q.ancon.ropeSegments, radial: q.ancon.ropeRadial }),
+    [spec, layout, ctx, place, q.ancon.ropeSegments, q.ancon.ropeRadial]);
+  useEffect(() => () => ropes.dispose(), [ropes]);
   const mats = vesselMaterials();
   const hull = useRef<THREE.Group>(null);
   const aprons = useRef<(THREE.Group | null)[]>([]);
   const clock = useRef(start);
   useEffect(() => { clock.current = start; }, [start]);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const t0 = performance.now();
     clock.current = advanceClock(clock.current, Math.min(dt, 0.1), frozen, speed);
     const pose = computeVesselPose(clock.current, ctx, sharedVesselPose);
@@ -49,12 +54,14 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
       const p = parts[i], a = aprons.current[i];
       if (p.apron && a) a.rotation.z = p.apron.end * apronLift(pose.state, p.apron.end);
     }
+    const cam = state.camera as THREE.PerspectiveCamera;
+    ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height);
     anconTiming.add(performance.now() - t0);
     emitVesselPose(ctx);
   });
 
-  void q; // rope and crew tiers are used from Tasks 5 and 7
   return (
+    <>
     <group ref={hull} matrixAutoUpdate={false}>
       {parts.map((p, i) => p.apron ? (
         <group key={i} ref={(el) => { aprons.current[i] = el; }} position={[p.apron.hinge[0], p.apron.hinge[1], 0]}>
@@ -64,5 +71,8 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
         <mesh key={i} geometry={p.geometry} material={mats[p.material]} castShadow={castShadow} receiveShadow />
       ))}
     </group>
+    {/* Ropes and posts live in world space, outside the hull transform. */}
+    <primitive object={ropes.group} />
+    </>
   );
 }
