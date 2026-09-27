@@ -1,6 +1,6 @@
 import { cellRng } from '../../vegetation/rng';
 import type { DeckLayout, VesselSpec } from '../spec';
-import { PartBuilder, plankApron, WOOD, woodTone, type VesselPart } from './common';
+import { PartBuilder, plankApron, SEAM_AO, WOOD, woodTone, type VesselPart } from './common';
 
 const PLANK_W = 0.25, GAP = 0.012, PLANK_T = 0.06, DRAFT = 0.45, STRINGER_H = 0.18;
 
@@ -21,9 +21,12 @@ export function buildWoodPlatform(spec: VesselSpec, L: DeckLayout, seed: number)
   // Transverse deck planks with gaps and slight height/tone variation.
   const n = Math.floor((2 * hl) / PLANK_W);
   for (let i = 0; i < n; i++) {
-    const t = PLANK_T * (0.9 + 0.2 * r());
-    wood.box([PLANK_W - GAP, t, 2 * hb - 0.02 * r()], [-hl + (i + 0.5) * PLANK_W, top - PLANK_T + t / 2, 0], woodTone(r));
+    const t = PLANK_T * (0.95 + 0.1 * r());
+    wood.box([PLANK_W - GAP, t, 2 * hb - 0.02 * r()], [-hl + (i + 0.5) * PLANK_W, top - PLANK_T + t / 2, 0], woodTone(r), 0, 0, { sideAO: SEAM_AO });
   }
+  // Tarred caulking in the seams: its top sits 1 mm above the plank bottoms (and the stringer tops,
+  // which it hides), so the seams look down onto pitch with no coplanar faces.
+  wood.box([2 * hl, 0.01, 2 * hb - 0.04], [0, top - PLANK_T - 0.004, 0], WOOD.tar);
   // Rub rails and corner bitts.
   for (const sz of [-1, 1]) wood.box([2 * hl, 0.14, 0.1], [0, top - 0.06, sz * (hb + 0.03)], WOOD.dark);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) wood.box([0.16, 0.5, 0.16], [sx * (hl - 0.3), top + 0.25, sz * (hb - 0.25)], WOOD.dark);

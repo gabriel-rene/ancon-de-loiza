@@ -13,7 +13,7 @@ export function vesselMaterials() {
   cache ??= {
     wood: new THREE.MeshStandardMaterial({ map: canvasTexture(paintPlanks()), vertexColors: true, roughness: 0.88 }),
     steel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.3 }),   // Task 4 adds its painted map
-    iron: new THREE.MeshStandardMaterial({ color: 0x2b2826, roughness: 0.7, metalness: 0.5 }),
+    iron: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.5 }),   // colour: WOOD.iron (vertex)
   };
   return cache;
 }

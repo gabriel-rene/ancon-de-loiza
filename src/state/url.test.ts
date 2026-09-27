@@ -32,3 +32,7 @@ test('round-trips crossingStart and showAncon', () => {
   const s = { crossingStart: 42, showAncon: false } as const;
   expect(parseUrlState(toSearch(s))).toEqual(s);
 });
+test('blank ?c= and ?t= are absent, not 0', () => {
+  expect(parseUrlState('?c=&t=')).toEqual({});
+  expect(parseUrlState('?c=%20')).toEqual({});
+});

@@ -1,5 +1,4 @@
 import { cellRng } from '../vegetation/rng';
-import { TEX_M } from './vessels/common';
 
 /*
  * Procedural vessel textures (browser-only: they need a 2D canvas). Painted near-neutral so the
@@ -7,8 +6,6 @@ import { TEX_M } from './vessels/common';
  */
 
 const SIZE = 1024;
-/** Pixels per metre on the plank tile (one tile = TEX_M metres). */
-const PX_M = SIZE / TEX_M;
 
 function canvas(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -24,21 +21,22 @@ function wrapped(g: CanvasRenderingContext2D, fn: () => void) {
 }
 
 /**
- * Weathered plank tile, 1024 × 1024 = TEX_M × TEX_M metres (a 0.25 m plank is 128 px). Grain runs
- * along the canvas v axis (deck planks lie along local Z; worldUv maps top faces to (x, z)).
- * Light neutral base; 2 000 wavering grain streaks, 25 knots with growth rings, soft pale blotches
- * and silver-grey sun bleaching, dark nail pairs every 128 px along u.
+ * Weathered plank detail map, 1024 × 1024 = TEX_M × TEX_M metres (a 0.25 m plank is 128 px). The
+ * grain runs along the canvas v axis (worldUv puts v along each piece's grain). Near-white fill so
+ * the WOOD vertex colours carry the albedo: 2 000 darker wavering grain streaks, 25 knots, soft pale
+ * blotches, grey-white sun bleaching, water stains and drying checks. No nails: the tile is shared
+ * by every face and would not line up with the planks.
  */
 export function paintPlanks(): HTMLCanvasElement {
   const c = canvas(SIZE, SIZE), g = c.getContext('2d')!;
   const r = cellRng(0, 0, 7101);
-  g.fillStyle = '#cfc6b8';
+  g.fillStyle = '#f4f1ec';
   g.fillRect(0, 0, SIZE, SIZE);
 
   // Broad tonal drift along the grain: slow bands so the base is never flat.
   for (let i = 0; i < 60; i++) {
     const x = r() * SIZE, w = 20 + 120 * r(), a = 0.03 + 0.05 * r();
-    const col = r() < 0.5 ? `rgba(109,95,79,${a})` : `rgba(236,230,220,${a})`;
+    const col = r() < 0.5 ? `rgba(120,112,100,${a})` : `rgba(255,255,255,${a})`;
     wrapped(g, () => { g.fillStyle = col; g.fillRect(x - w / 2, 0, w, SIZE); });
   }
 
@@ -46,7 +44,7 @@ export function paintPlanks(): HTMLCanvasElement {
   for (let i = 0; i < 2000; i++) {
     const x = r() * SIZE, y = r() * SIZE, len = 40 + 360 * r(), lw = 1 + r();
     const a = 0.05 + 0.13 * r(), amp = 0.6 + 2.2 * r(), freq = (2 * Math.PI) / (120 + 260 * r()), ph = r() * 6.3;
-    const col = `rgba(109,95,79,${a.toFixed(3)})`;
+    const col = `rgba(118,108,96,${a.toFixed(3)})`;
     wrapped(g, () => {
       g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'round';
       g.beginPath();
@@ -83,7 +81,7 @@ export function paintPlanks(): HTMLCanvasElement {
     const x = r() * SIZE, y = r() * SIZE, rad = 30 + 110 * r();
     wrapped(g, () => {
       const grad = g.createRadialGradient(x, y, 0, x, y, rad);
-      grad.addColorStop(0, 'rgba(240,234,224,0.06)'); grad.addColorStop(1, 'rgba(240,234,224,0)');
+      grad.addColorStop(0, 'rgba(255,255,255,0.08)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = grad; g.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
     });
   }
@@ -92,7 +90,7 @@ export function paintPlanks(): HTMLCanvasElement {
     wrapped(g, () => {
       g.save(); g.translate(x, y); g.scale(w / h, 1);
       const grad = g.createRadialGradient(0, 0, 0, 0, 0, h / 2);
-      grad.addColorStop(0, 'rgba(176,178,176,0.16)'); grad.addColorStop(1, 'rgba(176,178,176,0)');
+      grad.addColorStop(0, 'rgba(236,238,238,0.35)'); grad.addColorStop(1, 'rgba(236,238,238,0)');
       g.fillStyle = grad;
       g.beginPath(); g.arc(0, 0, h / 2, 0, 2 * Math.PI); g.fill(); g.restore();
     });
@@ -115,18 +113,5 @@ export function paintPlanks(): HTMLCanvasElement {
     });
   }
 
-  // Nails: a pair across each 0.25 m plank where it crosses a stringer, every 128 px along u.
-  const plankPx = 0.25 * PX_M, stringerPx = 1.1 * PX_M;
-  for (let u = plankPx / 2; u < SIZE; u += plankPx) for (let v = stringerPx / 2; v < SIZE; v += stringerPx) {
-    for (const du of [-plankPx * 0.25, plankPx * 0.25]) {
-      const x = u + du + (r() - 0.5) * 3, y = v + (r() - 0.5) * 6;
-      wrapped(g, () => {
-        g.fillStyle = 'rgba(70,50,36,0.25)'; // rust bleed
-        g.beginPath(); g.ellipse(x, y + 3, 3.2, 6, 0, 0, 2 * Math.PI); g.fill();
-        g.fillStyle = 'rgba(34,28,24,0.9)';
-        g.beginPath(); g.arc(x, y, 2.2, 0, 2 * Math.PI); g.fill();
-      });
-    }
-  }
   return c;
 }

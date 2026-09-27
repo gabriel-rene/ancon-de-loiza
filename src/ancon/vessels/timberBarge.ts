@@ -23,7 +23,7 @@ export function buildTimberBarge(spec: VesselSpec, L: DeckLayout, seed: number):
     const y0 = BOTTOM + k * sh, y1 = y0 + sh;
     const shape = new THREE.Shape([new THREE.Vector2(-xAt(y0), y0), new THREE.Vector2(xAt(y0), y0), new THREE.Vector2(xAt(y1), y1), new THREE.Vector2(-xAt(y1), y1)]);
     const g = new THREE.ExtrudeGeometry(shape, { depth: SIDE_T, bevelEnabled: false }).translate(0, 0, sz > 0 ? hb - SIDE_T : -hb);
-    wood.add(g, (y0 + y1) / 2 < 0.05 ? WOOD.tar : tone(WOOD.strake, WOOD.dark, WOOD.bleach, r, 0.16));
+    wood.add(g, (y0 + y1) / 2 < 0.05 ? WOOD.tar : tone(WOOD.strake, WOOD.dark, WOOD.bleach, r, 0.16), { grain: 'x' });
   }
   // Raked end panels (transoms) from the bottom edge up to the gunwale at x = ±hl.
   const rakeLen = Math.hypot(RAKE, top - BOTTOM), ang = Math.atan2(top - BOTTOM, RAKE);

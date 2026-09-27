@@ -22,16 +22,17 @@ export function DebugPanel() {
 
   // Keep the panel in sync when the store changes from outside leva (URL parsing, future UI,
   // programmatic setCamera/setEra/... calls) — without this the mounted controls go stale.
-  const last = useRef({ eraId: init.eraId, timeOfDay: init.timeOfDay, camera: init.camera, quality: init.quality });
+  const last = useRef({ eraId: init.eraId, timeOfDay: init.timeOfDay, camera: init.camera, quality: init.quality, crossingSpeed: init.crossingSpeed });
   useEffect(() => {
     return useStore.subscribe((s) => {
-      const patch: Partial<{ era: EraId; time: number; camera: CameraPreset; quality: Quality }> = {};
+      const patch: Partial<{ era: EraId; time: number; camera: CameraPreset; quality: Quality; 'crossing ×': number }> = {};
       if (s.eraId !== last.current.eraId) patch.era = s.eraId;
       if (s.timeOfDay !== last.current.timeOfDay) patch.time = s.timeOfDay;
       if (s.camera !== last.current.camera) patch.camera = s.camera;
       if (s.quality !== last.current.quality) patch.quality = s.quality;
+      if (s.crossingSpeed !== last.current.crossingSpeed) patch['crossing ×'] = s.crossingSpeed;
       if (Object.keys(patch).length) {
-        last.current = { eraId: s.eraId, timeOfDay: s.timeOfDay, camera: s.camera, quality: s.quality };
+        last.current = { eraId: s.eraId, timeOfDay: s.timeOfDay, camera: s.camera, quality: s.quality, crossingSpeed: s.crossingSpeed };
         set(patch);
       }
     });

@@ -12,4 +12,4 @@ const listeners = new Set<PoseListener>();
  */
 export const useVesselPose = (): Readonly<VesselPose> => sharedVesselPose;
 export function onVesselPose(fn: PoseListener): () => void { listeners.add(fn); return () => { listeners.delete(fn); }; }
-export function emitVesselPose(ctx: PoseContext) { listeners.forEach((fn) => fn(sharedVesselPose, ctx)); }
+export function emitVesselPose(ctx: PoseContext) { for (const fn of listeners) fn(sharedVesselPose, ctx); }
