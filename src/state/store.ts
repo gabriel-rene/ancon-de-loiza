@@ -19,11 +19,14 @@ const DEFAULT_ERA: EraId = '1975';
 /** Without ?t, open at the start of golden hour for the era's calendar date (seasonal, not a fixed clock time). */
 export const defaultTime = (eraId: EraId) => goldenHourAST(getEra(eraId).date);
 
+/** Carries a clock time across an era switch relative to each era's own golden hour, clamped to the day. */
+export const shiftTime = (t: number, from: EraId, to: EraId) => Math.min(24, Math.max(0, defaultTime(to) + (t - defaultTime(from))));
+
 export const useStore = create<AppState>((set) => ({
   eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false, debugView: undefined,
   crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true,
   ...fromUrl,
-  setEra: (eraId) => set({ eraId }),
+  setEra: (eraId) => set((s) => ({ eraId, timeOfDay: shiftTime(s.timeOfDay, s.eraId, eraId) })),
   setTime: (timeOfDay) => set({ timeOfDay }),
   setCamera: (camera) => set({ camera }),
   setQuality: (quality) => set({ quality }),

@@ -1,11 +1,26 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
 canvas { display: block; }
 
-.title-card { position: fixed; left: 24px; bottom: 24px; color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
+.title-card { position: fixed; left: 24px; bottom: 88px; color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
 .title-card__kicker { text-transform: uppercase; letter-spacing: 0.24em; font-size: 11px; opacity: 0.8; }
 .title-card__era { font-size: 22px; margin-top: 4px; }
-.osm-credit { position: fixed; right: 10px; bottom: 8px; z-index: 10; color: rgba(244,236,223,0.85); font: 400 11px/1.3 ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
+.osm-credit { position: fixed; right: 10px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 60px); z-index: 10; color: rgba(244,236,223,0.85); font: 400 11px/1.3 ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
 .osm-credit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(244,236,223,0.45); }
 
 /* drei's <StatsGl> strips its own inline position:fixed style; restore it so the panel overlays the canvas. */
 .stats-gl { position: fixed !important; top: 8px; left: 8px; z-index: 20; }
+
+/* Bottom rail of 8 decade buttons (spec §13): warm glass over the haze, 48 px touch targets. */
+.decade-rail { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 15;
+  width: min(880px, calc(100vw - 16px)); box-sizing: border-box; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px;
+  padding: 3px; border-radius: 12px; background: rgba(12, 15, 15, 0.42); border: 1px solid rgba(244, 236, 223, 0.14);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.decade-rail__btn { min-height: 48px; min-width: 0; padding: 4px 2px; border: 0; border-radius: 9px; background: transparent; color: #f4ecdf;
+  font: 600 14px/1.1 ui-serif, Georgia, serif; letter-spacing: 0.02em; cursor: pointer; touch-action: manipulation;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: background-color 120ms ease; }
+.decade-rail__btn:hover { background: rgba(244, 236, 223, 0.1); }
+.decade-rail__btn[aria-pressed='true'] { background: #f4ecdf; color: #1b1a17; }
+.decade-rail__btn:focus-visible { outline: 2px solid #f2c46d; outline-offset: 1px; }
+.decade-rail__label { font: 500 10px/1.1 ui-sans-serif, system-ui, sans-serif; opacity: 0.75; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) { .decade-rail__label { display: none; } }
+@media (prefers-reduced-motion: reduce) { .decade-rail__btn { transition: none; } }

@@ -11,6 +11,7 @@ import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
 import { placeAll } from './placement';
+import { KeyedCache, placementKey } from './placementCache';
 import { PLACEMENT_ORDER } from './rules';
 import { makeSpeciesMaterials, SPECIES } from './species';
 import { vegTiming } from './stats';
@@ -32,6 +33,9 @@ function speciesAssets(id: SpeciesId): SpeciesAssets {
   }
   return a;
 }
+
+/** Placement sets for every (densities, bank offset, tier) seen this session (8 eras × 3 tiers at most). */
+const placements = new KeyedCache<Record<SpeciesId, PlantInstance[]>>(24);
 
 const masks = new WeakMap<WorldFields, VegMasks>();
 function masksFor(f: WorldFields): VegMasks {
@@ -62,11 +66,16 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   near: WorldFields; far: WorldFields; era: Era; q: QualitySettings; bankOffset: number;
 }) {
   const { density, farCards, farRing } = q.veg;
-  const sets = useMemo(() => {
+  const dens = useMemo(() => {
+    const d = {} as Record<SpeciesId, number>;
+    for (const id of PLACEMENT_ORDER) d[id] = era.vegetation[id].value * density;
+    return d;
+  }, [era, density]);
+  const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
+  const key = placementKey(dens, bankOffset, tier);
+  const sets = useMemo(() => placements.get(key, () => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
-    const dens = {} as Record<SpeciesId, number>;
-    for (const id of PLACEMENT_ORDER) dens[id] = era.vegetation[id].value * density;
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
     if (pf !== near) for (const id of PLACEMENT_ORDER) nearSet[id] = reseat(nearSet[id], near);
 
@@ -86,7 +95,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
     return out;
-  }, [near, far, era, density, farCards, farRing, bankOffset]);
+  }), [key, near, far]);
 
   // Needle litter under the near casuarinas, for the terrain material.
   useEffect(() => {
