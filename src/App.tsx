@@ -10,6 +10,7 @@ import { World } from './scene/World';
 import { useStore } from './state/store';
 import { DecadePicker } from './ui/DecadePicker';
 import { TitleCard } from './ui/TitleCard';
+import { Toolbar } from './ui/Toolbar';
 
 const DebugPanel = lazy(() => import('./ui/DebugPanel').then((m) => ({ default: m.DebugPanel })));
 
@@ -37,6 +38,7 @@ export function App() {
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
       <DecadePicker />
+      <Toolbar />
     </>
   );
 }
