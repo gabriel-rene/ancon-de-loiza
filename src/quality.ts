@@ -11,7 +11,8 @@ export interface QualitySettings {
   ancon: { ropeSegments: number; ropeRadial: number; passengers: number };
 }
 export const QUALITY: Record<Quality, QualitySettings> = {
-  high: { dpr: [1, 2], nearSize: 512, farSize: 512, reflScale: 0.5, shadowMap: 4096, shadowHalf: 140, ao: true,
+  // DPR capped at 1.75: at 2 the ride view sat on the 60 fps floor (the world alone ran 62–65 fps at 2880×1800).
+  high: { dpr: [1, 1.75], nearSize: 512, farSize: 512, reflScale: 0.5, shadowMap: 4096, shadowHalf: 140, ao: true,
     veg: { density: 1, lod0: 220, reflLod0: 50, farCards: true, farRing: true },
     ancon: { ropeSegments: 40, ropeRadial: 6, passengers: 1 } },
   medium: { dpr: [1, 1.5], nearSize: 384, farSize: 256, reflScale: 0.35, shadowMap: 2048, shadowHalf: 110, ao: true,

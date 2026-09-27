@@ -29,6 +29,10 @@ All scene details come from a sourced dossier: [`docs/research/ancon-research.md
 
 Phase 3 ran before Phase 2b: the ferry is the subject, so it came first; 2b's remaining species and polish follow.
 
+## Development
+
+`npm run dev` · `npm test` · `npm run build` · `npm run e2e` (Playwright on the production build; the GPU leak probe is tagged `@slow`, and `npm run e2e:fast` skips it with `--grep-invert @slow`).
+
 ## Stack
 
 Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zustand. Deployed to GitHub Pages.

@@ -9,7 +9,8 @@
     "preview": "vite preview --port 4173 --strictPort",
     "test": "vitest run",
     "bake": "node scripts/bake-osm.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:fast": "playwright test --grep-invert @slow"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
