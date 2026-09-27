@@ -50,7 +50,7 @@ Method: every cited URL opened with WebFetch on 2026-09-27. S3 (El Adoquín) ret
 - 1935 #1 — Rewrote to drop the unstated "hijo de Pedro" and the inferred "1930s–1970s" span; now states he ran it "hasta su muerte, en 1978" (S11), keeping the 1930s photo (S4).
 - 1935 #2 — Dropped "al burén" (not sourced for Tanén in S4 or S11); kept "la casa, el negocio y la cocina".
 - 1959 #0 — Fixed the wrong date: "se construyó en 1953–1954" → "se terminó en 1954" (S15: built 1950, finished 1954).
-- 1959 #2 — Rewrote "recibió el número PR-187 en 1953" (overstated) to "la PR-187, existe desde 1953" (matches S30's infobox).
+- 1959 #2 — Rewrote "recibió el número PR-187 en 1953" (overstated) to "La carretera PR-187 existe desde 1953." (matches S30's infobox; fix round 1 dropped "que pasa por el ancón" / "through the crossing", which is not in S30 either).
 - 1975 #1 — Dropped "sobre el río" (not stated in S4's caption) from the terrace description.
 - 1975 #2 — Rewrote: dropped the unsourced "16 de agosto" date and the "«la Restauración»" label (S1 uses that name for the bridge, not the 1970 event); dropped source S12 (kept S23, confirmed by direct fetch: "en 1970, se creó el pueblo de Canóvanas y Loíza Aldea volvió a ser la cabecera").
 - 1975 #4 — Dropped "en cemento" / "in concrete" (not stated in S4 or S6).
@@ -59,7 +59,7 @@ Method: every cited URL opened with WebFetch on 2026-09-27. S3 (El Adoquín) ret
 - 1986 #0 — Added new source S4b (Archivo Negro, "El Ancón de Loíza: un vínculo histórico") to `src/data/sources.ts`; fetched it directly and confirmed "la inauguración del puente del Río Grande de Loíza en 1985" and the 1986 closure. Dropped S27 (no year); kept S4 (1986 closure) plus S4b (1985 bridge year).
 - 1986 #1 — Dropped source S7 (does not mention La Paseadora); kept S4 only.
 - 1986 #2 — Cited S4b instead of S6, after fetching S4b and confirming both the municipal-collaboration attempt and the hurricane sentence verbatim.
-- 1986 #3 — Rewrote "un plan… propone una nueva barcaza movida por personas" to "El Colectivo espera construir una nueva barcaza movida por personas" (Mellon: "hope to", not a confirmed plan); dropped "con fondos de la Fundación Mellon" (Mellon calls it "human-centered", not human-powered) and dropped source S9 (placeholder page with no content); kept S5 and S6.
+- 1986 #3 — Rewrote "un plan… propone una nueva barcaza movida por personas" to "El Colectivo espera diseñar y construir una nueva barcaza para atraer visitantes al centro histórico de Loíza." (fix round 1: "movida por personas" / "human-powered" was still not in S5, which says "human-centered barge"; S6 does not mention a new barge at all); dropped "con fondos de la Fundación Mellon" and dropped source S9 (placeholder page with no content); kept S5 (new-barge sentence) and S6 (2019/2024 parts).
 
 ## Flagged for the user
 

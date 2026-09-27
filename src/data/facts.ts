@@ -76,8 +76,8 @@ export const FACTS: Record<EraId, Fact[]> = {
     { text: { es: 'Una foto de hacia 1959 muestra el carro público del chofer Florencio «Colo» Ramos frente al negocio El Ancón.',
               en: 'A photo from around 1959 shows the público (shared taxi) of driver Florencio “Colo” Ramos in front of the El Ancón business.' },
       sources: ['S4'] },
-    { text: { es: 'La carretera que pasa por el ancón, la PR-187, existe desde 1953.',
-              en: 'The road through the crossing, PR-187, has existed since 1953.' },
+    { text: { es: 'La carretera PR-187 existe desde 1953.',
+              en: 'Highway PR-187 has existed since 1953.' },
       sources: ['S30'] },
   ],
   '1975': [
@@ -124,8 +124,8 @@ export const FACTS: Record<EraId, Fact[]> = {
     { text: { es: 'La familia quiso conservar la barcaza como atracción turística, pero no recibió apoyo municipal. Más tarde un huracán se la llevó mar afuera.',
               en: 'The family wanted to keep the barge as a tourist attraction, but got no support from the municipality. Later a hurricane carried it out to sea.' },
       sources: ['S4b'] },
-    { text: { es: 'Hoy el Colectivo El Ancón de Loíza (fundado en 2019) y la Casa Museo Cortijo (abierta el 26 de junio de 2024) ocupan el sitio original. El Colectivo espera construir una nueva barcaza movida por personas.',
-              en: 'Today the Colectivo El Ancón de Loíza (founded 2019) and the Casa Museo Cortijo (opened 26 June 2024) occupy the original site. The Colectivo hopes to build a new human-powered barge.' },
+    { text: { es: 'Hoy el Colectivo El Ancón de Loíza (fundado en 2019) y la Casa Museo Cortijo (abierta el 26 de junio de 2024) ocupan el sitio original. El Colectivo espera diseñar y construir una nueva barcaza para atraer visitantes al centro histórico de Loíza.',
+              en: 'Today the Colectivo El Ancón de Loíza (founded 2019) and the Casa Museo Cortijo (opened 26 June 2024) occupy the original site. The Colectivo hopes to design and build a new barge to draw visitors to Loíza’s historic center.' },
       sources: ['S5', 'S6'] },
   ],
 };
