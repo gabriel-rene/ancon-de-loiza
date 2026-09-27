@@ -85,14 +85,16 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
     l.target.updateMatrixWorld();
   });
 
-  const envKey = `${sun.dir.x.toFixed(2)}${sun.dir.y.toFixed(2)}${sun.dir.z.toFixed(2)}`;
+  // One Environment for the app's life, re-rendered (not remounted) when the sun moves: drei's
+  // Environment re-renders its cube whenever its children change identity, so the sky inside is memoised
+  // on the sun. Remounting it (a `key` per sun position) leaked a PMREM render target (texture +
+  // framebuffer) per era switch: three never disposes the PMREM made from a render-target texture.
+  const envSky = useMemo(() => <SkyDome dir={sun.dir} atm={sun.atm} />, [sun]);
 
   return (
     <>
       <SkyDome dir={sun.dir} atm={atm} />
-      <Environment key={envKey} resolution={128} frames={1}>
-        <SkyDome dir={sun.dir} atm={atm} />
-      </Environment>
+      <Environment resolution={128} frames={1}>{envSky}</Environment>
       <directionalLight
         ref={light}
         color={new THREE.Color(...atm.sunColor)}

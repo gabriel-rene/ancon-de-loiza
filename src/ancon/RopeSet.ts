@@ -27,6 +27,7 @@ export class RopeSet {
   private readonly a: V3 = [0, 0, 0]; private readonly b: V3 = [0, 0, 0];
   private readonly material: THREE.Material;
   private postMaterial: THREE.Material | null = null;
+  private posts: THREE.InstancedMesh | null = null;
   private readonly local: V3 = [0, 0, 0];
   private readonly shoreSide: 1 | -1;
   private readonly uPx = { value: 0.001 };
@@ -69,7 +70,7 @@ export class RopeSet {
     const tops: V3[] = this.rig ? (this.mode === 'moor' ? [...this.rig.east] : [...this.rig.east, ...this.rig.west]) : this.shorePost ? [this.shorePost] : [];
     if (!tops.length) return;
     this.postMaterial = new THREE.MeshStandardMaterial({ color: 0x4f4234, roughness: 0.9 });
-    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.12, 1.8, 8), this.postMaterial, tops.length);
+    const posts = (this.posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.12, 1.8, 8), this.postMaterial, tops.length));
     const m = new THREE.Matrix4();
     for (let i = 0; i < tops.length; i++) posts.setMatrixAt(i, m.makeTranslation(tops[i][0], tops[i][1] + 0.1 - 0.9, tops[i][2]));   // 1.8 m post, top 0.1 m above the rope eye
     posts.castShadow = true; posts.receiveShadow = true;
@@ -100,7 +101,10 @@ export class RopeSet {
 
   dispose() {
     this.group.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+    // InstancedMesh.dispose() frees the instanceMatrix buffer (geometry.dispose() alone leaves it on the GPU).
+    this.posts?.dispose();
     this.material.dispose();
     this.postMaterial?.dispose();
+    this.group.clear();
   }
 }
