@@ -23,3 +23,20 @@ test('round-trips debugView', () => {
   const s = { debugView: 'water' } as const;
   expect(parseUrlState(toSearch(s))).toEqual(s);
 });
+test('parses the crossing clock start and the ancón toggle', () => {
+  expect(parseUrlState('?c=95.5&ancon=0')).toEqual({ crossingStart: 95.5, showAncon: false });
+  expect(parseUrlState('?c=-3&ancon=1')).toEqual({});
+  expect(parseUrlState('?c=abc')).toEqual({});
+});
+test('round-trips crossingStart and showAncon', () => {
+  const s = { crossingStart: 42, showAncon: false } as const;
+  expect(parseUrlState(toSearch(s))).toEqual(s);
+});
+test('blank ?c= and ?t= are absent, not 0', () => {
+  expect(parseUrlState('?c=&t=')).toEqual({});
+  expect(parseUrlState('?c=%20')).toEqual({});
+});
+test('parses ?perf=1', () => {
+  expect(parseUrlState('?perf=1')).toEqual({ perf: true });
+  expect(parseUrlState(toSearch({ perf: true }))).toEqual({ perf: true });
+});

@@ -14,4 +14,6 @@ export function vegStatsText() {
  */
 export const vegTiming = { placeRuns: [] as number[], bakeMs: 0, counts: {} as Record<string, { near: number; far: number }> };
 declare global { interface Window { __ANCON_VEG__?: typeof vegTiming } }
-if (typeof window !== 'undefined' && import.meta.env?.DEV) window.__ANCON_VEG__ = vegTiming;
+if (typeof window !== 'undefined' && (import.meta.env?.DEV || new URLSearchParams(window.location.search).get('debug') === '1')) {
+  window.__ANCON_VEG__ = vegTiming;
+}

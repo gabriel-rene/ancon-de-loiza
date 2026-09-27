@@ -85,14 +85,14 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
     l.target.updateMatrixWorld();
   });
 
-  const envKey = `${sun.dir.x.toFixed(2)}${sun.dir.y.toFixed(2)}${sun.dir.z.toFixed(2)}`;
+  // Do NOT key or remount this <Environment> (or <SkyAndLight> itself): three never frees the PMREM made from a
+  // render-target environment, so every remount leaks a texture + framebuffer (tests/e2e/leak.spec.ts catches it).
+  const envSky = useMemo(() => <SkyDome dir={sun.dir} atm={sun.atm} />, [sun]);
 
   return (
     <>
       <SkyDome dir={sun.dir} atm={atm} />
-      <Environment key={envKey} resolution={128} frames={1}>
-        <SkyDome dir={sun.dir} atm={atm} />
-      </Environment>
+      <Environment resolution={128} frames={1}>{envSky}</Environment>
       <directionalLight
         ref={light}
         color={new THREE.Color(...atm.sunColor)}

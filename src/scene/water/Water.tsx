@@ -2,11 +2,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
-import { RIVER_DIR, WIND_DIR } from '../../geo/constants';
+import { RIVER_DIR, WATER_Y, WIND_DIR } from '../../geo/constants';
 import { useStore } from '../../state/store';
 import type { WorldFields } from '../../terrain/fields';
 import type { Sun } from '../useSun';
 import { makeInfoTexture } from '../useWorldFields';
+import { wakeUniforms } from '../../ancon/wakeUniforms';
 import { reflectionHooks } from './reflectionHooks';
 import { waterFragment, waterVertex } from './waterShader';
 
@@ -43,7 +44,11 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
         fragmentShader: waterFragment,
       },
     });
+    // The Reflector clones shader.uniforms: swap the shared wake objects in before the first compile
+    // (<Ancon> writes them every frame).
+    Object.assign((r.material as THREE.ShaderMaterial).uniforms, wakeUniforms);
     r.rotation.x = -Math.PI / 2;
+    r.position.y = WATER_Y;
     // Let other systems (vegetation LOD) swap what the mirror sees for the reflection render.
     const inner = r.onBeforeRender;
     r.onBeforeRender = function (...args: Parameters<THREE.Object3D['onBeforeRender']>) {

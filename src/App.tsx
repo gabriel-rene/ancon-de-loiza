@@ -4,9 +4,11 @@ import { lazy, Suspense } from 'react';
 import * as THREE from 'three';
 import { QUALITY } from './quality';
 import { Cameras } from './scene/Cameras';
+import { FrameSampler, RendererInfo } from './scene/FrameSampler';
 import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
+import { DecadePicker } from './ui/DecadePicker';
 import { TitleCard } from './ui/TitleCard';
 
 const DebugPanel = lazy(() => import('./ui/DebugPanel').then((m) => ({ default: m.DebugPanel })));
@@ -14,6 +16,7 @@ const DebugPanel = lazy(() => import('./ui/DebugPanel').then((m) => ({ default: 
 export function App() {
   const q = QUALITY[useStore((s) => s.quality)];
   const debug = useStore((s) => s.debug);
+  const perf = useStore((s) => s.perf);
   return (
     <>
       <Canvas
@@ -26,9 +29,12 @@ export function App() {
         <Cameras />
         <ReadySignal />
         {debug && <StatsGl className="stats-gl" />}
+        {perf && <FrameSampler />}
+        {(debug || perf) && <RendererInfo />}
       </Canvas>
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
+      <DecadePicker />
     </>
   );
 }

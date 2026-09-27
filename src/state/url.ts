@@ -8,6 +8,9 @@ export const DEBUG_VIEWS: DebugView[] = ['water'];
 export interface UrlState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
+  crossingStart: number; showAncon: boolean;
+  /** ?perf=1: record frame times for scripts/dev/perf.mjs. */
+  perf: boolean;
 }
 
 export function parseUrlState(search: string): Partial<UrlState> {
@@ -15,8 +18,10 @@ export function parseUrlState(search: string): Partial<UrlState> {
   const out: Partial<UrlState> = {};
   const era = p.get('era');
   if (era && (ERA_IDS as string[]).includes(era)) out.eraId = era as EraId;
-  const t = Number(p.get('t'));
-  if (p.has('t') && Number.isFinite(t) && t >= 0 && t <= 24) out.timeOfDay = t;
+  /** A numeric param, or undefined when absent or blank (`?c=` must not mean 0). */
+  const num = (k: string) => { const v = p.get(k)?.trim(); return v ? Number(v) : undefined; };
+  const t = num('t');
+  if (t !== undefined && Number.isFinite(t) && t >= 0 && t <= 24) out.timeOfDay = t;
   const cam = p.get('cam');
   if (cam && (CAMERA_PRESETS as string[]).includes(cam)) out.camera = cam as CameraPreset;
   const q = p.get('q');
@@ -25,6 +30,10 @@ export function parseUrlState(search: string): Partial<UrlState> {
   if (p.get('freeze') === '1') out.frozen = true;
   const view = p.get('view');
   if (view && (DEBUG_VIEWS as string[]).includes(view)) out.debugView = view as DebugView;
+  const c = num('c');
+  if (c !== undefined && Number.isFinite(c) && c >= 0 && c < 1e6) out.crossingStart = c;
+  if (p.get('ancon') === '0') out.showAncon = false;
+  if (p.get('perf') === '1') out.perf = true;
   return out;
 }
 
@@ -37,5 +46,8 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.debug) p.set('debug', '1');
   if (s.frozen) p.set('freeze', '1');
   if (s.debugView) p.set('view', s.debugView);
+  if (s.crossingStart !== undefined) p.set('c', String(s.crossingStart));
+  if (s.showAncon === false) p.set('ancon', '0');
+  if (s.perf) p.set('perf', '1');
   return `?${p.toString()}`;
 }
