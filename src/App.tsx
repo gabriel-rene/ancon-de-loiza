@@ -9,6 +9,7 @@ import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
 import { DecadePicker } from './ui/DecadePicker';
+import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';
 
@@ -22,19 +23,21 @@ export function App() {
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return (
     <>
-      <Canvas
-        dpr={q.dpr}
-        shadows={q.shadowMap > 0 ? 'percentage' : false}
-        camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
-        gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
-      >
-        <World />
-        <Cameras />
-        <ReadySignal />
-        {debug && <StatsGl className="stats-gl" />}
-        {perf && <FrameSampler />}
-        {(debug || perf) && <RendererInfo />}
-      </Canvas>
+      <SceneBoundary>
+        <Canvas
+          dpr={q.dpr}
+          shadows={q.shadowMap > 0 ? 'percentage' : false}
+          camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
+          gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
+        >
+          <World />
+          <Cameras />
+          <ReadySignal />
+          {debug && <StatsGl className="stats-gl" />}
+          {perf && <FrameSampler />}
+          {(debug || perf) && <RendererInfo />}
+        </Canvas>
+      </SceneBoundary>
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
       <DecadePicker />

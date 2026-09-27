@@ -58,3 +58,6 @@ canvas { display: block; }
 }
 @keyframes info-sheet-up { from { transform: translateY(16px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .info-panel { animation: none; } }
+
+.scene-fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+  background: linear-gradient(#2a3a44, #1b1a17); color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; text-align: center; }
