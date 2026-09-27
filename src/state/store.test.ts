@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { goldenHourAST } from '../geo/sun';
 import { defaultTime, shiftTime, useStore } from './store';
 import { CROSSING_TIMINGS, DEFAULT_CROSSING_START, createCrossingState, crossingState } from '../ancon/crossing';
+import { detectLang } from '../i18n/text';
 
 test('default time is the default era’s golden hour (no ?t in the URL)', () => {
   expect(useStore.getState().timeOfDay).toBe(goldenHourAST('1975-07-27'));
@@ -26,4 +27,11 @@ test('switching era keeps the time relative to that era’s golden hour', () => 
   expect(useStore.getState().eraId).toBe('1984');
   expect(useStore.getState().timeOfDay).toBeCloseTo(defaultTime('1984') + 0.25, 9);
   expect(shiftTime(23.9, '1984', '1975')).toBeLessThanOrEqual(24);
+});
+test('language defaults from the browser and setLang changes it', () => {
+  expect(useStore.getState().lang).toBe(detectLang(typeof navigator !== 'undefined' ? navigator.language : undefined));
+  useStore.getState().setLang('es');
+  expect(useStore.getState().lang).toBe('es');
+  useStore.getState().setLang('en');
+  expect(useStore.getState().lang).toBe('en');
 });

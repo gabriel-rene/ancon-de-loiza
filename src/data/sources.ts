@@ -3,6 +3,7 @@ export const SOURCES: Record<string, { title: string; url: string }> = {
   S2: { title: 'Flickr, Julie Alicea — "El Ancon De Loiza – 1982"', url: 'https://www.flickr.com/photos/juliealicea/4857838050' },
   S3: { title: 'Torrech San Inocencio — "El muy antiguo Ancón de Loíza", El Adoquín (2025)', url: 'https://eladoquintimes.com/2025/07/31/el-muy-antiguo-ancon-de-loiza/' },
   S4: { title: 'Archivo Negro — collection "El Ancón de Loíza"', url: 'https://www.archivonegro.org/coleccion/el-ancon-en-loiza' },
+  S4b: { title: 'Archivo Negro — "El Ancón de Loíza: un vínculo histórico"', url: 'https://www.archivonegro.org/post/el-ancon-de-loiza-un-vinculo-historico' },
   S5: { title: 'Mellon Foundation — "The Famed El Ancón Barge is Being Reimagined"', url: 'https://www.mellon.org/grant-story/famed-el-ancon-barge-reimagined-puerto-rico' },
   S6: { title: 'Archivo Negro — "Inauguración de la Casa Museo Cortijo"', url: 'https://www.archivonegro.org/post/inauguracion-de-la-casa-museo-cortijo-legado-historico-y-cultural-en-loiza-puerto-rico' },
   S7: { title: 'Miyamoto Relief — "Rebuilding El Ancón de Loíza"', url: 'https://www.miyamotorelief.org/causes/rebuilding-el-ancon-de-loiza-preserving-our-heritage/' },

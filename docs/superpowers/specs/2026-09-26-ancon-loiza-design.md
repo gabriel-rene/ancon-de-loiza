@@ -104,6 +104,7 @@ Units stay small and single-purpose. Scene components read the era config; they 
   1. Terrain, river, sandbar, ocean, sky, light, water, post — reach the quality bar
   2. Vegetation + wind
   3. The ancón per era + crossing loop + crew
+  3b. Sourced info panel, Spanish and English (pulled forward from 6; see 2026-09-27-info-panel-design.md)
   4. Infrastructure per era (landings, houses, church, roads, vehicles, bridge)
   5. Fauna
   6. Timeline UI, transitions, sourced facts, sound, camera modes

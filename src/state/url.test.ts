@@ -40,3 +40,11 @@ test('parses ?perf=1', () => {
   expect(parseUrlState('?perf=1')).toEqual({ perf: true });
   expect(parseUrlState(toSearch({ perf: true }))).toEqual({ perf: true });
 });
+test('parses ?lang and rejects unknown languages', () => {
+  expect(parseUrlState('?lang=es')).toEqual({ lang: 'es' });
+  expect(parseUrlState('?lang=en')).toEqual({ lang: 'en' });
+  expect(parseUrlState('?lang=fr')).toEqual({});
+});
+test('round-trips lang', () => {
+  expect(parseUrlState(toSearch({ lang: 'es' }))).toEqual({ lang: 'es' });
+});
