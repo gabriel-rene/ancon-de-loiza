@@ -63,7 +63,9 @@ describe('eras', () => {
     const idle = getEra('1986').ancon;
     expect([idle.crew.value, idle.passengers.value]).toEqual([0, 0]);
     for (const e of ERAS) if (e.ancon.propulsion.value === 'ropes') {
-      expect(e.ancon.crew.value).toBeGreaterThanOrEqual(2); expect(e.ancon.crew.value).toBeLessThanOrEqual(3); // "two or three" [S1]
+      // "two or three" [S1] haulers, except 1984: María Luisa Cortijo ran it alone (research §2.4, §9).
+      if (e.id === '1984') { expect(e.ancon.crew.value).toBe(1); continue; }
+      expect(e.ancon.crew.value).toBeGreaterThanOrEqual(2); expect(e.ancon.crew.value).toBeLessThanOrEqual(3);
     }
   });
   test('clothing style per era (research §7, inferred)', () => {

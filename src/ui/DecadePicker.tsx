@@ -27,8 +27,8 @@ export function DecadePicker() {
   return (
     <nav className="decade-rail" aria-label="Choose an era">
       {ERAS.map((e) => (
-        <button key={e.id} type="button" className="decade-rail__btn" aria-pressed={e.id === eraId}
-          aria-label={`${e.years} · ${e.label}`} title={`${e.years} · ${e.label}`} onClick={() => choose(e.id)}>
+        <button key={e.id} type="button" className="decade-rail__btn" aria-current={e.id === eraId ? 'true' : undefined}
+          aria-label={`${e.id} · ${e.years} · ${e.label}`} title={`${e.id} · ${e.years} · ${e.label}`} onClick={() => choose(e.id)}>
           <span className="decade-rail__year">{e.id}</span>
           <span className="decade-rail__label">{e.label}</span>
         </button>

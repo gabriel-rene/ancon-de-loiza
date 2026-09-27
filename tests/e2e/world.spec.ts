@@ -36,7 +36,7 @@ test('default view: ride camera at golden hour, the ferry running', async ({ pag
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('?freeze=1&q=medium');
+  await page.goto('?freeze=1&q=medium&debug=1');
   await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
   await page.screenshot({ path: 'tests/snapshots/phase3/default.png' });
   expect(await page.evaluate(() => window.__ANCON_ANCON__?.frames ?? 0)).toBeGreaterThan(0);   // the ferry's frame loop runs

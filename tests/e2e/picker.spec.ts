@@ -8,7 +8,7 @@ test('decade picker switches era, updates the URL, steps with ← →, revisits 
   await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
   const rail = page.getByRole('navigation', { name: 'Choose an era' });
   await expect(rail.getByRole('button')).toHaveCount(8);
-  await expect(rail.getByRole('button', { pressed: true })).toHaveAttribute('aria-label', /1960s–1970s/);
+  await expect(rail.locator('button[aria-current="true"]')).toHaveAttribute('aria-label', /1960s–1970s/);
   const runsOf = () => page.evaluate(() => window.__ANCON_VEG__!.placeRuns.length);
   const before = await runsOf();
   await rail.getByRole('button', { name: /1980–1986/ }).click();

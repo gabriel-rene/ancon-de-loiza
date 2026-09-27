@@ -19,7 +19,7 @@ export interface AnconEra {
   crew: Sourced<number>;
   /** A second pole "keeps the course" as a rudder (research §2.3). */
   helmsman: Sourced<boolean>;
-  /** 1978–86: María Luisa Cortijo, the only woman to run the ancón, is one of the haulers. */
+  /** 1978–86: María Luisa Cortijo, the only woman to run the ancón, hauled it alone after the 1978 anconeros' strike (research §2.4, §9). */
   anconera: Sourced<boolean>;
   /** 1840s Lombera inset: a rope from the craft's side to the shore. */
   shoreRope: Sourced<boolean>;
@@ -104,7 +104,7 @@ const ANCON = {
     shoreRope: s(false, ['S1'], 'M'), passengers: s(7, ['S1'], 'M', true), clothing: WEAR('modern') },
   '1984': { kind: s<VesselKind>('steelPontoon', ['S1', 'S4'], 'H'), length: s(20, ['S1', 'S4'], 'M', true), beam: s(7.5, ['S1', 'S4'], 'M', true),
     freeboard: s(0.7, [], 'L', true), cars: s(8, ['S1'], 'H'), propulsion: s<Propulsion>('ropes', ['S1', 'S2', 'S4'], 'H'),
-    crew: s(2, ['S1', 'S4', 'S11'], 'M', true), helmsman: s(false, ['S1'], 'M', true), anconera: s(true, ['S4', 'S11'], 'H'),
+    crew: s(1, ['S4', 'S11'], 'H'), helmsman: s(false, ['S1'], 'M', true), anconera: s(true, ['S4', 'S11'], 'H'),
     shoreRope: s(false, ['S1'], 'M'), passengers: s(6, ['S4'], 'M', true), clothing: WEAR('modern') },
   '1986': { kind: s<VesselKind>('steelPontoon', ['S4'], 'H'), length: s(20, ['S1', 'S4'], 'M', true), beam: s(7.5, ['S1', 'S4'], 'M', true),
     freeboard: s(0.7, [], 'L', true), cars: s(8, ['S1'], 'H'), propulsion: s<Propulsion>('moored', ['S1', 'S4'], 'H'),

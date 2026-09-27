@@ -1,4 +1,4 @@
-import { crossingGeometry, landingClearings } from '../ancon/geometry';
+import { crossingGeometry, landingClearings, type XZ } from '../ancon/geometry';
 import type { GeoBundle } from '../data/geo/types';
 import { landmarkXZ } from '../data/landmarks';
 import { distanceTransform } from '../terrain/edt';
@@ -25,8 +25,12 @@ export function buildVegMasks(geo: GeoBundle, f: WorldFields): VegMasks {
   for (let i = 0; i < N; i++) river[i] = f.water[i] === WATER.RIVER || f.water[i] === WATER.POND ? 1 : 0;
   const dRoad = distanceTransform(road, g.size, g.size), dRiver = distanceTransform(river, g.size, g.size);
   const [px, pz] = landmarkXZ('plaza');
-  // Clearings centre on the ferry's shore points (just inland of the waterline), not the raw landing coordinates.
-  const landings = landingClearings(crossingGeometry(f));
+  // Clearings centre on the ferry's shore points (just inland of the waterline), not the raw landing
+  // coordinates. The far fields' coarser grid can lose the (real-width) river near a landing, so
+  // nearestShore throws there; the landings are inside the near extent regardless, so skip the
+  // clearings rather than crash — the near-field call still carves them out correctly.
+  let landings: [XZ, XZ] | [] = [];
+  try { landings = landingClearings(crossingGeometry(f)); } catch { /* far field: no river within reach of a landing */ }
   const roadDist = new Float32Array(N), riverDist = new Float32Array(N), town = new Float32Array(N), clear = new Float32Array(N);
   for (let j = 0; j < g.size; j++) for (let i = 0; i < g.size; i++) {
     const k = j * g.size + i, x = g.minX + (i + 0.5) * g.cell, z = g.minZ + (j + 0.5) * g.cell;

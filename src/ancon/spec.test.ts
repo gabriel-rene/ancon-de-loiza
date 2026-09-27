@@ -4,7 +4,7 @@ import { APRON, CAR_SLOT, deckLayout, GUIDE_H, vesselSpec } from './spec';
 
 test('vesselSpec flattens the Sourced era values', () => {
   const s = vesselSpec(getEra('1984'));
-  expect(s).toMatchObject({ kind: 'steelPontoon', length: 20, beam: 7.5, cars: 8, propulsion: 'ropes', crew: 2, anconera: true, moored: false });
+  expect(s).toMatchObject({ kind: 'steelPontoon', length: 20, beam: 7.5, cars: 8, propulsion: 'ropes', crew: 1, anconera: true, moored: false });
   expect(vesselSpec(getEra('1986')).moored).toBe(true);
 });
 test('every deck fits its car slots with a 0.3 m margin all round', () => {
