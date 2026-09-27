@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ERAS, getEra } from '../data/eras';
 import { createVesselPose } from './pose';
 import { anchorToWorld, haulerStationX, haulerZ, seatAnchors } from './seats';
+import { bittXZ } from './vessels/common';
 import { CAR_SLOT, deckLayout, vesselSpec } from './spec';
 
 for (const e of ERAS) test(`${e.id}: car slots, standing spots, all on the deck`, () => {
@@ -38,6 +39,22 @@ test('rope haulers stand on the deck and outside every car slot (Phase 4 parks c
       const x = haulerStationX(k, perSide, L, side), z = haulerZ(side, L);
       expect(Math.abs(x), e.id).toBeLessThanOrEqual(L.halfLength - 0.5);
       for (const c of cars) expect(Math.abs(x - c.pos[0]) < CAR_SLOT.length / 2 && Math.abs(z - c.pos[2]) < CAR_SLOT.width / 2, e.id).toBe(false);
+    }
+  }
+});
+test('rope haulers keep clear of the bitts and the rope guide posts at the deck ends', () => {
+  for (const e of ERAS) {
+    const s = vesselSpec(e), L = deckLayout(s);
+    if (s.propulsion !== 'ropes') continue;
+    const perSide = Math.ceil(s.crew / 2), fixtures: [number, number][] = [];
+    for (const end of [1, -1] as const) for (const side of [1, -1] as const) {
+      // Guide posts (every rope vessel); bitts: steel pontoon (bittXZ) or the wooden platforms' corner bitts.
+      fixtures.push([end * (L.halfLength - 0.3), side * L.ropeZ],
+        s.kind === 'steelPontoon' ? bittXZ(L, end, side) : [end * (L.halfLength - 0.3), side * (L.halfBeam - 0.25)]);
+    }
+    for (const side of [1, -1]) for (let k = 0; k < perSide; k++) {
+      const x = haulerStationX(k, perSide, L, side), z = haulerZ(side, L);
+      for (const [fx, fz] of fixtures) expect(Math.hypot(x - fx, z - fz), e.id).toBeGreaterThan(0.6);
     }
   }
 });

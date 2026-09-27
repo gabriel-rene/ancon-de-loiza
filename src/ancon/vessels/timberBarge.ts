@@ -4,6 +4,8 @@ import type { DeckLayout, VesselSpec } from '../spec';
 import { PartBuilder, tone, WOOD, woodTone, type VesselPart } from './common';
 
 const BOTTOM = -0.3, RAKE = 0.8, SIDE_T = 0.06;
+/** Height of the gunwale caps' top above the floorboards (m); the crew's push poles clear it (crew.ts). */
+export const GUNWALE_TOP = 0.5;
 
 /**
  * Colonial / early-1900s ancón de pasaje: a flat-bottomed plank scow, no aprons — its raked bow
@@ -11,7 +13,7 @@ const BOTTOM = -0.3, RAKE = 0.8, SIDE_T = 0.06;
  * x = ±halfLength, the point dockPoint() assumes.
  */
 export function buildTimberBarge(spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[] {
-  const r = cellRng(seed, 1, 703), hl = L.halfLength, hb = L.halfBeam, floor = L.deckY, top = floor + 0.45;
+  const r = cellRng(seed, 1, 703), hl = L.halfLength, hb = L.halfBeam, floor = L.deckY, top = floor + GUNWALE_TOP - 0.05;
   const wood = new PartBuilder(), iron = new PartBuilder();
   /** |x| of the raked hull end at height y. */
   const xAt = (y: number) => hl - (RAKE * (top - y)) / (top - BOTTOM);

@@ -12,13 +12,16 @@ const GRID = 0.65, EDGE = 0.45;
 export const haulerZ = (side: number, L: DeckLayout) => side * (L.ropeZ - 0.35);
 /**
  * Deck-local x of rope hauler station k (of `perSide` on the rope line `side`). Stations spread along
- * the deck, but never inside the car slots (Phase 4 parks cars there): a station that would fall
- * inside is moved just past the slot rows, toward its own end (or toward `side` when centred).
+ * the deck, but never inside the car slots (Phase 4 parks cars there): a station whose hauler lane
+ * (haulerZ) runs through the slot band (within 0.2 m) and would fall inside a slot row is moved just
+ * past the rows, toward its own end (or toward `side` when centred). A lane clear of the slots (the
+ * wide 1980s barge) keeps its spread station — at the ends it would stand on the bitts and rope guides.
  * Shared with the crew choreography (Task 7).
  */
 export function haulerStationX(k: number, perSide: number, L: DeckLayout, side: number): number {
   const x = ((k + 0.5) / perSide - 0.5) * L.halfLength, slotHalf = (L.rows * CAR_SLOT.length) / 2;
-  if (L.rows === 0 || Math.abs(x) >= slotHalf + 0.45) return x;
+  const slotZ = (L.lanes / 2 - 0.5) * CAR_SLOT.width * 1.08 + CAR_SLOT.width / 2;   // outer edge of the outer lane (seatAnchors)
+  if (L.rows === 0 || Math.abs(x) >= slotHalf + 0.45 || Math.abs(haulerZ(side, L)) >= slotZ + 0.2) return x;
   return (x === 0 ? Math.sign(side) : Math.sign(x)) * (slotHalf + 0.45);
 }
 

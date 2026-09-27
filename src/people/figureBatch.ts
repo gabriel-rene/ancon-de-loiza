@@ -21,6 +21,8 @@ const HEAD = PART_INDEX.head;
 type Geos = { body: Record<GeoKind, THREE.BufferGeometry>; hats: Record<Hat, THREE.BufferGeometry>; hair: Record<Hair, THREE.BufferGeometry> };
 const geoCache: Partial<Record<Detail, Geos>> = {};
 const _m = new THREE.Matrix4(), _c = new THREE.Color();
+/** All 16 elements of the matrix at `o` are 0 (ZERO_MATRIX: a part the pose hides). */
+function isZero(a: Float32Array, o: number) { for (let k = 0; k < 16; k++) if (a[o + k] !== 0) return false; return true; }
 
 /**
  * Up to `max` stylised figures, drawn as one InstancedMesh per body-part geometry, hat and hair kind
@@ -37,6 +39,10 @@ export class FigureBatch {
   private readonly hatList: THREE.InstancedMesh[] = [];
   private readonly hairList: THREE.InstancedMesh[] = [];
   private readonly all: THREE.InstancedMesh[] = [];
+  /** Per mesh (order of `all`): which slots hold a live (non-zero) instance, and how many. */
+  private readonly live: Uint8Array[] = [];
+  private readonly liveN: Int32Array;
+  private readonly bodyAt: Record<GeoKind, number> = {} as Record<GeoKind, number>;
   /** Per figure: hat index + 1 (0 = none), hair index + 1, flared shins, bare feet. */
   private readonly hatOf: Uint8Array;
   private readonly hairOf: Uint8Array;
@@ -51,15 +57,24 @@ export class FigureBatch {
       const m = new THREE.InstancedMesh(geo, material, n);
       m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
       for (let i = 0; i < n; i++) { m.setMatrixAt(i, ZERO_MATRIX); m.setColorAt(i, _c.set(0xffffff)); }
-      this.group.add(m); list.push(m); this.all.push(m);
+      this.group.add(m); list.push(m); this.all.push(m); this.live.push(new Uint8Array(n));
+      m.visible = false;   // nothing live until set()
       return m;
     };
     this.meshes = {} as Record<GeoKind, THREE.InstancedMesh>;
-    for (const k of GEO_KINDS) this.meshes[k] = make(g.body[k], max * PER_KIND[k], this.bodyList);
+    for (const k of GEO_KINDS) { this.bodyAt[k] = this.all.length; this.meshes[k] = make(g.body[k], max * PER_KIND[k], this.bodyList); }
     this.hats = {} as Record<Hat, THREE.InstancedMesh>;
     for (const h of HATS) this.hats[h] = make(g.hats[h], max, this.hatList);
     this.hair = {} as Record<Hair, THREE.InstancedMesh>;
     for (const h of HAIRS_KINDS) this.hair[h] = make(g.hair[h], max, this.hairList);
+    this.liveN = new Int32Array(this.all.length);
+  }
+
+  /** Mesh `j` (index into `all`), slot `slot`: live or collapsed. */
+  private put(j: number, slot: number, m: THREE.Matrix4 | null) {
+    const on = m ? 1 : 0, l = this.live[j];
+    this.liveN[j] += on - l[slot]; l[slot] = on;
+    this.all[j].setMatrixAt(slot, m ?? ZERO_MATRIX);
   }
 
   setLook(i: number, look: FigureLook) {
@@ -85,26 +100,34 @@ export class FigureBatch {
     for (let p = 0; p < PARTS.length; p++) {
       const k = KIND[p], a = ALT[p], slot = i * PER_KIND[k] + RANK[p];
       _m.fromArray(pose.parts, p * 16).premultiply(world);
-      if (a && (k === 'shin' ? this.flare[i] : this.bare[i])) { this.meshes[a].setMatrixAt(slot, _m); this.meshes[k].setMatrixAt(slot, ZERO_MATRIX); }
-      else { this.meshes[k].setMatrixAt(slot, _m); if (a) this.meshes[a].setMatrixAt(slot, ZERO_MATRIX); }
+      // A part the pose collapses (thighs under a dress, the tail or skirt when not worn) is not live.
+      const m = isZero(pose.parts, p * 16) ? null : _m, jk = this.bodyAt[k], ja = a ? this.bodyAt[a] : -1;
+      if (a && (k === 'shin' ? this.flare[i] : this.bare[i])) { this.put(ja, slot, m); this.put(jk, slot, null); }
+      else { this.put(jk, slot, m); if (a) this.put(ja, slot, null); }
     }
     _m.fromArray(pose.parts, HEAD * 16).premultiply(world);
-    for (let h = 0; h < this.hatList.length; h++) this.hatList[h].setMatrixAt(i, this.hatOf[i] === h + 1 ? _m : ZERO_MATRIX);
-    for (let h = 0; h < this.hairList.length; h++) this.hairList[h].setMatrixAt(i, this.hairOf[i] === h + 1 ? _m : ZERO_MATRIX);
+    const h0 = this.bodyList.length, r0 = h0 + this.hatList.length;
+    for (let h = 0; h < this.hatList.length; h++) this.put(h0 + h, i, this.hatOf[i] === h + 1 ? _m : null);
+    for (let h = 0; h < this.hairList.length; h++) this.put(r0 + h, i, this.hairOf[i] === h + 1 ? _m : null);
   }
 
   hide(i: number) {
     for (let j = 0; j < GEO_KINDS.length; j++) {
-      const k = GEO_KINDS[j], n = PER_KIND[k];
-      for (let r = 0; r < n; r++) this.meshes[k].setMatrixAt(i * n + r, ZERO_MATRIX);
+      const k = GEO_KINDS[j], n = PER_KIND[k], jk = this.bodyAt[k];
+      for (let r = 0; r < n; r++) this.put(jk, i * n + r, null);
     }
-    for (let h = 0; h < this.hatList.length; h++) this.hatList[h].setMatrixAt(i, ZERO_MATRIX);
-    for (let h = 0; h < this.hairList.length; h++) this.hairList[h].setMatrixAt(i, ZERO_MATRIX);
+    const h0 = this.bodyList.length;
+    for (let h = 0; h < this.hatList.length + this.hairList.length; h++) this.put(h0 + h, i, null);
   }
 
+  /**
+   * Uploads this frame's instances. A mesh with no live instance (a whole kind unused — no bun, no flared
+   * hems, nobody on board) is made invisible, so it costs no draw call in any pass (colour, shadow, reflection).
+   */
   commit() {
     for (let j = 0; j < this.all.length; j++) {
       const m = this.all[j];
+      m.visible = this.liveN[j] > 0;
       m.instanceMatrix.needsUpdate = true;
       if (this.looksDirty) m.instanceColor!.needsUpdate = true;
     }

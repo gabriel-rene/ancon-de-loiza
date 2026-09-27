@@ -62,3 +62,32 @@ test('alternates: flared hems and bare feet swap geometry, the base slot collaps
   batch.meshes.foot.getMatrixAt(2, m); expect(zero(m)).toBe(true);
   batch.meshes.shin.getMatrixAt(2, m); same(m, part(pb, 'shinL'));
 });
+test('commit hides every mesh with no live instance this frame (no draw call for unused kinds)', () => {
+  const batch = new FigureBatch(3, new THREE.MeshStandardMaterial());
+  const vis = (): Record<string, boolean> => {
+    const o: Record<string, boolean> = {};
+    for (const [k, m] of Object.entries(batch.meshes)) o[k] = m.visible;
+    for (const [k, m] of Object.entries(batch.hats)) o[`hat:${k}`] = m.visible;
+    for (const [k, m] of Object.entries(batch.hair)) o[`hair:${k}`] = m.visible;
+    return o;
+  };
+  batch.commit();
+  expect(Object.values(vis()).every((v) => !v)).toBe(true);   // nobody set yet
+  const man = find((l) => !l.flare && !l.barefoot && l.hat === 'cap', 'modern');
+  const woman = find((l) => l.dress && l.hair === 'bun' && !l.barefoot, 'modern', true);
+  batch.setLook(0, man); batch.setLook(1, woman);
+  batch.set(0, new THREE.Matrix4(), poseOf(man)); batch.hide(1); batch.hide(2); batch.commit();
+  let v = vis();
+  expect(v.torso && v.thigh && v.tail && v.foot && v['hat:cap']).toBe(true);
+  expect(v.skirt || v.shinFlare || v.footBare || v['hat:straw'] || v['hat:fedora'] || v['hat:wrap'] || v['hair:crop'] || v['hair:bun']).toBe(false);
+  batch.set(1, new THREE.Matrix4(), poseOf(woman)); batch.commit();
+  v = vis();
+  expect(v.skirt && v['hair:bun']).toBe(true);
+  batch.hide(0); batch.commit();
+  v = vis();
+  expect(v.thigh || v.tail || v['hat:cap']).toBe(false);   // her thighs and tail are collapsed under the dress
+  expect(v.skirt && v.torso).toBe(true);
+  batch.hide(1); batch.commit();
+  expect(Object.values(vis()).every((x) => !x)).toBe(true);
+  batch.dispose();
+});
