@@ -1,6 +1,6 @@
 import { StatsGl } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import * as THREE from 'three';
 import { QUALITY } from './quality';
 import { Cameras } from './scene/Cameras';
@@ -17,6 +17,8 @@ export function App() {
   const q = QUALITY[useStore((s) => s.quality)];
   const debug = useStore((s) => s.debug);
   const perf = useStore((s) => s.perf);
+  const lang = useStore((s) => s.lang);
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return (
     <>
       <Canvas

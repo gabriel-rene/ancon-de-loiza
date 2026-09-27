@@ -1,5 +1,6 @@
 import { ERA_IDS, type EraId } from '../data/eras';
 import type { Quality } from '../quality';
+import { LANGS, type Lang } from '../i18n/text';
 
 export type CameraPreset = 'ride' | 'bank' | 'aerial' | 'mouth';
 export const CAMERA_PRESETS: CameraPreset[] = ['ride', 'bank', 'aerial', 'mouth'];
@@ -11,6 +12,8 @@ export interface UrlState {
   crossingStart: number; showAncon: boolean;
   /** ?perf=1: record frame times for scripts/dev/perf.mjs. */
   perf: boolean;
+  /** ?lang=es|en: UI language. */
+  lang?: Lang;
 }
 
 export function parseUrlState(search: string): Partial<UrlState> {
@@ -34,6 +37,8 @@ export function parseUrlState(search: string): Partial<UrlState> {
   if (c !== undefined && Number.isFinite(c) && c >= 0 && c < 1e6) out.crossingStart = c;
   if (p.get('ancon') === '0') out.showAncon = false;
   if (p.get('perf') === '1') out.perf = true;
+  const lang = p.get('lang');
+  if (lang && (LANGS as string[]).includes(lang)) out.lang = lang as Lang;
   return out;
 }
 
@@ -49,5 +54,6 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.crossingStart !== undefined) p.set('c', String(s.crossingStart));
   if (s.showAncon === false) p.set('ancon', '0');
   if (s.perf) p.set('perf', '1');
+  if (s.lang) p.set('lang', s.lang);
   return `?${p.toString()}`;
 }

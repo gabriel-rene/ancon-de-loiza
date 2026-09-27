@@ -3,14 +3,15 @@ import { DEFAULT_CROSSING_START } from '../ancon/crossing';
 import { getEra, type EraId } from '../data/eras';
 import { goldenHourAST } from '../geo/sun';
 import { detectQuality, type Quality } from '../quality';
+import { detectLang, type Lang } from '../i18n/text';
 import { parseUrlState, type CameraPreset, type DebugView } from './url';
 
 interface AppState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
-  crossingStart: number; crossingSpeed: number; showAncon: boolean; perf: boolean;
+  crossingStart: number; crossingSpeed: number; showAncon: boolean; perf: boolean; lang: Lang;
   setEra: (id: EraId) => void; setTime: (t: number) => void; setCamera: (c: CameraPreset) => void; setQuality: (q: Quality) => void;
-  setCrossingSpeed: (v: number) => void;
+  setCrossingSpeed: (v: number) => void; setLang: (l: Lang) => void;
 }
 
 const fromUrl = typeof window !== 'undefined' ? parseUrlState(window.location.search) : {};
@@ -24,13 +25,14 @@ export const shiftTime = (t: number, from: EraId, to: EraId) => Math.min(24, Mat
 
 export const useStore = create<AppState>((set) => ({
   eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false, debugView: undefined,
-  crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true, perf: false,
+  crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true, perf: false, lang: detectLang(typeof navigator !== 'undefined' ? navigator.language : undefined),
   ...fromUrl,
   setEra: (eraId) => set((s) => ({ eraId, timeOfDay: shiftTime(s.timeOfDay, s.eraId, eraId) })),
   setTime: (timeOfDay) => set({ timeOfDay }),
   setCamera: (camera) => set({ camera }),
   setQuality: (quality) => set({ quality }),
   setCrossingSpeed: (crossingSpeed) => set({ crossingSpeed }),
+  setLang: (lang) => set({ lang }),
 }));
 
 export const useEra = () => getEra(useStore((s) => s.eraId));
