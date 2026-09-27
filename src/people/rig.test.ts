@@ -1,7 +1,7 @@
 // src/people/rig.test.ts
 import * as THREE from 'three';
 import { describe, expect, test } from 'vitest';
-import { createFigurePose, FOOT_HEEL_Z, FOOT_TOE_Z, PART_INDEX, PARTS, poseFigure, proportions, solveTwoBone, ZERO_MATRIX, type FigurePose, type PartName, type PoseKind, type V3 } from './rig';
+import { createFigurePose, FOOT_HEEL_Z, FOOT_TOE_Z, PART_INDEX, PARTS, poseFigure, proportions, skirtX, skirtZ, solveTwoBone, ZERO_MATRIX, type FigurePose, type PartName, type PoseKind, type V3 } from './rig';
 
 const body = { height: 1.7, build: 1, dress: false };
 const KINDS: PoseKind[] = ['stand', 'walk', 'haul', 'pole'];
@@ -93,6 +93,19 @@ describe('poseFigure', () => {
       const w = poseFigure({ ...body, dress: true }, { kind: 'walk', phase: ph }, createFigurePose());
       const hemZ = new THREE.Vector3().setFromMatrixColumn(mat(w, 'skirt'), 2).length();
       for (const s of ['shinL', 'shinR'] as const) expect(Math.abs(at(w, s, 0, -1, 0).z)).toBeLessThan(hemZ);
+    }
+  });
+  test('in a dress the whole leg stays inside the skirt for every kind and phase (the braced haul too)', () => {
+    const d = { ...body, dress: true }, P = proportions(d);
+    for (const kind of KINDS) for (let ph = 0; ph < 1; ph += 0.0625) {
+      const f = poseFigure(d, { kind, phase: ph, t: ph * 7, seed: 3 }, createFigurePose()), inv = mat(f, 'skirt').invert();
+      for (const s of ['shinL', 'shinR'] as const) for (let k = 0; k <= 8; k++) {
+        const p = at(f, s, 0, -k / 8, 0).applyMatrix4(inv), t = -p.y;   // skirt-local: y 0 top … −1 hem, unit hem radius
+        if (t < 0.2 || t > 1) continue;
+        const m = mat(f, 'skirt'), sz = new THREE.Vector3().setFromMatrixColumn(m, 2).length(), sx = new THREE.Vector3().setFromMatrixColumn(m, 0).length();
+        expect(Math.abs(p.z) + (P.rShin * 1.08) / sz, `${kind} ${ph} ${s} ${k}`).toBeLessThan(skirtZ(t));
+        expect(Math.abs(p.x) + (P.rShin * 1.08) / sx, `${kind} ${ph} ${s} ${k} x`).toBeLessThan(skirtX(t));
+      }
     }
   });
   test('finite and deterministic for every kind; ZERO_MATRIX is frozen', () => {

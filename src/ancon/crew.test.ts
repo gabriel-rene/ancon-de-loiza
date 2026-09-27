@@ -134,8 +134,9 @@ describe('choreography', () => {
     }
   });
   test('nobody walks through anybody, and no pole through a body (round trip, every era)', () => {
-    // Body axes ≥ 0.34 m apart (shoulders may brush in passing on the narrow decks); a pole's axis ≥ 0.27 m from
-    // anyone else's body axis between the deck and 1.9 m (head and hat).
+    // Body axes a shoulder width (0.44 m) apart. On the two narrowest decks the only standing rows lie 0.35 m from
+    // the lane or the polers' side lane (1925: beside the car slot; 1935: both rows either side of the 0.5 m lane),
+    // so shoulders may brush in passing there. A pole's axis ≥ 0.27 m from anyone else's body axis (deck to 1.9 m).
     const poleGap = (f: ActorFrame, x: number, z: number, y0: number) => {
       let best = Infinity;
       for (let k = 0; k <= 40; k++) {
@@ -146,13 +147,13 @@ describe('choreography', () => {
       return best;
     };
     for (const e of ERAS) {
-      const s = setup(e.id);
+      const s = setup(e.id), gap = e.id === '1925' || e.id === '1935' ? 0.34 : 0.44;
       for (let c = 0; c < 2 * L_LEG; c += 0.2) {
         const fs = s.actors.map((a) => frame(s, a, c));
         for (let i = 0; i < fs.length; i++) for (let j = 0; j < fs.length; j++) {
           if (i === j || !fs[i].visible || !fs[j].visible) continue;
           const tag = `${e.id} ${s.actors[i].role}${s.actors[i].index}/${s.actors[j].role}${s.actors[j].index} @${c.toFixed(1)}`;
-          if (j > i) expect(Math.hypot(fs[i].pos[0] - fs[j].pos[0], fs[i].pos[2] - fs[j].pos[2]), tag).toBeGreaterThan(0.34);
+          if (j > i) expect(Math.hypot(fs[i].pos[0] - fs[j].pos[0], fs[i].pos[2] - fs[j].pos[2]), tag).toBeGreaterThan(gap);
           if (fs[i].hasPole) expect(poleGap(fs[i], fs[j].pos[0], fs[j].pos[2], s.layout.deckY), `${tag} pole`).toBeGreaterThan(0.27);
         }
       }

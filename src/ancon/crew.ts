@@ -71,11 +71,31 @@ export function castActors(spec: VesselSpec, seats: SeatAnchor[], eraSeed: numbe
     for (let i = 0; i < spec.crew; i++) add('poler', i, false, null);
     if (spec.helmsman) add('helmsman', 0, false, null);
   }
-  const standing = seats.filter((s) => s.kind === 'standing');
+  // Passengers take the standing spots farthest from where the crew work first (ties: the seats' own shuffled order).
+  const L = deckLayout(spec), room = crewRoom(spec, L);
+  const standing = seats.filter((s) => s.kind === 'standing').map((s, k) => ({ s, k, r: room(s.pos[0], s.pos[2]) }))
+    .sort((a, b) => b.r - a.r || a.k - b.k).map((e) => e.s);
   const n = Math.min(standing.length, Math.round(spec.passengers * passengerScale));
   for (let i = 0; i < n; i++) add('passenger', i, hash3(eraSeed, i, 9) / 2 ** 32 < 0.45, standing[i]);
-  planWalks(out.filter((a) => a.role === 'passenger'), spec, deckLayout(spec));
+  planWalks(out.filter((a) => a.role === 'passenger'), spec, L);
   return out;
+}
+
+/**
+ * Distance (m, capped at 2) from deck point (x, z) to the nearest place the crew work: the polers' side lanes and the
+ * helmsman's stations at the ends (poles), or the hauler stations (ropes).
+ */
+function crewRoom(spec: VesselSpec, L: DeckLayout) {
+  const perSide = Math.ceil(spec.crew / 2);
+  return (x: number, z: number) => {
+    let d = 2;
+    if (spec.propulsion === 'poles') {
+      d = Math.min(d, L.halfBeam - 0.45 - Math.abs(z));
+      if (spec.helmsman) d = Math.min(d, Math.hypot(Math.abs(x) - (L.halfLength - 0.5), z));
+    } else if (spec.propulsion === 'ropes') for (const side of [1, -1]) for (let k = 0; k < perSide; k++)
+      d = Math.min(d, Math.hypot(x - haulerStationX(k, perSide, L, side), z - haulerZ(side, L)));
+    return d;
+  };
 }
 
 /** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers. */
@@ -233,7 +253,15 @@ function hauler(a: Actor, st: CrossingState, clock: number, { spec, layout: L }:
   f.pose.kind = 'haul'; f.pose.phase = phi;
   f.pose.handL = toFigure(ropeHand(phi, st.travel, x, side, L, hL), f.pos, f.yaw, f.handL);
   f.pose.handR = toFigure(ropeHand(fract(phi + 0.5), st.travel, x, side, L, hR), f.pos, f.yaw, f.handR);
+  // Taking hold: the hands travel from where they hang to the rope as the effort builds (and back when docking).
+  const k = smooth(clamp01((w - 0.5) / 0.5)), H = a.look.height;
+  if (k < 1) { fromRest(f.handL, 1, H, k); fromRest(f.handR, -1, H, k); }
 }
+function fromRest(h: V3, sx: number, H: number, k: number) {
+  h[0] = lerp(sx * REST_HAND[0] * H, h[0], k); h[1] = lerp(REST_HAND[1] * H, h[1], k); h[2] = lerp(REST_HAND[2] * H, h[2], k);
+}
+/** A relaxed hand's grip point, figure-local in body heights (x toward the figure's left for the left hand). */
+const REST_HAND: V3 = [0.12, 0.46, 0.04];
 
 // ---- polers ----
 const strokeAt = (t: number, i: number) => fract(t / STROKE_S + i * 0.5);

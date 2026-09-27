@@ -81,10 +81,17 @@ const hip: V3 = [0, 0, 0], knee: V3 = [0, 0, 0], ankle: V3 = [0, 0, 0], sh: V3 =
 const wrist: V3 = [0, 0, 0], tip: V3 = [0, 0, 0];
 /** Per-side leg parameters (index 0 = left, 1 = right), reused every call. */
 const SW = [0, 0], KN = [0, 0], HDY = [0, 0], HDZ = [0, 0], HDX = [0, 0];
+/** Per leg: hip, knee, ankle (x, y, z) — for fitting the skirt round the whole leg. */
+const LEG = new Float64Array(18);
+/** Skirt geometry's z-radius profile at depth t (0 top … 1 hem), in hem radii, less its folds (see geometry.ts). */
+export const skirtZ = (t: number) => (0.55 + 0.45 * t) * (0.62 + 0.38 * t) * 0.96;
+/** …and its x-radius profile. */
+export const skirtX = (t: number) => (0.55 + 0.45 * t) * 0.96;
 
 function put(out: FigurePose, n: PartName, m: THREE.Matrix4) { m.toArray(out.parts, PART_INDEX[n] * 16); }
 /** Vertical extent of a leg (thigh swing sw, knee bend k). */
 function legExt(P: Proportions, sw: number, k: number) { return P.thigh * Math.cos(sw) + P.shin * Math.cos(sw - k); }
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /**
@@ -142,7 +149,8 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
     }
     case 'haul':
       // Braced: lead leg forward and bent, rear leg straight with the heel down, weight rocking with the pull.
-      SW[0] = 0.55; KN[0] = 0.47 + 0.05 * c; KN[1] = 0; brace = 1;
+      // In a dress the stance is shorter (a hem limits it) and the brace comes more from the lean.
+      SW[0] = body.dress ? 0.3 : 0.55; KN[0] = (body.dress ? 0.3 : 0.47) + 0.05 * c; KN[1] = 0; brace = 1;
       lean = input.lean ?? -0.12 - 0.08 * c;
       stanceHalf = 1.05 * P.hipHalf;
       headNod = 0.08;
@@ -174,6 +182,7 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
     ankle[1] = knee[1] - P.shin * Math.cos(sw - k); ankle[2] = knee[2] + P.shin * Math.sin(sw - k);
     knee[0] = 0.5 * (hip[0] + ankle[0]);
     reachZ = Math.max(reachZ, Math.abs(ankle[2]), Math.abs(knee[2]));
+    for (let j = 0; j < 3; j++) { LEG[i * 9 + j] = hip[j]; LEG[i * 9 + 3 + j] = knee[j]; LEG[i * 9 + 6 + j] = ankle[j]; }
     thighZ = Math.max(thighZ, TAIL_LEN * H * Math.tan(Math.abs(sw)) + P.rThigh / Math.cos(sw));
     put(out, L ? 'thighL' : 'thighR', body.dress ? ZERO_MATRIX : segmentMatrix(hip, knee, P.rThigh, P.rThigh * 0.95, _m));
     put(out, L ? 'shinL' : 'shinR', segmentMatrix(knee, ankle, P.rShin, P.rShin, _m));
@@ -198,9 +207,21 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
   put(out, 'torso', _m.compose(_p.set(sway, hipH, 0), _qChest, _s.set(P.shoulderHalf, torsoY, P.shoulderHalf)));
   if (body.dress) {
     // The hem swings out with the stride and is pushed by the legs, so the shins stay inside it.
-    const len = hipH - 0.07 * H, spread = Math.max(1 + 0.6 * Math.abs(SW[0] - SW[1]), (reachZ + 0.02 * H) / (P.hipHalf * 2.4 * 0.96));
+    const len = hipH - 0.07 * H, top = hipH + 0.02 * H, R = P.hipHalf * 2.4;
+    let spreadX = 1, spread = Math.max(1 + 0.6 * Math.abs(SW[0] - SW[1]), (reachZ + 0.02 * H) / (R * 0.96));
+    // …and the whole leg stays inside the cone, not just the ankle at the hem (a braced straight leg leaves it higher up).
+    const cy = Math.cos(pelvisYaw), sy = Math.sin(pelvisYaw);   // the skirt turns with the pelvis
+    for (let i = 0; i < 2; i++) for (let k = 0; k <= 20; k++) {
+      const o = i * 9 + (k < 6 ? 0 : 3), u = k < 6 ? 0.5 + k / 12 : (k - 6) / 14;   // lower half of the thigh, then the shin
+      const x = lerp(LEG[o], LEG[o + 3], u) - sway, y = lerp(LEG[o + 1], LEG[o + 4], u), z = lerp(LEG[o + 2], LEG[o + 5], u);
+      const t = (top - y) / len, r = k < 6 ? P.rThigh : P.rShin, zl = x * sy + z * cy, xl = x * cy - z * sy;
+      if (t > 0.2 && t <= 1) {
+        spread = Math.max(spread, (Math.abs(zl) + r * 1.15) / (R * skirtZ(t)));
+        spreadX = Math.max(spreadX, (Math.abs(xl) + r * 1.15) / (R * skirtX(t)));
+      }
+    }
     _q.setFromAxisAngle(_v.set(0, 1, 0), pelvisYaw);
-    put(out, 'skirt', _m.compose(_p.set(sway, hipH + 0.02 * H, 0), _q, _s.set(P.hipHalf * 2.4, len, P.hipHalf * 2.4 * spread)));
+    put(out, 'skirt', _m.compose(_p.set(sway, top, 0), _q, _s.set(R * spreadX, len, R * spread)));
   } else put(out, 'skirt', ZERO_MATRIX);
   // Head + neck: the neck axis starts at the top of the torso; the head counter-pitches to look ahead.
   _qHead.setFromEuler(_e.set(-0.6 * lean + headNod, headYaw, 0, 'YXZ')).premultiply(_qChest);
