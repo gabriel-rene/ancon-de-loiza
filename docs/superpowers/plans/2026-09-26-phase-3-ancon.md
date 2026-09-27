@@ -17,11 +17,12 @@
 - Every era fact carries `sources` + `confidence`; inferred values set `inferred: true`. New era fields go through the `s(value, sources, confidence, inferred)` helper in `src/data/eras.ts` and are covered by the "every fact is sourced or explicitly inferred" test.
 - All art is generated in code — vessels, rigging, people, textures: no downloaded models, textures or animation clips.
 - The crossing is deterministic: every moving thing is a pure function of the crossing clock + era (same clock ⇒ same pixels). `?freeze=1` stops the clock; `?c=<seconds>` pins its start.
-- Quality tiers `high | medium | low` (from `src/quality.ts`) scale rope tessellation and passenger count.
+- Quality tiers `high | medium | low` (from `src/quality.ts`) scale rope tessellation and passenger count — never the crossing itself: crossing geometry, docks, bank posts and the landing clearings are computed from the fixed 512 placement fields (`src/terrain/placementFields.ts`, the grid Phase 2a places vegetation on), whatever the tier's terrain grid.
+- Tests that need the map use the shared 512 fixtures in `src/ancon/testing.ts` (`fields512`, `geom512`, `ctxFor`) — never a local `buildFields` copy.
 - Performance budget: vessel + crew + ropes ≤ 1.5 ms per frame at q=high, DPR 2, and the site still runs ≥ 60 fps on the `ride` camera on the dev Mac (Apple M4 Pro). No per-frame allocation in `useFrame` paths (module-level or instance-level temporaries only).
 - Units: seconds, metres, radians. Vessel-local frame: origin = hull centre at the waterline, +X toward the west (Torrecilla Baja) landing, +Y up, +Z = world direction (−dir.z, dir.x) (right-handed).
 - Visual checks: run `npx vite --port 5173 --strictPort` and `node scripts/dev/shot.mjs "<query>" <out.png> [waitMs]` (queries start with `?`). Put scratch shots in the session scratchpad, not in the repo.
-- Verification per task: `npm test` and `npm run build` pass. E2E (`npm run e2e`) runs in the final task.
+- Verification per task: `npm test` and `npm run build` pass. The full E2E suite (`npm run e2e`) runs in the final task; Task 10 may run its own `tests/e2e/picker.spec.ts` alone (accepted, preflight F21: the picker is UI-only and has no unit-level substitute).
 - Commit message bodies end, after a blank line, with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never push — the controller pushes.
 
 ---
@@ -29,44 +30,52 @@
 ## File map
 
 ```
-src/data/eras.ts                    + Era.ancon (VesselKind, Propulsion, ClothingStyle, AnconEra), Sourced per era
-src/ancon/spec.ts                   VesselSpec, vesselSpec(era), DeckLayout, deckLayout(spec), APRON, CAR_SLOT, GUIDE_H
-src/ancon/geometry.ts               CrossingGeometry, crossingGeometry(fields), findShore, dockPoint, APRON_REST
-src/ancon/crossing.ts               CrossingPhase, CROSSING_TIMINGS, legDuration, crossingState, crossingClock
-src/ancon/pose.ts                   VesselPose, computeVesselPose, apronLift, drift/crab constants
-src/ancon/vesselPose.ts             useVesselPose(), onVesselPose(), emitVesselPose() (future first-person hook)
-src/ancon/seats.ts                  SeatAnchor, seatAnchors(spec, layout), anchorToWorld (future drivable car hook)
-src/ancon/vessels/common.ts         VesselPart, PartBuilder (boxes/cylinders/extrusions → merged, world-scaled UVs, vertex colours)
-src/ancon/vessels/timberBarge.ts    1840, 1900
-src/ancon/vessels/plankPlatform.ts  1925
-src/ancon/vessels/woodPlatform.ts   1935, 1959, 1975
-src/ancon/vessels/steelPontoon.ts   1984, 1986
-src/ancon/vessels/index.ts          buildVessel(spec, layout, seed), TRI_BUDGET
-src/ancon/textures.ts               paintPlanks(), paintSteel() (browser canvas)
-src/ancon/materials.ts              vesselMaterials() (browser, cached)
-src/ancon/rope.ts                   spanSag, writeSpan, writeRopeLine, writeTube, tubeIndex (pure)
-src/ancon/rigging.ts                ropeRig (bank posts), shoreRopePost, mooring points (pure)
-src/ancon/pole.ts                   POLE_LEN, buildPole(seed)
-src/ancon/RopeSet.ts                imperative ropes + posts (three objects, updated per frame)
-src/ancon/crew.ts                   Actor, castActors, ActorFrame, actorFrame (pure choreography)
-src/ancon/CrewSet.ts                imperative figures + poles
-src/ancon/wake.ts                   WAKE_N, WAKE_DT, writeWake (pure)
-src/ancon/wakeUniforms.ts           shared water-shader uniforms for the hull + wake
-src/ancon/rideCamera.ts             RIDE, rideYaw, rideView, carryCamera (pure)
-src/ancon/stats.ts                  anconTiming (EMA of the ancón's per-frame CPU cost)
-src/ancon/Ancon.tsx                 the component: clock → pose → vessel/ropes/crew/wake → listeners
-src/people/rig.ts                   PARTS, proportions, poseFigure, solveTwoBone, segmentMatrix (pure)
-src/people/palettes.ts              ClothingStyle palettes, SKINS, dressFigure (pure)
-src/people/geometry.ts              buildFigureGeometries, buildHatGeometries, PART_GEO
-src/people/figureBatch.ts           FigureBatch: instanced figures per body-part geometry
-src/ui/picker.ts                    stepEra, withEra, isTypingTarget (pure)
-src/ui/DecadePicker.tsx             bottom rail of 8 era buttons + ← → keys
-src/vegetation/placementCache.ts    KeyedCache, placementKey
-src/scene/FrameSampler.tsx          ?perf=1 frame-time sampler
-scripts/dev/perf.mjs                vsync-off frame-time measurement
-modified: src/state/url.ts store.ts, src/quality.ts, src/scene/World.tsx Cameras.tsx water/Water.tsx water/waterShader.ts,
-          src/scene/useWorldFields.ts, src/vegetation/Vegetation.tsx stats.ts, src/ui/DebugPanel.tsx TitleCard.tsx,
-          src/App.tsx, src/styles.css, tests/e2e/world.spec.ts (+ picker.spec.ts), tests/snapshots/README.md, README.md
+src/data/eras.ts                    + Era.ancon (VesselKind, Propulsion, ClothingStyle, AnconEra), Sourced per era          T1
+src/terrain/placementFields.ts      placementFields(bankOffset, near?) — the fixed 512 grid (shared with vegetation)        T1
+src/ancon/spec.ts                   VesselSpec, vesselSpec(era), DeckLayout, deckLayout(spec), APRON, CAR_SLOT, GUIDE_H     T1
+src/ancon/geometry.ts               CrossingGeometry, crossingGeometry, nearestShore, waterAt, dockPoint, landingClearings  T1
+src/ancon/testing.ts                shared test fixtures (fields512, geom512, ctxFor, tris) — not a test file              T1, T2
+src/ancon/ease.ts                   clamp01, smooth, smoothIntegral, lerp, fract, lerpAngle (one copy)                     T2
+src/ancon/crossing.ts               CrossingPhase, CROSSING_TIMINGS, legDuration, crossingState, mooredState, advanceClock  T2
+src/ancon/pose.ts                   PoseContext, makePoseContext, VesselPose, computeVesselPose, apronLift                  T2
+src/ancon/vesselPose.ts             useVesselPose(), onVesselPose(), emitVesselPose() (future first-person hook)          T2
+src/ancon/seats.ts                  SeatAnchor, seatAnchors, anchorToWorld, haulerStationX, haulerZ                        T2
+src/ancon/vessels/common.ts         VesselPart, PartBuilder, WOOD/STEEL palettes, tone, plankApron, bittXZ, BITT_H          T3
+src/ancon/vessels/suite.ts          vesselSuite(kinds), bounds — shared builder test suite (not a test file)                T3
+src/ancon/vessels/timberBarge.ts    1840, 1900                                                                              T3
+src/ancon/vessels/plankPlatform.ts  1925                                                                                    T3
+src/ancon/vessels/woodPlatform.ts   1935, 1959, 1975                                                                        T3
+src/ancon/vessels/vessels.test.ts   suite for the wooden kinds                                                              T3
+src/ancon/vessels/index.ts          buildVessel(spec, layout, seed), TRI_BUDGET                                             T3, T4
+src/ancon/vessels/steelPontoon.ts   1984, 1986                                                                              T4
+src/ancon/vessels/steel.test.ts     suite + colour/bitt tests for the steel pontoon                                         T4
+src/ancon/textures.ts               paintPlanks() (T3), paintSteel() (T4) — browser canvas                                  T3, T4
+src/ancon/materials.ts              vesselMaterials(), canvasTexture() (browser, cached)                                    T3, T4
+src/ancon/stats.ts                  anconTiming (EMA of the ancón's per-frame CPU cost + frame count)                      T3
+src/ancon/Ancon.tsx                 the component: clock → pose → vessel/ropes/crew/wake → listeners                        T3, T5, T7, T8
+src/ancon/rope.ts                   spanSag, writeSpan, writeRopeLine, writeTube, tubeIndex (pure)                          T5
+src/ancon/rigging.ts                ropeRig (bank posts on land), shoreRopePost, guideLocal/mooringLocal/cleatLocal (out)   T5
+src/ancon/pole.ts                   POLE_LEN, buildPole(seed)                                                               T5
+src/ancon/RopeSet.ts                imperative ropes + posts (three objects, updated per frame)                            T5
+src/people/rig.ts                   PARTS, proportions, poseFigure, solveTwoBone, segmentMatrix, ZERO_MATRIX (pure)         T6
+src/people/palettes.ts              ClothingStyle palettes, SKINS, dressFigure (pure)                                      T6
+src/people/geometry.ts              buildFigureGeometries, buildHatGeometries, PART_GEO                                     T6
+src/people/figureBatch.ts           FigureBatch, PER_KIND: instanced figures per body-part geometry                         T6
+src/ancon/crew.ts                   Actor, castActors, ActorFrame, actorFrame (pure choreography)                           T7
+src/ancon/CrewSet.ts                imperative figures + poles                                                              T7
+src/ancon/wake.ts                   WAKE_N, WAKE_DT, WAKE_REF, writeWake (pure)                                             T8
+src/ancon/wakeUniforms.ts           shared water-shader uniforms for the hull + wake                                        T8
+src/ancon/rideCamera.ts             RIDE, rideYaw, rideView, carryCamera, clampAboveGround (pure)                           T9
+src/ui/picker.ts                    stepEra, withEra, isTypingTarget (pure)                                                 T10
+src/ui/DecadePicker.tsx             bottom rail of 8 era buttons + ← → keys                                                 T10
+src/vegetation/placementCache.ts    KeyedCache, placementKey                                                                T10
+tests/e2e/picker.spec.ts            picker e2e                                                                              T10
+src/scene/FrameSampler.tsx          ?perf=1 frame-time sampler                                                              T11
+scripts/dev/perf.mjs                vsync-off frame-time measurement                                                        T11
+modified: src/vegetation/masks.ts + placement.test.ts + Vegetation.tsx (T1: clearings on the shore points, shared 512 fields),
+          src/state/url.ts + store.ts (+ tests) (T3, T10, T11), src/quality.ts (T3), src/scene/World.tsx (T3), src/ui/DebugPanel.tsx (T3),
+          src/scene/water/Water.tsx + waterShader.ts (T8), src/scene/Cameras.tsx (T9), src/scene/useWorldFields.ts, src/vegetation/Vegetation.tsx,
+          src/vegetation/stats.ts, src/App.tsx, src/styles.css (T10), src/App.tsx (T11), tests/e2e/world.spec.ts, tests/snapshots/README.md, README.md (T11)
 ```
 
 Directory note: spec §8 lists `scene/ancon/`; the repo put Phase 2 in `src/vegetation/` (top-level, pure + components side by side). Phase 3 follows the repo: `src/ancon/` and `src/people/` (people are reused by Phase 4 passengers and townsfolk).
@@ -76,8 +85,8 @@ Directory note: spec §8 lists `scene/ancon/`; the repo put Phase 2 in `src/vege
 ### Task 1: Era vessel data, deck layout, crossing geometry
 
 **Files:**
-- Modify: `src/data/eras.ts`, `src/data/eras.test.ts`
-- Create: `src/ancon/spec.ts`, `src/ancon/spec.test.ts`, `src/ancon/geometry.ts`, `src/ancon/geometry.test.ts`
+- Modify: `src/data/eras.ts`, `src/data/eras.test.ts`, `src/vegetation/masks.ts`, `src/vegetation/placement.test.ts`, `src/vegetation/Vegetation.tsx`
+- Create: `src/ancon/spec.ts`, `src/ancon/spec.test.ts`, `src/ancon/geometry.ts`, `src/ancon/geometry.test.ts`, `src/terrain/placementFields.ts`, `src/ancon/testing.ts`
 
 **Interfaces:**
 - Consumes: `Sourced`, `s()` (eras.ts), `landmarkXZ('eastLanding' | 'westLanding')`, `WorldFields`, `WATER` (terrain/fields.ts).
@@ -90,7 +99,12 @@ Directory note: spec §8 lists `scene/ancon/`; the repo put Phase 2 in `src/vege
   - `interface DeckLayout { halfLength: number; halfBeam: number; deckY: number; apron: number; reach: number; lanes: number; rows: number; guideY: number; ropeZ: number }`, `deckLayout(spec: VesselSpec): DeckLayout`
   - `APRON: Record<VesselKind, number>`, `CAR_SLOT = { length: 4.4, width: 2.5 }`, `GUIDE_H = 0.95`
   - `type XZ = readonly [number, number]`; `interface CrossingGeometry { east: XZ; west: XZ; dir: XZ; shoreEast: XZ; shoreWest: XZ; span: number; yaw: number }`
-  - `findShore(f: WorldFields, from: XZ, to: XZ): XZ`, `crossingGeometry(f: WorldFields): CrossingGeometry`, `dockPoint(g: CrossingGeometry, side: 'east' | 'west', reach: number): XZ`, `APRON_REST = 0.8`
+  - `waterAt(f, x, z): number`, `nearestShore(f: WorldFields, p: XZ): XZ`, `crossingGeometry(f: WorldFields): CrossingGeometry` (f = the 512 placement fields), `dockPoint(g: CrossingGeometry, side: 'east' | 'west', reach: number): XZ`, `APRON_REST = 0.8`, `CLEAR_INLAND = 6`, `landingClearings(g): [XZ, XZ]`
+  - `PLACE_SIZE = 512`, `PLACE_EXTENT = 2560`, `placementFields(bankOffset: number, near?: WorldFields): WorldFields` (terrain/placementFields.ts; replaces Vegetation's private copy)
+  - `buildVegMasks` now clears around `landingClearings(crossingGeometry(f))` instead of the raw landing coordinates
+  - test fixtures (src/ancon/testing.ts): `fields512(bankOffset?)`, `geom512(bankOffset?)`, `tris(geometry)` (Task 2 adds `ctxFor`)
+
+Where the ferry docks (spec §13, preflight F1): the research §1.1 landing coordinates are street/track ends on land — the west one lies 52–59 m from the water. The crossing therefore runs between the **river waterline nearest each landing coordinate** (`nearestShore`), the vessel docks there, and the Phase-2a landing clearings (`LANDING_CLEARING = [22, 40]`) are re-centred `CLEAR_INLAND` = 6 m inland of those shore points, so the docked hull (4–11 m out), the bank posts (4 m in) and the docked ride camera (8.8 m in, Task 9) all fall inside the 22 m fully-cleared radius. On the 512 fields the shore-to-shore span is ≈ 146 m post-dam and ≈ 160 m pre-dam.
 
 - [ ] **Step 1: Failing era tests.** In `src/data/eras.test.ts`, extend `sourcedFields` with every `ancon` field and add the new tests:
 
@@ -213,7 +227,7 @@ const ANCON = {
 } satisfies Record<EraId, AnconEra>;
 ```
 
-Add `ancon: ANCON['<id>']` to each entry of `ERAS`. Comment the 1959 choice next to the entry: *spec §13 lists 1 → 2 → 4 → 6 but has three wooden-platform eras; 1959 takes 4 (upper end of the 1950s "2–4 cars incl. público" row), the builder supports 2 as well.* Run the era tests → PASS.
+Add `ancon: ANCON['<id>']` to each entry of `ERAS`. Comment the 1959 choice next to the entry: *spec §13 lists 1 → 2 → 4 → 6 but has three wooden-platform eras; 1959 takes 4 (upper end of the 1950s "2–4 cars incl. público" row), the builder supports 2 as well.* (Accepted, preflight F14: research §9 gives 1950s "~2–4 cars", so 1935 = 1, 1959 = 4, 1975 = 6.) Run the era tests → PASS.
 
 - [ ] **Step 3: Failing spec + geometry tests**
 
@@ -247,60 +261,109 @@ test('layout: reach = half length + apron, guides above the deck, rope lines ins
 });
 ```
 
+The map tests share one fixture module (512 placement fields, preflight F2/F11). Create it with the shared 512 fields first:
+
+```ts
+// src/terrain/placementFields.ts
+import geo from '../data/geo/loiza.json';
+import type { GeoBundle } from '../data/geo/types';
+import { buildFields, type WorldFields } from './fields';
+
+/**
+ * The fixed 512 × 512 near fields (2560 m) that vegetation placement and the ferry's crossing
+ * geometry are computed from, whatever the quality tier's terrain resolution — so plants, docks,
+ * bank posts and the crossing line never move with the tier (Phase 2a ruling, Phase 3 F11).
+ */
+export const PLACE_SIZE = 512, PLACE_EXTENT = 2560;
+const cache = new Map<number, WorldFields>();
+/** Returns `near` itself when it already is the 512 grid (high tier), else a cached build per bank offset. */
+export function placementFields(bankOffset: number, near?: WorldFields): WorldFields {
+  if (near && near.grid.size === PLACE_SIZE && near.grid.cell * near.grid.size === PLACE_EXTENT) return near;
+  let f = cache.get(bankOffset);
+  if (!f) {
+    f = buildFields(geo as unknown as GeoBundle, { extent: PLACE_EXTENT, size: PLACE_SIZE, bankOffset });
+    cache.set(bankOffset, f);
+  }
+  return f;
+}
+```
+
+```ts
+// src/ancon/testing.ts
+// Shared test fixtures for src/ancon (imported by *.test.ts only; not collected as a test file).
+import type * as THREE from 'three';
+import { placementFields } from '../terrain/placementFields';
+import { crossingGeometry } from './geometry';
+
+/** The 512 placement fields — the grid the app computes the crossing from. */
+export const fields512 = (bankOffset = 0) => placementFields(bankOffset);
+export const geom512 = (bankOffset = 0) => crossingGeometry(fields512(bankOffset));
+export const tris = (g: THREE.BufferGeometry) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+```
+
 ```ts
 // src/ancon/geometry.test.ts
 import { describe, expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
+import { ERAS } from '../data/eras';
 import { landmarkXZ } from '../data/landmarks';
 import { RIVER_DIR } from '../geo/constants';
-import { buildFields, WATER, type WorldFields } from '../terrain/fields';
-import { APRON_REST, crossingGeometry, dockPoint } from './geometry';
+import { WATER, type WorldFields } from '../terrain/fields';
+import { LANDING_CLEARING } from '../vegetation/masks';
+import { dockPoint, landingClearings, waterAt, type XZ } from './geometry';
+import { deckLayout, vesselSpec } from './spec';
+import { fields512, geom512 } from './testing';
 
-const G = geo as unknown as GeoBundle;
-const post = buildFields(G, { extent: 2560, size: 256, bankOffset: 0 });
-const pre = buildFields(G, { extent: 2560, size: 256, bankOffset: 8 });
-const waterAt = (f: WorldFields, x: number, z: number) => {
-  const g = f.grid, i = Math.floor((x - g.minX) / g.cell), j = Math.floor((z - g.minZ) / g.cell);
-  return f.water[j * g.size + i];
-};
 const dist = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+/** Brute force: distance from p to the nearest RIVER cell centre. */
+const nearestRiverCell = (f: WorldFields, p: XZ) => {
+  const g = f.grid;
+  let best = Infinity;
+  for (let j = 0; j < g.size; j++) for (let i = 0; i < g.size; i++) if (f.water[j * g.size + i] === WATER.RIVER)
+    best = Math.min(best, Math.hypot(g.minX + (i + 0.5) * g.cell - p[0], g.minZ + (j + 0.5) * g.cell - p[1]));
+  return best;
+};
 
-describe('crossing geometry', () => {
-  const g = crossingGeometry(post);
-  test('landings are the research §1.1 points, ~200–230 m apart', () => {
-    expect(g.east).toEqual(landmarkXZ('eastLanding'));
-    expect(g.west).toEqual(landmarkXZ('westLanding'));
+describe.each([0, 8])('crossing geometry, bankOffset %i (512 placement fields)', (bank) => {
+  const f = fields512(bank), g = geom512(bank);
+  test('landings are the research §1.1 coordinates, on land, ~220 m apart', () => {
+    expect(g.east).toEqual(landmarkXZ('eastLanding')); expect(g.west).toEqual(landmarkXZ('westLanding'));
     expect(dist(g.east, g.west)).toBeGreaterThan(200); expect(dist(g.east, g.west)).toBeLessThan(235);
+    expect(waterAt(f, ...g.east)).toBe(WATER.LAND); expect(waterAt(f, ...g.west)).toBe(WATER.LAND);
   });
-  test('dir is the unit east→west vector and yaw maps local +X onto it', () => {
+  test('each shore point is the waterline nearest its landing coordinate (within one cell)', () => {
+    for (const [s, l] of [[g.shoreEast, g.east], [g.shoreWest, g.west]] as const) {
+      expect(waterAt(f, s[0], s[1])).toBe(WATER.RIVER);
+      const ux = (l[0] - s[0]) / dist(s, l), uz = (l[1] - s[1]) / dist(s, l);
+      expect(waterAt(f, s[0] + ux * 0.5, s[1] + uz * 0.5)).not.toBe(WATER.RIVER);     // next step toward the landing leaves the river
+      const d = nearestRiverCell(f, l);
+      expect(dist(s, l)).toBeLessThanOrEqual(d + 1e-9); expect(dist(s, l)).toBeGreaterThan(d - f.grid.cell);
+    }
+  });
+  test('dir is the unit shore→shore vector, yaw maps local +X onto it, and it crosses the current', () => {
     expect(Math.hypot(...g.dir)).toBeCloseTo(1, 9);
-    expect(Math.cos(g.yaw)).toBeCloseTo(g.dir[0], 9);
-    expect(-Math.sin(g.yaw)).toBeCloseTo(g.dir[1], 9);
-  });
-  test('the crossing runs across the current', () => {
+    expect(Math.cos(g.yaw)).toBeCloseTo(g.dir[0], 9); expect(-Math.sin(g.yaw)).toBeCloseTo(g.dir[1], 9);
     expect(Math.abs(g.dir[0] * RIVER_DIR[0] + g.dir[1] * RIVER_DIR[1])).toBeLessThan(0.3);
-  });
-  test('shore points sit at the waterline near each landing, river in between', () => {
-    expect(dist(g.shoreEast, g.east)).toBeLessThan(40);
-    expect(dist(g.shoreWest, g.west)).toBeLessThan(40);
-    expect(waterAt(post, g.shoreEast[0] + g.dir[0] * 3, g.shoreEast[1] + g.dir[1] * 3)).not.toBe(WATER.LAND);
-    expect(waterAt(post, g.shoreWest[0] - g.dir[0] * 3, g.shoreWest[1] - g.dir[1] * 3)).not.toBe(WATER.LAND);
-    expect(waterAt(post, (g.shoreEast[0] + g.shoreWest[0]) / 2, (g.shoreEast[1] + g.shoreWest[1]) / 2)).toBe(WATER.RIVER);
-    expect(g.span).toBeGreaterThan(120); expect(g.span).toBeLessThan(235);
     expect(g.span).toBeCloseTo(dist(g.shoreEast, g.shoreWest), 9);
+    expect(g.span).toBeGreaterThan(120); expect(g.span).toBeLessThan(200);
   });
-  test('the pre-dam river is wider at the crossing', () => {
-    expect(crossingGeometry(pre).span).toBeGreaterThan(g.span + 4);
+  test('the whole line between the shores is river', () => {
+    for (let k = 1; k < 50; k++) {
+      const t = k / 50;
+      expect(waterAt(f, g.shoreEast[0] + (g.shoreWest[0] - g.shoreEast[0]) * t, g.shoreEast[1] + (g.shoreWest[1] - g.shoreEast[1]) * t)).toBe(WATER.RIVER);
+    }
   });
-  test('docked, the apron tip rests APRON_REST m onto the bank', () => {
-    const reach = 5, e = dockPoint(g, 'east', reach), w = dockPoint(g, 'west', reach);
-    expect(dist(e, g.shoreEast)).toBeCloseTo(reach - APRON_REST, 6);
-    expect(dist(w, g.shoreWest)).toBeCloseTo(reach - APRON_REST, 6);
-    expect(waterAt(post, e[0], e[1])).not.toBe(WATER.LAND);
-    expect(waterAt(post, w[0], w[1])).not.toBe(WATER.LAND);
-    expect(dist(e, w)).toBeCloseTo(g.span - 2 * (reach - APRON_REST), 6);
+  test('every era docks in the water, inside its landing clearing, apron tip APRON_REST onto the bank', () => {
+    const [cE, cW] = landingClearings(g);
+    for (const e of ERAS) {
+      const L = deckLayout(vesselSpec(e)), de = dockPoint(g, 'east', L.reach), dw = dockPoint(g, 'west', L.reach);
+      expect(waterAt(f, de[0], de[1])).toBe(WATER.RIVER); expect(waterAt(f, dw[0], dw[1])).toBe(WATER.RIVER);
+      expect(dist(de, cE)).toBeLessThan(LANDING_CLEARING[0]); expect(dist(dw, cW)).toBeLessThan(LANDING_CLEARING[0]);
+      expect(dist(de, g.shoreEast)).toBeCloseTo(L.reach - 0.8, 6);
+    }
   });
+});
+test('the pre-dam river is wider at the crossing', () => {
+  expect(geom512(8).span).toBeGreaterThan(geom512(0).span + 8);
 });
 ```
 
@@ -366,53 +429,53 @@ import { WATER, type WorldFields } from '../terrain/fields';
 
 export type XZ = readonly [number, number];
 export interface CrossingGeometry {
-  /** Landing points (research §1.1), projected. */
+  /** Landing coordinates (research §1.1), projected. They lie on land, some way from the water. */
   east: XZ; west: XZ;
-  /** Unit vector, east landing → west landing (= vessel-local +X). */
-  dir: XZ;
-  /** Where the crossing line meets the waterline on each bank (depends on the era's bankOffset). */
+  /** The river waterline nearest each landing coordinate (depends on the era's bankOffset). The crossing runs between them. */
   shoreEast: XZ; shoreWest: XZ;
-  /** Shore-to-shore distance along the line, m. */
+  /** Unit vector shoreEast → shoreWest (= vessel-local +X). */
+  dir: XZ;
+  /** Shore-to-shore distance, m. */
   span: number;
   /** Rotation about +Y that takes local +X onto `dir` (three.js convention: +X → (cos, 0, −sin)). */
   yaw: number;
 }
 /** The docked apron tip (or barge bow) rests this far onto the bank. */
 export const APRON_REST = 0.8;
-const STEP = 0.5, MAX_BACK = 200;
+/** Each landing clearing is centred this far inland of its shore point: docked hull, bank posts and the ride camera then all fall inside LANDING_CLEARING[0]. */
+export const CLEAR_INLAND = 6;
+const SEARCH = 150, STEP = 0.25;
 
-function isWater(f: WorldFields, x: number, z: number) {
+/** Water class at a world point (WATER.LAND outside the grid). */
+export function waterAt(f: WorldFields, x: number, z: number): number {
   const g = f.grid, i = Math.floor((x - g.minX) / g.cell), j = Math.floor((z - g.minZ) / g.cell);
-  return i >= 0 && j >= 0 && i < g.size && j < g.size && f.water[j * g.size + i] !== WATER.LAND;
+  return i >= 0 && j >= 0 && i < g.size && j < g.size ? f.water[j * g.size + i] : WATER.LAND;
 }
 
-/**
- * The waterline on the segment from → to, nearest `from`. If `from` is on land, march toward
- * `to` until the first water sample; if it is already in water (wider pre-dam river), march
- * away from `to` to the last water sample before land.
- */
-export function findShore(f: WorldFields, from: XZ, to: XZ): XZ {
-  const dx = to[0] - from[0], dz = to[1] - from[1], len = Math.hypot(dx, dz), ux = dx / len, uz = dz / len;
-  if (!isWater(f, from[0], from[1])) {
-    for (let s = STEP; s <= len; s += STEP) if (isWater(f, from[0] + ux * s, from[1] + uz * s)) return [from[0] + ux * s, from[1] + uz * s];
-    return from;
+/** The river waterline nearest `p`: the nearest RIVER cell centre within 150 m, then walk from it toward `p` to the last river sample. */
+export function nearestShore(f: WorldFields, p: XZ): XZ {
+  const g = f.grid, r = Math.ceil(SEARCH / g.cell);
+  const ci = Math.floor((p[0] - g.minX) / g.cell), cj = Math.floor((p[1] - g.minZ) / g.cell);
+  let best = Infinity, bx = 0, bz = 0;
+  for (let j = Math.max(0, cj - r); j <= Math.min(g.size - 1, cj + r); j++) for (let i = Math.max(0, ci - r); i <= Math.min(g.size - 1, ci + r); i++) {
+    if (f.water[j * g.size + i] !== WATER.RIVER) continue;
+    const x = g.minX + (i + 0.5) * g.cell, z = g.minZ + (j + 0.5) * g.cell, d = Math.hypot(x - p[0], z - p[1]);
+    if (d < best) { best = d; bx = x; bz = z; }
   }
-  for (let s = STEP; s <= MAX_BACK; s += STEP) {
-    if (!isWater(f, from[0] - ux * s, from[1] - uz * s)) return [from[0] - ux * (s - STEP), from[1] - uz * (s - STEP)];
-  }
-  return from;
+  if (best === Infinity) throw new Error(`no river within ${SEARCH} m of ${p}`);
+  const ux = (p[0] - bx) / best, uz = (p[1] - bz) / best;
+  let s = 0;
+  while (s + STEP <= best && waterAt(f, bx + ux * (s + STEP), bz + uz * (s + STEP)) === WATER.RIVER) s += STEP;
+  return [bx + ux * s, bz + uz * s];
 }
 
+/** Compute from the fixed 512 placement fields (terrain/placementFields.ts), never the tier's grid. */
 export function crossingGeometry(f: WorldFields): CrossingGeometry {
   const east = landmarkXZ('eastLanding'), west = landmarkXZ('westLanding');
-  const len = Math.hypot(west[0] - east[0], west[1] - east[1]);
-  const dir: XZ = [(west[0] - east[0]) / len, (west[1] - east[1]) / len];
-  const shoreEast = findShore(f, east, west), shoreWest = findShore(f, west, east);
-  return {
-    east, west, dir, shoreEast, shoreWest,
-    span: Math.hypot(shoreWest[0] - shoreEast[0], shoreWest[1] - shoreEast[1]),
-    yaw: Math.atan2(-dir[1], dir[0]),
-  };
+  const shoreEast = nearestShore(f, east), shoreWest = nearestShore(f, west);
+  const span = Math.hypot(shoreWest[0] - shoreEast[0], shoreWest[1] - shoreEast[1]);
+  const dir: XZ = [(shoreWest[0] - shoreEast[0]) / span, (shoreWest[1] - shoreEast[1]) / span];
+  return { east, west, shoreEast, shoreWest, dir, span, yaw: Math.atan2(-dir[1], dir[0]) };
 }
 
 /** Vessel centre (XZ) when docked on `side`, its end (apron tip) `APRON_REST` m onto the bank. */
@@ -420,14 +483,47 @@ export function dockPoint(g: CrossingGeometry, side: 'east' | 'west', reach: num
   const s = side === 'east' ? g.shoreEast : g.shoreWest, k = (side === 'east' ? 1 : -1) * (reach - APRON_REST);
   return [s[0] + g.dir[0] * k, s[1] + g.dir[1] * k];
 }
+
+/** Centres of the two landing clearings (vegetation masks), CLEAR_INLAND m inland of each shore point. */
+export function landingClearings(g: CrossingGeometry): [XZ, XZ] {
+  return [
+    [g.shoreEast[0] - g.dir[0] * CLEAR_INLAND, g.shoreEast[1] - g.dir[1] * CLEAR_INLAND],
+    [g.shoreWest[0] + g.dir[0] * CLEAR_INLAND, g.shoreWest[1] + g.dir[1] * CLEAR_INLAND],
+  ];
+}
 ```
 
-- [ ] **Step 5: Verify.** `npx vitest run src/ancon src/data` → PASS; `npm test`; `npm run build`. Commit:
+- [ ] **Step 5: Clearings on the shore points; one shared 512 grid.** In `src/vegetation/masks.ts` replace the landing centres:
+
+```ts
+import { crossingGeometry, landingClearings } from '../ancon/geometry';
+/** Ferry landings are kept clear of plants: fully within the first radius (m) of each `landingClearings` centre, fading out by the second. */
+export const LANDING_CLEARING: [number, number] = [22, 40];
+// in buildVegMasks, replacing `const landings = [landmarkXZ('eastLanding'), landmarkXZ('westLanding')];`
+  // Clearings centre on the ferry's shore points (just inland of the waterline), not the raw landing coordinates.
+  const landings = landingClearings(crossingGeometry(f));
+```
+
+(`landmarkXZ` stays imported for the plaza.) In `src/vegetation/placement.test.ts` the clearing test measures from the same centres:
+
+```ts
+import { crossingGeometry, landingClearings } from '../ancon/geometry';   // replaces the landmarkXZ import
+  test('ferry landings are kept clear', () => {
+    const cell = f.grid.cell * Math.SQRT1_2; // mask is per cell: allow half a cell diagonal
+    for (const [lx, lz] of landingClearings(crossingGeometry(f))) {
+      for (const p of Object.values(all).flat()) expect(Math.hypot(p.x - lx, p.z - lz)).toBeGreaterThan(LANDING_CLEARING[0] - cell);
+    }
+  });
+```
+
+In `src/vegetation/Vegetation.tsx` delete the private `PLACE_SIZE` / `placeFields` / `placementFields` and import the shared one: `const pf = placementFields(bankOffset, near);` (argument order: bank offset first). `buildFields` is no longer imported there.
+
+- [ ] **Step 6: Verify.** `npx vitest run src/ancon src/data src/vegetation` → PASS; `npm test`; `npm run build`. Commit:
 
 ```bash
-git add src/data/eras.ts src/data/eras.test.ts src/ancon/spec.ts src/ancon/spec.test.ts src/ancon/geometry.ts src/ancon/geometry.test.ts
+git add src/data/eras.ts src/data/eras.test.ts src/ancon/spec.ts src/ancon/spec.test.ts src/ancon/geometry.ts src/ancon/geometry.test.ts src/ancon/testing.ts src/terrain/placementFields.ts src/vegetation
 git commit -m "$(cat <<'EOF'
-feat(ancon): sourced vessel data per era, deck layout, crossing geometry
+feat(ancon): sourced vessel data per era, deck layout, crossing geometry on the real waterline
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -439,29 +535,32 @@ EOF
 ### Task 2: Crossing state machine, vessel pose, seat anchors, `useVesselPose()`
 
 **Files:**
-- Create: `src/ancon/crossing.ts` (+ `crossing.test.ts`), `src/ancon/pose.ts` (+ `pose.test.ts`), `src/ancon/seats.ts` (+ `seats.test.ts`), `src/ancon/vesselPose.ts` (+ `vesselPose.test.ts`)
+- Create: `src/ancon/ease.ts`, `src/ancon/crossing.ts` (+ `crossing.test.ts`), `src/ancon/pose.ts` (+ `pose.test.ts`), `src/ancon/seats.ts` (+ `seats.test.ts`), `src/ancon/vesselPose.ts` (+ `vesselPose.test.ts`)
+- Modify: `src/ancon/testing.ts` (+ `ctxFor`)
 
 **Interfaces:**
 - Consumes: `CrossingGeometry`, `dockPoint` (Task 1); `VesselSpec`, `DeckLayout`, `CAR_SLOT` (Task 1); `RIVER_DIR`; `hash3` (vegetation/rng.ts).
 - Produces:
   - `type CrossingPhase = 'load' | 'castOff' | 'cross' | 'dock' | 'unload'`, `PHASES`
-  - `CROSSING_TIMINGS: Record<CrossingPhase, number>` = `{ load: 20, castOff: 8, cross: 126, dock: 10, unload: 16 }` (180 s per crossing), `RAMP_UP = 18`, `RAMP_DOWN = 20`, `legDuration(T?) → number`, `DEFAULT_CROSSING_START = 12`
+  - `type CrossingTimings = Record<CrossingPhase, number>`; `CROSSING_TIMINGS: CrossingTimings` = `{ load: 20, castOff: 8, cross: 126, dock: 10, unload: 16 }` (180 s per crossing), `RAMP_UP = 18`, `RAMP_DOWN = 20`, `legDuration(T?) → number`, `DEFAULT_CROSSING_START = 12`
+  - `ease.ts`: `clamp01`, `smooth`, `smoothIntegral`, `lerp`, `fract`, `lerpAngle(a, b, w)` — the only copies (crossing, crew, rideCamera import them)
   - `interface CrossingState { legIndex: number; leg: 0 | 1; travel: 1 | -1; phase: CrossingPhase; phaseT: number; tLeg: number; p: number; s: number; v: number; a: number; slack: number; effort: number }`
-  - `createCrossingState(): CrossingState`, `crossingState(clock: number, out: CrossingState, T?: CrossingTimings): CrossingState`, `mooredState(out): CrossingState`, `crossingClock(start: number, elapsed: number, frozen: boolean, speed: number): number`
-  - `interface PoseContext { geom: CrossingGeometry; spec: VesselSpec; layout: DeckLayout; flow: number }`
+  - `createCrossingState(): CrossingState`, `crossingState(clock: number, out: CrossingState, T?: CrossingTimings): CrossingState`, `mooredState(out): CrossingState` (in place), `advanceClock(clock: number, dt: number, frozen: boolean, speed: number): number`
+  - `interface PoseContext { geom; spec; layout; flow; dockEast: XZ; dockWest: XZ; lineLen: number; groundAt?: (x, z) => number }` built only by `makePoseContext(geom: CrossingGeometry, spec: VesselSpec, flow: number, groundAt?): PoseContext` (docks precomputed: no per-frame allocation)
   - `interface VesselPose { position: THREE.Vector3; quaternion: THREE.Quaternion; matrix: THREE.Matrix4; yaw: number; pitch: number; roll: number; heave: number; speed: number; drift: number; travel: 1 | -1; clock: number; state: CrossingState }`
   - `createVesselPose(): VesselPose`, `computeVesselPose(clock: number, ctx: PoseContext, out: VesselPose): VesselPose`, `apronLift(st: CrossingState, end: 1 | -1): number`, `DRIFT_PER_FLOW`, `CRAB_PER_FLOW`, `PITCH_PER_ACCEL`
-  - `type SeatKind = 'car' | 'cargo' | 'standing'`, `interface SeatAnchor { id: string; kind: SeatKind; pos: [number, number, number]; yaw: number }`, `seatAnchors(spec: VesselSpec, layout: DeckLayout): SeatAnchor[]` (car slots → one cargo slot when `cars = 0` → standing spots in a deterministic shuffled order), `anchorToWorld(pose: VesselPose, a: SeatAnchor, out: THREE.Matrix4): THREE.Matrix4`, `haulerStationX(k: number, perSide: number, L: DeckLayout): number`
+  - `type SeatKind = 'car' | 'cargo' | 'standing'`, `interface SeatAnchor { id: string; kind: SeatKind; pos: [number, number, number]; yaw: number }`, `seatAnchors(spec: VesselSpec, layout: DeckLayout): SeatAnchor[]` (car slots → one cargo slot when `cars = 0` → standing spots in a deterministic shuffled order), `anchorToWorld(pose: VesselPose, a: SeatAnchor, out: THREE.Matrix4): THREE.Matrix4`, `haulerStationX(k: number, perSide: number, L: DeckLayout, side: number): number` (never inside a car slot), `haulerZ(side: number, L: DeckLayout): number`
+  - fixture `ctxFor(id: EraId, flow?: number): PoseContext` (testing.ts; the era on its own pre/post-dam river)
   - `useVesselPose(): Readonly<VesselPose>`, `sharedVesselPose: VesselPose`, `type PoseListener = (pose: VesselPose, ctx: PoseContext) => void`, `onVesselPose(fn: PoseListener): () => void`, `emitVesselPose(ctx: PoseContext): void`
 
-Timing note: spec §13 asks ≈ 3 min per crossing; 20 + 8 + 126 + 10 + 16 = 180 s. The moving part (castOff + cross + dock = 144 s) is one smooth trapezoid (smoothstep ramps), cruising ≈ 1.6 m/s over a ~200 m line; phases are labels over that motion. `unload` is 16 s so the farthest passenger on the 20 m steel deck can walk off (Task 7).
+Timing note: spec §13 asks ≈ 3 min per crossing; 20 + 8 + 126 + 10 + 16 = 180 s. The moving part (castOff + cross + dock = 144 s) is one smooth trapezoid (smoothstep ramps, v_max = 1/125 of the line per second); phases are labels over that motion. The real dock-to-dock line is the shore span (≈ 146 m, ≈ 160 m pre-dam) minus 2·(reach − APRON_REST): **122–138 m post-dam** (steel pontoon … one-car platform), so the ferry cruises at **≈ 1.0–1.1 m/s** (≈ 3.6–4 km/h, the pace of haulers walking hand over hand; pre-dam ≈ 1.1–1.2 m/s). `unload` is 16 s so the farthest passenger on the 20 m steel deck can walk off at 1.4 m/s (Task 7).
 
 - [ ] **Step 1: Failing crossing tests**
 
 ```ts
 // src/ancon/crossing.test.ts
 import { describe, expect, test } from 'vitest';
-import { createCrossingState, CROSSING_TIMINGS as T, crossingClock, crossingState, legDuration, PHASES } from './crossing';
+import { advanceClock, createCrossingState, CROSSING_TIMINGS as T, crossingState, legDuration, mooredState, PHASES } from './crossing';
 
 const L = legDuration();
 const at = (c: number) => ({ ...crossingState(c, createCrossingState()) });
@@ -497,9 +596,9 @@ describe('crossing state machine', () => {
       prev = st;
     }
   });
-  test('cruise speed on a 200 m line is 1.2–2 m/s', () => {
+  test('cruise ≈ 1 m/s on the real 122–138 m dock-to-dock line', () => {
     const st = at(T.load + T.castOff + T.cross / 2);
-    expect(st.v * 200).toBeGreaterThan(1.2); expect(st.v * 200).toBeLessThan(2);
+    expect(st.v * 122).toBeGreaterThan(0.9); expect(st.v * 138).toBeLessThan(1.2);
   });
   test('ropes slack while docked, taut mid-crossing; effort continuous 0 → 1 → 0', () => {
     expect(at(5).slack).toBe(1); expect(at(T.load + T.castOff + 40).slack).toBe(0); expect(at(L - 3).slack).toBe(1);
@@ -520,18 +619,47 @@ describe('crossing state machine', () => {
   test('reuses the out object', () => {
     const o = createCrossingState(); expect(crossingState(10, o)).toBe(o);
   });
-  test('crossing clock: start + elapsed × speed, stopped when frozen', () => {
-    expect(crossingClock(12, 30, false, 1)).toBe(42);
-    expect(crossingClock(12, 30, false, 4)).toBe(132);
-    expect(crossingClock(12, 30, true, 4)).toBe(12);
+  test('crossing clock: integrates dt × speed, holds when frozen, stays continuous when the speed changes', () => {
+    expect(advanceClock(12, 0.5, false, 1)).toBe(12.5);
+    expect(advanceClock(12, 0.5, false, 4)).toBe(14);
+    expect(advanceClock(12, 0.5, true, 4)).toBe(12);
+    let c = 12;
+    for (let i = 0; i < 100; i++) c = advanceClock(c, 0.1, false, 1);
+    const before = c;
+    c = advanceClock(c, 0.1, false, 8);                     // speed jumps 1 → 8: one frame advances 0.8 s, no jump
+    expect(c - before).toBeCloseTo(0.8, 12);
+  });
+  test('moored state writes in place: docked east, slack, idle', () => {
+    const o = at(90) as ReturnType<typeof createCrossingState>;
+    expect(mooredState(o)).toBe(o);
+    expect([o.phase, o.s, o.v, o.slack, o.effort]).toEqual(['load', 0, 0, 1, 0]);
   });
 });
 ```
 
-- [ ] **Step 2: Implement `crossing.ts`**
+- [ ] **Step 2: Implement `ease.ts` and `crossing.ts`**
+
+```ts
+// src/ancon/ease.ts
+/** Small shared easing / interpolation helpers for the ferry modules (one copy, no per-module duplicates). */
+export const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+/** Smoothstep on [0, 1]. */
+export const smooth = (u: number) => u * u * (3 - 2 * u);
+/** ∫₀ᵘ smoothstep = u³ − u⁴/2 (a ramp whose speed eases in and out). */
+export const smoothIntegral = (u: number) => u * u * u - 0.5 * u * u * u * u;
+export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+export const fract = (x: number) => x - Math.floor(x);
+/** Blend angles the short way (a fixed direction when exactly opposite). */
+export function lerpAngle(a: number, b: number, w: number) {
+  const d = ((((b - a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  return a + d * w;
+}
+```
 
 ```ts
 // src/ancon/crossing.ts
+import { clamp01, smooth, smoothIntegral as S } from './ease';
+
 export type CrossingPhase = 'load' | 'castOff' | 'cross' | 'dock' | 'unload';
 export const PHASES: readonly CrossingPhase[] = ['load', 'castOff', 'cross', 'dock', 'unload'];
 export type CrossingTimings = Record<CrossingPhase, number>;
@@ -570,11 +698,6 @@ export interface CrossingState {
 export const createCrossingState = (): CrossingState =>
   ({ legIndex: 0, leg: 0, travel: 1, phase: 'load', phaseT: 0, tLeg: 0, p: 0, s: 0, v: 0, a: 0, slack: 1, effort: 0 });
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-const smooth = (u: number) => u * u * (3 - 2 * u);
-/** ∫₀ᵘ smoothstep = u³ − u⁴/2 (so ramps have continuous speed and acceleration starts/ends at 0). */
-const S = (u: number) => u * u * u - 0.5 * u * u * u * u;
-
 /** Leg progress p, dp/dt, d²p/dt² at τ seconds after cast-off; M = moving time. */
 function motion(tau: number, M: number, out: CrossingState) {
   const A = RAMP_UP, D = RAMP_DOWN, vmax = 1 / (M - A / 2 - D / 2);
@@ -611,46 +734,50 @@ export function crossingState(clock: number, out: CrossingState, T: CrossingTimi
   return out;
 }
 
-/** 1986: the barge sits at the east (Loíza) landing, ropes slack, nobody working. */
+/** 1986: the barge sits at the east (Loíza) landing, ropes slack, nobody working. Allocation-free. */
 export function mooredState(out: CrossingState): CrossingState {
-  Object.assign(out, createCrossingState());
+  out.legIndex = 0; out.leg = 0; out.travel = 1; out.phase = 'load'; out.phaseT = 0; out.tLeg = 0;
+  out.p = 0; out.s = 0; out.v = 0; out.a = 0; out.slack = 1; out.effort = 0;
   return out;
 }
 
-/** Crossing clock (s): time-scalable, stopped by ?freeze=1. */
-export const crossingClock = (start: number, elapsed: number, frozen: boolean, speed: number) =>
-  start + (frozen ? 0 : elapsed * speed);
+/**
+ * Advance the crossing clock by one frame (s). Time-scalable: integrating dt·speed keeps the
+ * phase continuous when the speed changes mid-run; ?freeze=1 holds it at its start (?c).
+ */
+export const advanceClock = (clock: number, dt: number, frozen: boolean, speed: number) => (frozen ? clock : clock + dt * speed);
 ```
 
 Run the crossing tests → PASS.
 
-- [ ] **Step 3: Failing pose, seat and listener tests**
+- [ ] **Step 3: Failing pose, seat and listener tests.** First add the pose fixture to `src/ancon/testing.ts`:
+
+```ts
+import { getEra, type EraId } from '../data/eras';
+import { makePoseContext } from './pose';
+import { vesselSpec } from './spec';
+/** Pose context for an era on its own (pre- or post-dam) river; `flow` overrides the era's current. */
+export const ctxFor = (id: EraId, flow?: number) => {
+  const e = getEra(id);
+  return makePoseContext(geom512(e.river.bankOffset.value), vesselSpec(e), flow ?? e.river.flow.value);
+};
+```
 
 ```ts
 // src/ancon/pose.test.ts
 import { describe, expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
-import { getEra, type EraId } from '../data/eras';
+import { type EraId } from '../data/eras';
 import { RIVER_DIR } from '../geo/constants';
-import { buildFields } from '../terrain/fields';
 import { CROSSING_TIMINGS as T, createCrossingState, crossingState, legDuration } from './crossing';
-import { crossingGeometry, dockPoint } from './geometry';
-import { apronLift, computeVesselPose, createVesselPose, type PoseContext } from './pose';
-import { deckLayout, vesselSpec } from './spec';
+import { apronLift, computeVesselPose, createVesselPose } from './pose';
+import { ctxFor } from './testing';
 
-const f = buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 });
-const geom = crossingGeometry(f);
-const ctxFor = (id: EraId, flow = getEra(id).river.flow.value): PoseContext => {
-  const spec = vesselSpec(getEra(id));
-  return { geom, spec, layout: deckLayout(spec), flow };
-};
 const L = legDuration(), MID = T.load + T.castOff + T.cross / 2;
 const poseAt = (id: EraId, c: number, flow?: number) => computeVesselPose(c, ctxFor(id, flow), createVesselPose());
 
 describe('vessel pose', () => {
   test('docked at the east landing loading leg 0, at the west landing unloading it', () => {
-    const ctx = ctxFor('1975'), e = dockPoint(geom, 'east', ctx.layout.reach), w = dockPoint(geom, 'west', ctx.layout.reach);
+    const ctx = ctxFor('1975'), e = ctx.dockEast, w = ctx.dockWest;
     const a = poseAt('1975', 5), b = poseAt('1975', L - 3);
     expect(Math.hypot(a.position.x - e[0], a.position.z - e[1])).toBeLessThan(1e-6);
     expect(Math.hypot(b.position.x - w[0], b.position.z - w[1])).toBeLessThan(1e-6);
@@ -658,7 +785,7 @@ describe('vessel pose', () => {
   test('mid-river the current pushes it downstream (along RIVER_DIR); ropes hold better than poles', () => {
     for (const id of ['1925', '1935'] as const) {
       const ctx = ctxFor(id), p = poseAt(id, MID), st = crossingState(MID, createCrossingState());
-      const e = dockPoint(geom, 'east', ctx.layout.reach), w = dockPoint(geom, 'west', ctx.layout.reach);
+      const e = ctx.dockEast, w = ctx.dockWest;
       const sx = e[0] + (w[0] - e[0]) * st.s, sz = e[1] + (w[1] - e[1]) * st.s;
       expect((p.position.x - sx) * RIVER_DIR[0] + (p.position.z - sz) * RIVER_DIR[1]).toBeCloseTo(p.drift, 6);
     }
@@ -669,9 +796,9 @@ describe('vessel pose', () => {
   });
   test('the crew crabs the leading end slightly upstream', () => {
     const p = poseAt('1925', MID), up = [-RIVER_DIR[0], -RIVER_DIR[1]];
-    const h = [Math.cos(p.yaw), -Math.sin(p.yaw)], h0 = geom.dir;
+    const h = [Math.cos(p.yaw), -Math.sin(p.yaw)], h0 = ctxFor('1925').geom.dir;
     expect(h[0] * up[0] + h[1] * up[1]).toBeGreaterThan(h0[0] * up[0] + h0[1] * up[1]);
-    expect(Math.abs(p.yaw - geom.yaw)).toBeLessThan(0.06);
+    expect(Math.abs(p.yaw - ctxFor('1925').geom.yaw)).toBeLessThan(0.06);
   });
   test('small motion: |pitch|, |roll| < 0.05 rad, |heave| < 0.06 m; the steel barge moves less than the 1840 barge', () => {
     let big = 0, small = 0;
@@ -684,12 +811,16 @@ describe('vessel pose', () => {
     }
     expect(big).toBeLessThan(small);
   });
-  test('cruise speed 0.9–2 m/s (dock-to-dock line is span − 2·(reach − APRON_REST)) and a matrix that matches position', () => {
+  test('cruise ≈ 1 m/s (dock-to-dock line = span − 2·(reach − APRON_REST), 122–138 m) and a matrix that matches position', () => {
+    for (const id of ['1935', '1984'] as EraId[]) {
+      const ctx = ctxFor(id);
+      expect(ctx.lineLen).toBeGreaterThan(115); expect(ctx.lineLen).toBeLessThan(160);
+      expect(Math.abs(poseAt(id, MID).speed)).toBeGreaterThan(0.85); expect(Math.abs(poseAt(id, MID).speed)).toBeLessThan(1.3);
+    }
     const p = poseAt('1984', MID);
-    expect(Math.abs(p.speed)).toBeGreaterThan(0.9); expect(Math.abs(p.speed)).toBeLessThan(2);
     expect(p.matrix.elements[12]).toBeCloseTo(p.position.x, 9); expect(p.matrix.elements[14]).toBeCloseTo(p.position.z, 9);
   });
-  test('deterministic and allocation-free (writes into out)', () => {
+  test('deterministic, writes into out', () => {
     const ctx = ctxFor('1959'), o = createVesselPose();
     expect(computeVesselPose(77.7, ctx, o)).toBe(o);
     const m = o.matrix.elements.slice();
@@ -697,7 +828,7 @@ describe('vessel pose', () => {
     expect(o.matrix.elements).toEqual(m);
   });
   test('1986: moored at the Loíza landing, bobbing only', () => {
-    const ctx = ctxFor('1986'), e = dockPoint(geom, 'east', ctx.layout.reach);
+    const ctx = ctxFor('1986'), e = ctx.dockEast;
     for (const c of [0, 100, 250, 900]) {
       const p = poseAt('1986', c);
       expect(Math.hypot(p.position.x - e[0], p.position.z - e[1])).toBeLessThan(1e-9); expect(p.speed).toBe(0);
@@ -720,7 +851,7 @@ import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { ERAS, getEra } from '../data/eras';
 import { createVesselPose } from './pose';
-import { anchorToWorld, seatAnchors } from './seats';
+import { anchorToWorld, haulerStationX, haulerZ, seatAnchors } from './seats';
 import { CAR_SLOT, deckLayout, vesselSpec } from './spec';
 
 for (const e of ERAS) test(`${e.id}: car slots, standing spots, all on the deck`, () => {
@@ -747,6 +878,18 @@ test('anchorToWorld composes the vessel pose with the deck-local anchor', () => 
   const v = new THREE.Vector3().setFromMatrixPosition(anchorToWorld(p, a, new THREE.Matrix4()));
   expect(v.x).toBeCloseTo(10 + a.pos[2], 9); expect(v.z).toBeCloseTo(-5 - a.pos[0], 9); expect(v.y).toBeCloseTo(a.pos[1], 9);
 });
+test('rope haulers stand on the deck and outside every car slot (Phase 4 parks cars there)', () => {
+  for (const e of ERAS) {
+    const s = vesselSpec(e), L = deckLayout(s);
+    if (s.propulsion !== 'ropes') continue;
+    const cars = seatAnchors(s, L).filter((a) => a.kind === 'car'), perSide = Math.ceil(s.crew / 2);
+    for (const side of [1, -1]) for (let k = 0; k < perSide; k++) {
+      const x = haulerStationX(k, perSide, L, side), z = haulerZ(side, L);
+      expect(Math.abs(x), e.id).toBeLessThanOrEqual(L.halfLength - 0.5);
+      for (const c of cars) expect(Math.abs(x - c.pos[0]) < CAR_SLOT.length / 2 && Math.abs(z - c.pos[2]) < CAR_SLOT.width / 2, e.id).toBe(false);
+    }
+  }
+});
 ```
 
 ```ts
@@ -772,11 +915,25 @@ Run: `npx vitest run src/ancon` — Expected: FAIL (modules missing).
 import * as THREE from 'three';
 import { RIVER_DIR } from '../geo/constants';
 import { createCrossingState, crossingState, mooredState, type CrossingState } from './crossing';
-import { dockPoint, type CrossingGeometry } from './geometry';
-import type { DeckLayout, VesselSpec } from './spec';
+import { dockPoint, type CrossingGeometry, type XZ } from './geometry';
+import { deckLayout, type DeckLayout, type VesselSpec } from './spec';
 import type { Propulsion } from '../data/eras';
 
-export interface PoseContext { geom: CrossingGeometry; spec: VesselSpec; layout: DeckLayout; flow: number }
+/** Everything the pose needs that does not change per frame (docks precomputed: no per-frame allocation). */
+export interface PoseContext {
+  geom: CrossingGeometry; spec: VesselSpec; layout: DeckLayout;
+  /** Surface current, m/s (era.river.flow). */
+  flow: number;
+  dockEast: XZ; dockWest: XZ;
+  /** Dock-to-dock distance, m. */
+  lineLen: number;
+  /** Terrain height (m) at a world point; set by <Ancon> for the ride camera (Task 9). */
+  groundAt?: (x: number, z: number) => number;
+}
+export function makePoseContext(geom: CrossingGeometry, spec: VesselSpec, flow: number, groundAt?: (x: number, z: number) => number): PoseContext {
+  const layout = deckLayout(spec), dockEast = dockPoint(geom, 'east', layout.reach), dockWest = dockPoint(geom, 'west', layout.reach);
+  return { geom, spec, layout, flow, dockEast, dockWest, lineLen: Math.hypot(dockWest[0] - dockEast[0], dockWest[1] - dockEast[1]), groundAt };
+}
 export interface VesselPose {
   /** World position of the local origin (hull centre at the waterline). */
   position: THREE.Vector3; quaternion: THREE.Quaternion;
@@ -806,10 +963,8 @@ const euler = new THREE.Euler(0, 0, 0, 'YZX');   // matrix = Ry(yaw) · Rz(pitch
 const ONE = new THREE.Vector3(1, 1, 1);
 
 export function computeVesselPose(clock: number, ctx: PoseContext, out: VesselPose): VesselPose {
-  const { geom: g, spec, layout, flow } = ctx, st = out.state;
+  const { geom: g, spec, flow, dockEast: e, dockWest: w, lineLen } = ctx, st = out.state;
   if (spec.moored) mooredState(st); else crossingState(clock, st);
-  const e = dockPoint(g, 'east', layout.reach), w = dockPoint(g, 'west', layout.reach);
-  const lineLen = Math.hypot(w[0] - e[0], w[1] - e[1]);
   const bump = Math.sin(Math.PI * st.s);                        // 0 at both docks: the crew corrects the drift
   const drift = flow * DRIFT_PER_FLOW[spec.propulsion] * bump;
   const x = e[0] + (w[0] - e[0]) * st.s + RIVER_DIR[0] * drift;
@@ -850,8 +1005,19 @@ export type SeatKind = 'car' | 'cargo' | 'standing';
 export interface SeatAnchor { id: string; kind: SeatKind; pos: [number, number, number]; yaw: number }
 const GRID = 0.65, EDGE = 0.45;
 
-/** Deck-local x of rope hauler station k (of `perSide` per rope line). Shared with the crew choreography (Task 7). */
-export const haulerStationX = (k: number, perSide: number, L: DeckLayout) => ((k + 0.5) / perSide - 0.5) * L.halfLength;
+/** Deck-local z of the haulers on rope line `side` (+1 / −1): 0.35 m inboard of the rope. */
+export const haulerZ = (side: number, L: DeckLayout) => side * (L.ropeZ - 0.35);
+/**
+ * Deck-local x of rope hauler station k (of `perSide` on the rope line `side`). Stations spread along
+ * the deck, but never inside the car slots (Phase 4 parks cars there): a station that would fall
+ * inside is moved just past the slot rows, toward its own end (or toward `side` when centred).
+ * Shared with the crew choreography (Task 7).
+ */
+export function haulerStationX(k: number, perSide: number, L: DeckLayout, side: number): number {
+  const x = ((k + 0.5) / perSide - 0.5) * L.halfLength, slotHalf = (L.rows * CAR_SLOT.length) / 2;
+  if (L.rows === 0 || Math.abs(x) >= slotHalf + 0.45) return x;
+  return (x === 0 ? Math.sign(side) : Math.sign(x)) * (slotHalf + 0.45);
+}
 
 export function seatAnchors(spec: VesselSpec, L: DeckLayout): SeatAnchor[] {
   const out: SeatAnchor[] = [], rects: [number, number, number, number][] = [];
@@ -875,9 +1041,10 @@ export function seatAnchors(spec: VesselSpec, L: DeckLayout): SeatAnchor[] {
   const xMax = poles ? L.halfLength - 0.35 : L.halfLength - 0.6;
   const perSide = Math.ceil(spec.crew / 2);
   const blocked = (x: number, z: number) =>
-    (poles && Math.abs(x) > L.halfLength - 1.0 && Math.abs(z) < 0.5) ||
-    (ropes && Math.abs(z) > L.ropeZ - 1.0 && Array.from({ length: perSide }, (_, k) => haulerStationX(k, perSide, L)).some((hx) => Math.abs(x - hx) < 0.8));
+    (poles && Math.abs(x) > L.halfLength - 1.2 && Math.abs(z) < 0.75) ||   // the helmsman at either end
+    (ropes && Math.abs(z) > L.ropeZ - 1.0 && haulerNear(x, Math.sign(z), perSide, L));
   const cand: { x: number; z: number; h: number }[] = [];
+  const EPS = 1e-9;   // strict "inside a slot" test that does not depend on float rounding at the slot edge
   for (let i = 0; ; i++) {
     const x = -L.halfLength + 0.5 + i * GRID;
     if (x > L.halfLength - 0.35 + 1e-9) break;
@@ -885,13 +1052,19 @@ export function seatAnchors(spec: VesselSpec, L: DeckLayout): SeatAnchor[] {
       const z = -L.halfBeam + EDGE + j * GRID;
       if (z > L.halfBeam - EDGE + 1e-9) break;
       if (Math.abs(z) > zMax || Math.abs(x) > xMax || blocked(x, z)) continue;
-      if (rects.some(([x0, x1, z0, z1]) => x > x0 && x < x1 && z > z0 && z < z1)) continue;
+      if (rects.some(([x0, x1, z0, z1]) => x > x0 - EPS && x < x1 + EPS && z > z0 - EPS && z < z1 + EPS)) continue;
       cand.push({ x, z, h: hash3(Math.round(x * 10), Math.round(z * 10), 77) });
     }
   }
   cand.sort((a, b) => a.h - b.h);
   cand.forEach((c, k) => out.push({ id: `stand${k}`, kind: 'standing', pos: [c.x, L.deckY, c.z], yaw: (c.h / 2 ** 32) * 2 * Math.PI - Math.PI }));
   return out;
+}
+
+/** A hauler of rope line `side` stands within 0.8 m of x. */
+function haulerNear(x: number, side: number, perSide: number, L: DeckLayout) {
+  for (let k = 0; k < perSide; k++) if (Math.abs(x - haulerStationX(k, perSide, L, side)) < 0.8) return true;
+  return false;
 }
 
 export function anchorToWorld(pose: VesselPose, a: SeatAnchor, out: THREE.Matrix4): THREE.Matrix4 {
@@ -918,10 +1091,10 @@ export function onVesselPose(fn: PoseListener): () => void { listeners.add(fn); 
 export function emitVesselPose(ctx: PoseContext) { listeners.forEach((fn) => fn(sharedVesselPose, ctx)); }
 ```
 
-- [ ] **Step 5: Verify + commit.** `npx vitest run src/ancon` → PASS. (Worked check, 1925 plank platform 7 × 3.2 m with one car slot |x| < 2.2: standing spots survive only at the ends, x ∈ {±2.35, ±2.85, −3.0}, z ∈ {−0.5, 0.15, 0.8} minus the helmsman box — ≥ 7 spots for 3 passengers. If an era comes up short, shrink `GRID` toward 0.62 before touching the crew exclusions.) `npm test`, `npm run build`.
+- [ ] **Step 5: Verify + commit.** `npx vitest run src/ancon` → PASS. (Worked check, 1925 plank platform 7 × 3.2 m, one car slot |x| ≤ 2.2 (edges count as inside, compared with a 1e-9 epsilon): the grid gives x ∈ {−3.0, −2.35, …, 2.2, 2.85} and z ∈ {−0.5, 0.15, 0.8}; the slot removes |x| ≤ 2.2 and the helmsman box (|x| > 2.3, |z| < 0.75) removes the centre-line spots, leaving (−3.0, 0.8), (−2.35, 0.8), (2.85, 0.8) — exactly the 3 passengers. 1935 (1 car, rope haulers at x = ±2.65): (2.6, −0.5), (2.6, 0.15), (−2.6, 0.15), (−2.6, 0.8). If an era comes up short, shrink `GRID` toward 0.62 before touching the crew exclusions.) `npm test`, `npm run build`.
 
 ```bash
-git add src/ancon/crossing.ts src/ancon/crossing.test.ts src/ancon/pose.ts src/ancon/pose.test.ts src/ancon/seats.ts src/ancon/seats.test.ts src/ancon/vesselPose.ts src/ancon/vesselPose.test.ts
+git add src/ancon/ease.ts src/ancon/testing.ts src/ancon/crossing.ts src/ancon/crossing.test.ts src/ancon/pose.ts src/ancon/pose.test.ts src/ancon/seats.ts src/ancon/seats.test.ts src/ancon/vesselPose.ts src/ancon/vesselPose.test.ts
 git commit -m "$(cat <<'EOF'
 feat(ancon): deterministic crossing loop, vessel pose, seat anchors, useVesselPose
 
@@ -935,23 +1108,24 @@ EOF
 ### Task 3: Wooden vessel builders, `<Ancon>` on the river, crossing-clock URL params
 
 **Files:**
-- Create: `src/ancon/vessels/common.ts`, `src/ancon/vessels/timberBarge.ts`, `src/ancon/vessels/plankPlatform.ts`, `src/ancon/vessels/woodPlatform.ts`, `src/ancon/vessels/index.ts`, `src/ancon/vessels/suite.ts`, `src/ancon/vessels/vessels.test.ts`, `src/ancon/textures.ts`, `src/ancon/materials.ts`, `src/ancon/stats.ts`, `src/ancon/Ancon.tsx`
+- Create: `src/ancon/vessels/common.ts`, `src/ancon/vessels/timberBarge.ts`, `src/ancon/vessels/plankPlatform.ts`, `src/ancon/vessels/woodPlatform.ts`, `src/ancon/vessels/index.ts`, `src/ancon/vessels/suite.ts` (shared suite, not a test file), `src/ancon/vessels/vessels.test.ts`, `src/ancon/textures.ts`, `src/ancon/materials.ts`, `src/ancon/stats.ts`, `src/ancon/Ancon.tsx`
 - Modify: `src/state/url.ts` (+ `url.test.ts`), `src/state/store.ts` (+ `store.test.ts`), `src/quality.ts`, `src/scene/World.tsx`, `src/ui/DebugPanel.tsx`
 
 **Interfaces:**
-- Consumes: `VesselSpec`, `DeckLayout`, `vesselSpec`, `deckLayout` (Task 1); `crossingGeometry` (Task 1); `computeVesselPose`, `apronLift`, `PoseContext` (Task 2); `crossingClock`, `DEFAULT_CROSSING_START` (Task 2); `sharedVesselPose`, `emitVesselPose` (Task 2); `cellRng` (vegetation/rng.ts).
+- Consumes: `VesselSpec`, `DeckLayout`, `vesselSpec`, `deckLayout`, `CAR_SLOT` (Task 1); `crossingGeometry`, `placementFields` (Task 1); `computeVesselPose`, `apronLift`, `makePoseContext` (Task 2); `advanceClock`, `DEFAULT_CROSSING_START` (Task 2); `tris` (testing.ts); `sharedVesselPose`, `emitVesselPose` (Task 2); `cellRng` (vegetation/rng.ts).
 - Produces:
   - `type VesselMaterialId = 'wood' | 'steel' | 'iron'`; `interface VesselPart { material: VesselMaterialId; geometry: THREE.BufferGeometry; apron?: { end: 1 | -1; hinge: [number, number] } }`
-  - `class PartBuilder { box(size, at, color, rotZ?, rotY?): this; cylinder(rTop, rBottom, length, at, color, axis?, radial?): this; add(geometry, color): this; build(): THREE.BufferGeometry; readonly empty: boolean }`, `worldUv(g)`, `tone(base, dark, light, r, amount?)`, `TEX_M = 2`
+  - `class PartBuilder { box(size, at, color, rotZ?, rotY?): this; cylinder(rTop, rBottom, length, at, color, axis?, radial?): this; add(geometry, color): this; build(): THREE.BufferGeometry; readonly empty: boolean }`, `worldUv(g)`, `tone(base, dark, light, r, amount?)`, `woodTone(r, amount?, base?)`, `TEX_M = 2`
+  - one palette for every builder: `WOOD = { base, dark, bleach, strake, tar, iron }`, `STEEL = { deck, shell, rust, foul, antifoul }` (THREE.Color); `plankApron(end, L, r, { plankW, gap, thick, beams }): VesselPart`; `BITT_H = 0.35`, `bittXZ(L, end, side): [x, z]`
   - `buildTimberBarge`, `buildPlankPlatform`, `buildWoodPlatform` (all `(spec: VesselSpec, L: DeckLayout, seed: number) => VesselPart[]`); `buildVessel(spec, L, seed): VesselPart[]`; `TRI_BUDGET: Record<VesselKind, number>`
   - `vesselSuite(kinds: VesselKind[])` (test helper in `vessels/suite.ts`, reused by Task 4)
   - `paintPlanks(): HTMLCanvasElement` (browser); `vesselMaterials(): Record<VesselMaterialId, THREE.MeshStandardMaterial>` (module cache)
   - `anconTiming: { cpuMs: number; frames: number; add(ms: number): void }` (EMA + frame count), exposed as `window.__ANCON_ANCON__`
-  - `<Ancon near era q frozen castShadow />` — owns the only ancón `useFrame`: clock → `computeVesselPose(…, sharedVesselPose)` → hull/apron transforms → (later tasks: ropes, crew, wake) → `anconTiming.add` → `emitVesselPose(ctx)`
+  - `<Ancon near era q frozen castShadow />` — owns the only ancón `useFrame`: `advanceClock` → `computeVesselPose(…, sharedVesselPose)` → hull/apron transforms → (later tasks: ropes, crew, wake) → `anconTiming.add` → `emitVesselPose(ctx)`; its `ctx` comes from `makePoseContext(crossingGeometry(placementFields(bank, near)), spec, flow, groundAt)` (`groundAt` samples the tier's terrain for the ride camera)
   - URL: `?c=<seconds>` → `UrlState.crossingStart`, `?ancon=0` → `UrlState.showAncon = false`. Store: `crossingStart` (default `DEFAULT_CROSSING_START`), `crossingSpeed` (default 1), `showAncon` (default true), `setCrossingSpeed(v: number)`.
   - `QualitySettings.ancon: { ropeSegments: number; ropeRadial: number; passengers: number }` — high {40, 6, 1}, medium {32, 6, 1}, low {20, 4, 0.5}
 
-Why a new `?c`: spec §13 wants reproducible screenshots with `?freeze=1` / `?t=`. `?t` already means time of day (the sun), and the sun must stay at golden hour while the ferry moves, so the crossing gets its own clock start `?c` (seconds into the 360 s round trip). `?freeze=1` stops both clocks.
+Why a new `?c` (accepted, preflight F15): spec §13 wants reproducible screenshots with `?freeze=1` / `?t=`. `?t` already means time of day (the sun), and the sun must stay at golden hour while the ferry moves, so the crossing gets its own clock start `?c` (seconds into the 360 s round trip). `?freeze=1` stops both clocks. The clock is integrated per frame (`advanceClock`: clock += dt · speed), so changing the debug speed mid-run keeps the crossing phase continuous (preflight F24).
 
 - [ ] **Step 1: Failing URL/store tests**
 
@@ -1016,8 +1190,7 @@ import { ERAS, type VesselKind } from '../../data/eras';
 import { deckLayout, vesselSpec } from '../spec';
 import type { VesselPart } from './common';
 import { buildVessel, TRI_BUDGET } from './index';
-
-const tris = (g: THREE.BufferGeometry) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+import { tris } from '../testing';
 export const bounds = (parts: VesselPart[]) => {
   const b = new THREE.Box3();
   for (const p of parts) { p.geometry.computeBoundingBox(); b.union(p.geometry.boundingBox!); }
@@ -1147,9 +1320,39 @@ export class PartBuilder {
   }
 }
 
+/** Shared vessel palette (sRGB hex → linear THREE.Color). One copy for every builder. */
+export const WOOD = {
+  base: new THREE.Color(0x7c6a52), dark: new THREE.Color(0x4f4234), bleach: new THREE.Color(0xa39580),
+  strake: new THREE.Color(0x5e5040), tar: new THREE.Color(0x221d19), iron: new THREE.Color(0x2b2826),
+};
+/**
+ * Steel pontoon paint. In linear space: FOUL (g/r ≈ 1.8) is greener than SHELL (g/r ≈ 1.4), the
+ * side-panel base; RUST (luminance ≈ 0.02) is darker than SHELL (≈ 0.065) and DECK, so lerping
+ * toward RUST darkens — the idle 1986 barge (more rust) is darker than the working 1984 one.
+ */
+export const STEEL = {
+  deck: new THREE.Color(0x6f746c), shell: new THREE.Color(0x3f4a4c), rust: new THREE.Color(0x3a2618),
+  foul: new THREE.Color(0x34461f), antifoul: new THREE.Color(0x5a2a22),
+};
+
 /** A tone between `base` and a random partner (weathering / sun bleaching), deterministic in `r`. */
 export function tone(base: THREE.Color, dark: THREE.Color, light: THREE.Color, r: () => number, amount = 0.45) {
   return base.clone().lerp(r() < 0.5 ? dark : light, r() * amount);
+}
+export const woodTone = (r: () => number, amount = 0.45, base = WOOD.base) => tone(base, WOOD.dark, WOOD.bleach, r, amount);
+
+/** Mooring bitts (1986) and corner bitts: deck-local x/z of the bitt at `end` (−1 east, +1 west) on `side`; posts are BITT_H tall. */
+export const BITT_H = 0.35;
+export const bittXZ = (L: { halfLength: number; halfBeam: number }, end: 1 | -1, side: 1 | -1): [number, number] =>
+  [end * (L.halfLength - 0.9), side * (L.halfBeam - 0.45)];
+
+/** Hinged plank apron for the wooden kinds, built flat from the hinge (x = end·halfLength) outward. */
+export function plankApron(end: 1 | -1, L: { halfLength: number; halfBeam: number; deckY: number; apron: number },
+  r: () => number, o: { plankW: number; gap: number; thick: number; beams: boolean }): VesselPart {
+  const a = new PartBuilder(), x0 = end * L.halfLength, top = L.deckY, m = Math.max(2, Math.round(L.apron / o.plankW));
+  if (o.beams) for (const sz of [-1, 1]) a.box([L.apron, 0.12, 0.16], [x0 + (end * L.apron) / 2, top - o.thick - 0.06, sz * (L.halfBeam - 0.5)], WOOD.dark);
+  for (let i = 0; i < m; i++) a.box([L.apron / m - o.gap, o.thick, 2 * L.halfBeam - 0.4], [x0 + end * (i + 0.5) * (L.apron / m), top - o.thick / 2, 0], woodTone(r));
+  return { material: 'wood', geometry: a.build(), apron: { end, hinge: [x0, top - o.thick / 2] } };
 }
 ```
 
@@ -1157,13 +1360,10 @@ export function tone(base: THREE.Color, dark: THREE.Color, light: THREE.Color, r
 
 ```ts
 // src/ancon/vessels/woodPlatform.ts
-import * as THREE from 'three';
 import { cellRng } from '../../vegetation/rng';
 import type { DeckLayout, VesselSpec } from '../spec';
-import { PartBuilder, tone, type VesselPart } from './common';
+import { PartBuilder, plankApron, WOOD, woodTone, type VesselPart } from './common';
 
-const WOOD = new THREE.Color(0x7c6a52), DARK = new THREE.Color(0x4f4234), BLEACH = new THREE.Color(0xa39580);
-const TAR = new THREE.Color(0x221d19), IRON = new THREE.Color(0x2b2826);
 const PLANK_W = 0.25, GAP = 0.012, PLANK_T = 0.06, DRAFT = 0.45, STRINGER_H = 0.18;
 
 /** Wooden platform on stringers over a tarred pontoon hull, hinged plank aprons at both ends (research §2.2). */
@@ -1172,44 +1372,116 @@ export function buildWoodPlatform(spec: VesselSpec, L: DeckLayout, seed: number)
   const wood = new PartBuilder(), iron = new PartBuilder();
   const hullTop = top - PLANK_T - STRINGER_H;
   // Pontoon hull (tarred), shorter than the deck, with raked end blocks.
-  wood.box([2 * hl - 1.2, hullTop + DRAFT, 2 * hb - 0.3], [0, (hullTop - DRAFT) / 2, 0], TAR);
-  for (const sx of [-1, 1]) wood.box([0.8, (hullTop + DRAFT) * 0.8, 2 * hb - 0.3], [sx * (hl - 0.75), hullTop - (hullTop + DRAFT) * 0.4, 0], TAR, sx * 0.55);
+  wood.box([2 * hl - 1.2, hullTop + DRAFT, 2 * hb - 0.3], [0, (hullTop - DRAFT) / 2, 0], WOOD.tar);
+  for (const sx of [-1, 1]) wood.box([0.8, (hullTop + DRAFT) * 0.8, 2 * hb - 0.3], [sx * (hl - 0.75), hullTop - (hullTop + DRAFT) * 0.4, 0], WOOD.tar, sx * 0.55);
   // Longitudinal stringers under the planks, visible along the sides.
   const nStr = Math.max(3, Math.round((2 * hb) / 1.1));
   for (let i = 0; i < nStr; i++) {
     const z = -hb + 0.12 + (i * (2 * hb - 0.24)) / (nStr - 1);
-    wood.box([2 * hl, STRINGER_H, 0.2], [0, hullTop + STRINGER_H / 2, z], tone(WOOD, DARK, BLEACH, r, 0.6));
+    wood.box([2 * hl, STRINGER_H, 0.2], [0, hullTop + STRINGER_H / 2, z], woodTone(r, 0.6));
   }
   // Transverse deck planks with gaps and slight height/tone variation.
   const n = Math.floor((2 * hl) / PLANK_W);
   for (let i = 0; i < n; i++) {
     const t = PLANK_T * (0.9 + 0.2 * r());
-    wood.box([PLANK_W - GAP, t, 2 * hb - 0.02 * r()], [-hl + (i + 0.5) * PLANK_W, top - PLANK_T + t / 2, 0], tone(WOOD, DARK, BLEACH, r));
+    wood.box([PLANK_W - GAP, t, 2 * hb - 0.02 * r()], [-hl + (i + 0.5) * PLANK_W, top - PLANK_T + t / 2, 0], woodTone(r));
   }
   // Rub rails and corner bitts.
-  for (const sz of [-1, 1]) wood.box([2 * hl, 0.14, 0.1], [0, top - 0.06, sz * (hb + 0.03)], DARK);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) wood.box([0.16, 0.5, 0.16], [sx * (hl - 0.3), top + 0.25, sz * (hb - 0.25)], DARK);
+  for (const sz of [-1, 1]) wood.box([2 * hl, 0.14, 0.1], [0, top - 0.06, sz * (hb + 0.03)], WOOD.dark);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) wood.box([0.16, 0.5, 0.16], [sx * (hl - 0.3), top + 0.25, sz * (hb - 0.25)], WOOD.dark);
   // Rope guides: a post pair around each rope line with an iron roller; the rope rests on the roller top at guideY.
   if (spec.propulsion === 'ropes') for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    for (const dz of [0.16, -0.16]) wood.box([0.14, L.guideY - top + 0.05, 0.14], [sx * (hl - 0.3), (top + L.guideY) / 2, sz * L.ropeZ + dz], DARK);
-    iron.cylinder(0.07, 0.07, 0.34, [sx * (hl - 0.3), L.guideY - 0.07, sz * L.ropeZ], IRON, 'z', 10);
+    for (const dz of [0.16, -0.16]) wood.box([0.14, L.guideY - top + 0.05, 0.14], [sx * (hl - 0.3), (top + L.guideY) / 2, sz * L.ropeZ + dz], WOOD.dark);
+    iron.cylinder(0.07, 0.07, 0.34, [sx * (hl - 0.3), L.guideY - 0.07, sz * L.ropeZ], WOOD.iron, 'z', 10);
   }
   const parts: VesselPart[] = [{ material: 'wood', geometry: wood.build() }];
   if (!iron.empty) parts.push({ material: 'iron', geometry: iron.build() });
-  // Aprons: planks across two beams, built flat from the hinge outward.
-  for (const end of [-1, 1] as const) {
-    const a = new PartBuilder(), x0 = end * hl, m = Math.max(2, Math.round(L.apron / PLANK_W));
-    for (const sz of [-1, 1]) a.box([L.apron, 0.12, 0.16], [x0 + (end * L.apron) / 2, top - PLANK_T - 0.06, sz * (hb - 0.5)], DARK);
-    for (let i = 0; i < m; i++) a.box([L.apron / m - GAP, PLANK_T, 2 * hb - 0.4], [x0 + end * (i + 0.5) * (L.apron / m), top - PLANK_T / 2, 0], tone(WOOD, DARK, BLEACH, r));
-    parts.push({ material: 'wood', geometry: a.build(), apron: { end, hinge: [x0, top - PLANK_T / 2] } });
-  }
+  for (const end of [-1, 1] as const) parts.push(plankApron(end, L, r, { plankW: PLANK_W, gap: GAP, thick: PLANK_T, beams: true }));
   return parts;
 }
 ```
 
-- [ ] **Step 6: Timber barge (1840, 1900) and plank platform (1925).** Same kit and palette (copy the constants; add `STRAKE = new THREE.Color(0x5e5040)`), `cellRng(seed, 1, 703)` / `cellRng(seed, 2, 704)`.
-  - `buildTimberBarge(spec, L, seed)` — flat-bottomed scow, no aprons (`APRON.timberBarge = 0`: it noses onto the bank). Bottom at y = −0.30, bottom length 2·hl − 1.6 (the ends rake up ≈ 0.6 rad). Gunwale top at `L.deckY + 0.45`. Sides: three strakes per side (boxes 0.06 thick, one third of the side height each, alternating tone ± 8 % via `tone`) along the straight part, plus one raked end panel per end (box spanning the beam, `rotZ = ±0.6`) as the transom. Bottom: one tarred box 0.06 thick. Floorboards: longitudinal planks 0.22 wide at `L.deckY`, spanning 2·hl − 1.8. Ribs: every 0.7 m a box 0.08 × (gunwale − floor) × 0.06 against each inner side. Gunwale caps: 0.1 × 0.05 boxes along both sides (`DARK`). Tholes: two pegs (cylinder r 0.03, 0.25 high) on the gunwale at each end (pole rests). When `spec.shoreRope`, add a cleat (iron box 0.3 × 0.06 × 0.08 on two 0.06 posts) on the gunwale at x = 0 on both sides — Task 5 ties the Lombera rope to the upstream one at local `(0, L.deckY + 0.5, ±(L.halfBeam))`. Pieces whose centre is below y = 0.05 use `TAR`. Budget 4000 triangles.
-  - `buildPlankPlatform(spec, L, seed)` — rough plank deck: transverse planks 0.28 wide with irregular ends (each 2·hb ± 0.1 long, offset ± 0.05 in z) and wider gaps (0.02); three log stringers (cylinders r 0.14 along X at z ∈ {−hb + 0.4, 0, hb − 0.4}, tops touching the planks); a shallow tarred scow under them (bottom −0.30, top `L.deckY − 0.34`, end blocks rotated ±0.4 rad); two corner bitts per end (0.14 × 0.45 × 0.14); aprons exactly like the wood platform's but single-layer planks, `L.apron` = 0.9 m, hinge at x = ±hl. No rails, no guides. Budget 4000 triangles.
+- [ ] **Step 6: Timber barge (1840, 1900) and plank platform (1925).** Both use the shared kit and palette. The barge's hull ends (gunwale caps, top strake, transom tops) reach exactly x = ±halfLength — the point `dockPoint` assumes (preflight F13).
+
+```ts
+// src/ancon/vessels/timberBarge.ts
+import * as THREE from 'three';
+import { cellRng } from '../../vegetation/rng';
+import type { DeckLayout, VesselSpec } from '../spec';
+import { PartBuilder, tone, WOOD, woodTone, type VesselPart } from './common';
+
+const BOTTOM = -0.3, RAKE = 0.8, SIDE_T = 0.06;
+
+/**
+ * Colonial / early-1900s ancón de pasaje: a flat-bottomed plank scow, no aprons — its raked bow
+ * noses onto the bank (APRON = 0). Hull ends (gunwale caps, top strake, transom tops) reach exactly
+ * x = ±halfLength, the point dockPoint() assumes.
+ */
+export function buildTimberBarge(spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[] {
+  const r = cellRng(seed, 1, 703), hl = L.halfLength, hb = L.halfBeam, floor = L.deckY, top = floor + 0.45;
+  const wood = new PartBuilder(), iron = new PartBuilder();
+  /** |x| of the raked hull end at height y. */
+  const xAt = (y: number) => hl - (RAKE * (top - y)) / (top - BOTTOM);
+  // Bottom (tarred).
+  wood.box([2 * xAt(BOTTOM), SIDE_T, 2 * hb - 2 * SIDE_T], [0, BOTTOM + SIDE_T / 2, 0], WOOD.tar);
+  // Sides: three strakes, each a trapezoid following the rake, tar below the waterline.
+  const sh = (top - BOTTOM) / 3;
+  for (const sz of [-1, 1]) for (let k = 0; k < 3; k++) {
+    const y0 = BOTTOM + k * sh, y1 = y0 + sh;
+    const shape = new THREE.Shape([new THREE.Vector2(-xAt(y0), y0), new THREE.Vector2(xAt(y0), y0), new THREE.Vector2(xAt(y1), y1), new THREE.Vector2(-xAt(y1), y1)]);
+    const g = new THREE.ExtrudeGeometry(shape, { depth: SIDE_T, bevelEnabled: false }).translate(0, 0, sz > 0 ? hb - SIDE_T : -hb);
+    wood.add(g, (y0 + y1) / 2 < 0.05 ? WOOD.tar : tone(WOOD.strake, WOOD.dark, WOOD.bleach, r, 0.16));
+  }
+  // Raked end panels (transoms) from the bottom edge up to the gunwale at x = ±hl.
+  const rakeLen = Math.hypot(RAKE, top - BOTTOM), ang = Math.atan2(top - BOTTOM, RAKE);
+  for (const sx of [-1, 1]) wood.box([rakeLen, SIDE_T, 2 * hb - 2 * SIDE_T], [sx * (hl - RAKE / 2), (top + BOTTOM) / 2, 0], WOOD.tar, sx * ang);
+  // Floorboards, ribs, gunwale caps, tholes.
+  const nf = Math.floor((2 * hb - 0.3) / 0.22);
+  for (let i = 0; i < nf; i++) wood.box([2 * (hl - 0.45), 0.04, 0.2], [0, floor - 0.02, -hb + 0.15 + (i + 0.5) * 0.22], woodTone(r));
+  for (let x = -(hl - RAKE) + 0.35; x <= hl - RAKE - 0.35 + 1e-9; x += 0.7) for (const sz of [-1, 1])
+    wood.box([0.06, top - floor, 0.08], [x, (top + floor) / 2, sz * (hb - SIDE_T - 0.04)], WOOD.dark);
+  for (const sz of [-1, 1]) wood.box([2 * hl, 0.05, 0.1], [0, top + 0.025, sz * (hb - 0.05)], WOOD.dark);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) wood.cylinder(0.03, 0.03, 0.25, [sx * (hl - 0.25), top + 0.175, sz * (hb - 0.05)], WOOD.dark, 'y', 6);
+  // Lombera (1840s): a cleat amidships on each gunwale; RopeSet ties the shore rope to the upstream one.
+  if (spec.shoreRope) for (const sz of [-1, 1]) {
+    iron.box([0.3, 0.06, 0.08], [0, top + 0.13, sz * (hb - 0.05)], WOOD.iron);
+    for (const dx of [-0.1, 0.1]) iron.box([0.06, 0.1, 0.06], [dx, top + 0.05, sz * (hb - 0.05)], WOOD.iron);
+  }
+  const parts: VesselPart[] = [{ material: 'wood', geometry: wood.build() }];
+  if (!iron.empty) parts.push({ material: 'iron', geometry: iron.build() });
+  return parts;
+}
+```
+
+```ts
+// src/ancon/vessels/plankPlatform.ts
+import { cellRng } from '../../vegetation/rng';
+import type { DeckLayout, VesselSpec } from '../spec';
+import { PartBuilder, plankApron, WOOD, woodTone, type VesselPart } from './common';
+
+const PLANK_W = 0.28, GAP = 0.02, PLANK_T = 0.06, BOTTOM = -0.3, LOG_R = 0.14;
+
+/** 1920s Cortijo platform: rough planks on three log stringers over a shallow tarred scow, single-plank aprons, no rails. */
+export function buildPlankPlatform(spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[] {
+  void spec;
+  const r = cellRng(seed, 2, 704), hl = L.halfLength, hb = L.halfBeam, top = L.deckY;
+  const wood = new PartBuilder();
+  const scowTop = top - PLANK_T - 2 * LOG_R;
+  wood.box([2 * hl - 0.8, scowTop - BOTTOM, 2 * hb - 0.3], [0, (scowTop + BOTTOM) / 2, 0], WOOD.tar);
+  for (const sx of [-1, 1]) wood.box([0.5, (scowTop - BOTTOM) * 0.8, 2 * hb - 0.3], [sx * (hl - 0.55), (scowTop + BOTTOM) / 2, 0], WOOD.tar, sx * 0.4);
+  for (const z of [-hb + 0.4, 0, hb - 0.4]) wood.cylinder(LOG_R, LOG_R, 2 * hl - 0.2, [0, top - PLANK_T - LOG_R, z], woodTone(r, 0.6), 'x', 8);
+  const n = Math.floor((2 * hl) / PLANK_W);
+  for (let i = 0; i < n; i++) {
+    const t = PLANK_T * (0.85 + 0.3 * r()), len = 2 * hb - 0.1 + 0.2 * r();
+    wood.box([PLANK_W - GAP, t, len], [-hl + (i + 0.5) * PLANK_W, top - t / 2, (r() - 0.5) * 0.1], woodTone(r));
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) wood.box([0.14, 0.45, 0.14], [sx * (hl - 0.25), top + 0.225, sz * (hb - 0.25)], WOOD.dark);
+  const parts: VesselPart[] = [{ material: 'wood', geometry: wood.build() }];
+  for (const end of [-1, 1] as const) parts.push(plankApron(end, L, r, { plankW: PLANK_W, gap: GAP, thick: PLANK_T, beams: false }));
+  return parts;
+}
+```
+
   - `index.ts`:
 
 ```ts
@@ -1233,7 +1505,7 @@ export function buildVessel(spec: VesselSpec, L: DeckLayout, seed: number): Vess
 }
 ```
 
-(Task 4 adds `steelPontoon` and makes the record total.) Run `npx vitest run src/ancon/vessels` → PASS.
+(Task 4 adds `steelPontoon` and makes the record total.) Run `npx vitest run src/ancon/vessels` → PASS (barge x-extent = 2·hl + 0.06 from the transom thickness; all three kinds stay far under their triangle budgets).
 
 - [ ] **Step 7: Textures, materials, timing**
 
@@ -1280,12 +1552,13 @@ import type * as THREE from 'three';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { useStore } from '../state/store';
-import type { WorldFields } from '../terrain/fields';
-import { crossingClock } from './crossing';
+import { sampleField, type WorldFields } from '../terrain/fields';
+import { placementFields } from '../terrain/placementFields';
+import { advanceClock } from './crossing';
 import { crossingGeometry } from './geometry';
 import { vesselMaterials } from './materials';
-import { apronLift, computeVesselPose, type PoseContext } from './pose';
-import { deckLayout, vesselSpec } from './spec';
+import { apronLift, computeVesselPose, makePoseContext } from './pose';
+import { vesselSpec } from './spec';
 import { anconTiming } from './stats';
 import { emitVesselPose, sharedVesselPose } from './vesselPose';
 import { buildVessel } from './vessels';
@@ -1299,19 +1572,25 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
   near: WorldFields; era: Era; q: QualitySettings; frozen: boolean; castShadow: boolean;
 }) {
   const start = useStore((s) => s.crossingStart), speed = useStore((s) => s.crossingSpeed);
+  const bank = era.river.bankOffset.value;
   const spec = useMemo(() => vesselSpec(era), [era]);
-  const layout = useMemo(() => deckLayout(spec), [spec]);
-  const geom = useMemo(() => crossingGeometry(near), [near]);
-  const ctx = useMemo<PoseContext>(() => ({ geom, spec, layout, flow: era.river.flow.value }), [geom, spec, layout, era]);
+  // Crossing geometry always comes from the fixed 512 placement fields (never the tier's grid).
+  const place = useMemo(() => placementFields(bank, near), [bank, near]);
+  const ctx = useMemo(() => makePoseContext(crossingGeometry(place), spec, era.river.flow.value,
+    (x: number, z: number) => sampleField(near, near.height, x, z)), [place, spec, era, near]);
+  const layout = ctx.layout;
   const parts = useMemo(() => buildVessel(spec, layout, 1), [spec, layout]);
   useEffect(() => () => parts.forEach((p) => p.geometry.dispose()), [parts]);
   const mats = vesselMaterials();
   const hull = useRef<THREE.Group>(null);
   const aprons = useRef<(THREE.Group | null)[]>([]);
+  const clock = useRef(start);
+  useEffect(() => { clock.current = start; }, [start]);
 
-  useFrame((state) => {
+  useFrame((_, dt) => {
     const t0 = performance.now();
-    const pose = computeVesselPose(crossingClock(start, state.clock.elapsedTime, frozen, speed), ctx, sharedVesselPose);
+    clock.current = advanceClock(clock.current, Math.min(dt, 0.1), frozen, speed);
+    const pose = computeVesselPose(clock.current, ctx, sharedVesselPose);
     const g = hull.current;
     if (g) { g.matrix.copy(pose.matrix); g.matrixWorldNeedsUpdate = true; }
     for (let i = 0; i < parts.length; i++) {
@@ -1371,7 +1650,7 @@ EOF
 - Modify: `src/ancon/vessels/index.ts`, `src/ancon/textures.ts` (+ `paintSteel`), `src/ancon/materials.ts`
 
 **Interfaces:**
-- Consumes: `PartBuilder`, `tone`, `VesselPart` (Task 3); `vesselSuite`, `bounds` (Task 3 `suite.ts`); `DeckLayout`, `VesselSpec`.
+- Consumes: `PartBuilder`, `STEEL`, `WOOD`, `BITT_H`, `bittXZ`, `VesselPart` (Task 3 common.ts); `vesselSuite`, `bounds` (Task 3 `suite.ts`); `DeckLayout`, `VesselSpec`, `CAR_SLOT`.
 - Produces: `buildSteelPontoon(spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[]`; `BUILDERS` total over `VesselKind`; `paintSteel(): HTMLCanvasElement`; `vesselMaterials().steel.map` set.
 
 Research §2.2: "metal barge with steel plates", 6–8 cars, hauled out by crane ~1982 because snails and growth fouled the hull [S1][S4]; inferred modelling defaults: flat pontoon ≈ 20 × 7.5 m, welded plate hull, hinged end ramps, low perimeter curb, rope guides.
@@ -1383,7 +1662,7 @@ Research §2.2: "metal barge with steel plates", 6–8 cars, hauled out by crane
 import { expect, test } from 'vitest';
 import { getEra } from '../../data/eras';
 import { deckLayout, vesselSpec } from '../spec';
-import type { VesselPart } from './common';
+import { BITT_H, bittXZ, type VesselPart } from './common';
 import { buildVessel } from './index';
 import { bounds, vesselSuite } from './suite';
 
@@ -1425,18 +1704,109 @@ test('steel ramps, longer than the wooden aprons', () => {
   const b = bounds([ramps[0]]);
   expect(b.max.x - b.min.x).toBeGreaterThan(1.4);
 });
+test('bitts stand where the 1986 mooring lines start (bittXZ, BITT_H)', () => {
+  const s = vesselSpec(getEra('1986')), L = deckLayout(s), iron = buildVessel(s, L, 1).find((p) => p.material === 'iron')!;
+  const a = iron.geometry.attributes.position.array as Float32Array;
+  for (const side of [1, -1] as const) {
+    const [bx, bz] = bittXZ(L, -1, side), y = L.deckY + BITT_H;
+    let best = Infinity;
+    for (let i = 0; i < a.length; i += 3) best = Math.min(best, Math.hypot(a[i] - bx, a[i + 1] - y, a[i + 2] - bz));
+    expect(best).toBeLessThan(0.12);
+  }
+});
 ```
 
 Run `npx vitest run src/ancon/vessels` → FAIL (`no builder for steelPontoon`).
 
-- [ ] **Step 2: Builder.** `buildSteelPontoon(spec, L, seed)` with `cellRng(seed, 4, 702)`:
-  - Palette: `DECK = 0x6f746c` (worn grey-green paint), `SHELL = 0x3f4a4c` (dark blue-grey), `RUST = 0x7a4a2a`, `FOUL = 0x3f4526` (green-brown), `ANTIFOUL = 0x5a2a22` (below −0.3). `rust = spec.moored ? 0.35 : 0.15` — how far each topside piece is lerped toward `RUST` (the idle barge is darker; test).
-  - Hull: shell box 2·hl × (0.9 + `L.deckY`) × (2·hb − 0.06) from y = −0.9 to `L.deckY − 0.012` in `SHELL`, split below y = −0.3 into an `ANTIFOUL` box (the shell is 3 cm narrower each side so the side panels below form the whole outer skin — the colour tests read that skin); raked ends: bottom 1.2 m shorter at each end, modelled as end boxes rotated `rotZ = ±0.5` (as in the wood pontoon). Side plates as 1.9 m panels (boxes 0.03 thick whose outer face is at |z| = hb, 0.1 m gaps) so the welded seams read as shadow lines; each panel toned ± 6 % and lerped 0–`rust` toward `RUST`; each panel stops at y = 0.05 and a separate box below it (y ∈ [−0.3, 0.05]) in `FOUL`, lerped 0–30 % toward `RUST`, is the fouling band.
-  - Deck plating: 1.5 × 3.75 m plates (boxes 0.012 thick) with 8 mm gaps (weld seams) over the whole deck, each toned ± 5 % and lerped 0–`rust` toward `RUST`; two darker worn wheel lanes per car lane along X (boxes 0.5 wide, 0.002 proud).
-  - Curb: 0.2 m high × 0.15 m wide along both sides, 0.3 m gap at the four corners (drainage).
-  - Rope guides — kept on the idle 1986 barge too: at each end and side a steel post pair with an `iron` roller (cylinder r 0.08, axis Z) whose top sits at `L.guideY`, placed exactly like the wood guides (the shared suite checks it for 1984), plus a welded bitt pair (cylinders r 0.1, 0.35 high) near each corner.
-  - Ramps: per end a hinged steel ramp `L.apron` (1.6 m) long, 2·hb − 1.0 wide, 0.1 thick, with 6 transverse anti-slip bars (boxes 0.04 × 0.03) and two hinge knuckles (iron cylinders along Z); `apron: { end, hinge: [end * hl, L.deckY - 0.05] }`, material `'steel'`.
-  - Return `[{ material: 'steel', geometry: shell + deck + curb }, { material: 'iron', geometry: rollers + knuckles + bitts }, ramp(−1), ramp(+1)]`. Register in `BUILDERS`, type it `Record<VesselKind, Builder>`, drop the throw.
+- [ ] **Step 2: Builder.** The palette is `STEEL` in `common.ts` (Task 3): side panels are SHELL-based and lerp toward RUST (darker than SHELL), the fouling strip is FOUL (greener than SHELL, no rust), so the colour tests hold in linear space; the idle 1986 barge draws the same random numbers with a larger rust share, so every panel is darker (preflight F5/F12). The main shell is the straight 2·(hl − 1.2) m middle; the raked ends are extruded blocks; bitts stand at `bittXZ` where Task 5's mooring lines start (F26).
+
+```ts
+// src/ancon/vessels/steelPontoon.ts
+import * as THREE from 'three';
+import { cellRng } from '../../vegetation/rng';
+import { CAR_SLOT, type DeckLayout, type VesselSpec } from '../spec';
+import { BITT_H, bittXZ, PartBuilder, STEEL, WOOD, type VesselPart } from './common';
+
+const BOTTOM = -0.9, RAKE = 1.2, FOUL_TOP = 0.05, FOUL_BOTTOM = -0.3, PANEL_T = 0.03;
+
+/**
+ * 1980–86 steel-plate pontoon (research §2.2): welded plate hull with raked ends, deck plating,
+ * low curb, rope guides, bitts, hinged steel ramps, a fouling band at the waterline. The idle 1986
+ * barge uses the same random draws with more rust (so every panel is darker).
+ */
+export function buildSteelPontoon(spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[] {
+  const r = cellRng(seed, 4, 702), hl = L.halfLength, hb = L.halfBeam, top = L.deckY, rust = spec.moored ? 0.35 : 0.15;
+  const steel = new PartBuilder(), iron = new PartBuilder();
+  /** ±6 % tone, then a random share (0..k) of rust. Always draws two numbers (same stream for 1984 and 1986). */
+  const worn = (base: THREE.Color, k: number) => { const a = r(), b = r(); return base.clone().multiplyScalar(0.94 + 0.12 * a).lerp(STEEL.rust, k * b); };
+  const straight = hl - RAKE, shellTop = top - 0.012;
+  // Core shell, 3 cm inside the side panels (the panels form the whole outer skin), antifouling below −0.3.
+  steel.box([2 * straight, shellTop - FOUL_BOTTOM, 2 * hb - 0.06], [0, (shellTop + FOUL_BOTTOM) / 2, 0], STEEL.shell);
+  steel.box([2 * straight, FOUL_BOTTOM - BOTTOM, 2 * hb - 0.06], [0, (FOUL_BOTTOM + BOTTOM) / 2, 0], STEEL.antifoul);
+  // Raked ends: the bottom rises from BOTTOM at |x| = straight to −0.25 at |x| = hl.
+  for (const sx of [-1, 1]) {
+    const pts = [[straight, BOTTOM], [hl, -0.25], [hl, shellTop], [straight, shellTop]].map(([x, y]) => new THREE.Vector2(sx * x, y));
+    steel.add(new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 2 * hb - 0.06, bevelEnabled: false }).translate(0, 0, -(hb - 0.03)), STEEL.shell);
+  }
+  // Side plating: 2 m panels (0.1 m weld gaps) in SHELL + rust above FOUL_TOP, a fouling strip below it.
+  const m = Math.max(1, Math.round((2 * straight) / 2)), pitch = (2 * straight) / m;
+  for (const sz of [-1, 1]) for (let i = 0; i < m; i++) {
+    const x = -straight + (i + 0.5) * pitch, z = sz * (hb - PANEL_T / 2);
+    steel.box([pitch - 0.1, top - 0.02 - FOUL_TOP, PANEL_T], [x, (top - 0.02 + FOUL_TOP) / 2, z], worn(STEEL.shell, rust));
+    steel.box([pitch - 0.1, FOUL_TOP - FOUL_BOTTOM, PANEL_T], [x, (FOUL_TOP + FOUL_BOTTOM) / 2, z], STEEL.foul.clone().multiplyScalar(0.94 + 0.12 * r()));
+  }
+  // Deck plates 1.5 × 3.75 m with 8 mm weld seams; worn wheel lanes.
+  const nx = Math.ceil((2 * hl) / 1.5), nz = Math.max(1, Math.round((2 * hb) / 3.75)), px = (2 * hl) / nx, pz = (2 * hb) / nz;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++)
+    steel.box([px - 0.008, 0.012, pz - 0.008], [-hl + (i + 0.5) * px, top - 0.006, -hb + (j + 0.5) * pz], worn(STEEL.deck, rust));
+  for (let l = 0; l < L.lanes; l++) for (const dz of [-0.8, 0.8])
+    steel.box([2 * hl - 1, 0.002, 0.5], [0, top + 0.001, (l + 0.5 - L.lanes / 2) * CAR_SLOT.width * 1.08 + dz], STEEL.deck.clone().multiplyScalar(0.8));
+  // Curb along both sides, open at the corners (drainage).
+  for (const sz of [-1, 1]) steel.box([2 * hl - 0.6, 0.2, 0.15], [0, top + 0.1, sz * (hb - 0.075)], worn(STEEL.shell, rust));
+  // Rope guides (kept on the idle barge): post pair + roller, roller top at guideY — same place as the wooden guides.
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    for (const dz of [0.16, -0.16]) steel.box([0.12, L.guideY - top + 0.05, 0.12], [sx * (hl - 0.3), (top + L.guideY) / 2, sz * L.ropeZ + dz], STEEL.shell);
+    iron.cylinder(0.08, 0.08, 0.34, [sx * (hl - 0.3), L.guideY - 0.08, sz * L.ropeZ], WOOD.iron, 'z', 10);
+  }
+  // Bitts at bittXZ (the 1986 mooring lines start at the east pair's tops).
+  for (const end of [-1, 1] as const) for (const side of [-1, 1] as const) {
+    const [bx, bz] = bittXZ(L, end, side);
+    iron.cylinder(0.1, 0.1, BITT_H, [bx, top + BITT_H / 2, bz], WOOD.iron, 'y', 8);
+  }
+  const parts: VesselPart[] = [{ material: 'steel', geometry: steel.build() }, { material: 'iron', geometry: iron.build() }];
+  // Hinged steel ramps with anti-slip bars and hinge knuckles.
+  for (const end of [-1, 1] as const) {
+    const a = new PartBuilder(), x0 = end * hl, y = top - 0.05;
+    a.box([L.apron, 0.1, 2 * hb - 1.0], [x0 + (end * L.apron) / 2, y, 0], worn(STEEL.deck, rust));
+    for (let i = 0; i < 6; i++) a.box([0.04, 0.03, 2 * hb - 1.1], [x0 + end * (i + 0.5) * (L.apron / 6), y + 0.065, 0], STEEL.shell);
+    for (const dz of [-(hb - 1.2), hb - 1.2]) a.cylinder(0.07, 0.07, 0.5, [x0, y, dz], WOOD.iron, 'z', 8);
+    parts.push({ material: 'steel', geometry: a.build(), apron: { end, hinge: [x0, y] } });
+  }
+  return parts;
+}
+```
+
+Register it and make the record total:
+
+```ts
+// src/ancon/vessels/index.ts
+import type { VesselKind } from '../../data/eras';
+import type { DeckLayout, VesselSpec } from '../spec';
+import type { VesselPart } from './common';
+import { buildPlankPlatform } from './plankPlatform';
+import { buildSteelPontoon } from './steelPontoon';
+import { buildTimberBarge } from './timberBarge';
+import { buildWoodPlatform } from './woodPlatform';
+
+export const TRI_BUDGET: Record<VesselKind, number> = { timberBarge: 4000, plankPlatform: 4000, woodPlatform: 7000, steelPontoon: 6000 };
+type Builder = (s: VesselSpec, L: DeckLayout, seed: number) => VesselPart[];
+const BUILDERS: Record<VesselKind, Builder> = {
+  timberBarge: buildTimberBarge, plankPlatform: buildPlankPlatform, woodPlatform: buildWoodPlatform, steelPontoon: buildSteelPontoon,
+};
+export const buildVessel = (spec: VesselSpec, L: DeckLayout, seed: number): VesselPart[] => BUILDERS[spec.kind](spec, L, seed);
+```
+
+Run `npx vitest run src/ancon/vessels` → PASS.
 
 - [ ] **Step 3: Steel texture.** `paintSteel()` — 1024², one tile = 2 m. Light neutral base (#c9c9c2); mottled paint wear (400 soft blotches, alpha 0.04–0.1, darker and lighter); rust: 120 drip streaks along canvas **v** (2–5 px wide, 30–200 px long, #8a4a22 fading to transparent, alpha 0.15–0.45), half of them starting on two horizontal lines per tile (plate edges); 3 000 one-pixel dark pits; a few bright scratches (alpha 0.25). Seamless like `paintPlanks`. In `materials.ts` add `map: canvasTexture(paintSteel())` to `steel`.
 
@@ -1465,14 +1835,14 @@ EOF
 - Modify: `src/ancon/Ancon.tsx`
 
 **Interfaces:**
-- Consumes: `CrossingGeometry`, `XZ` (Task 1); `DeckLayout`, `VesselSpec` (Task 1); `VesselPose` (Task 2); `QualitySettings.ancon` (Task 3); `sampleField`, `WorldFields`; `RIVER_DIR`; `cellRng`.
+- Consumes: `CrossingGeometry`, `XZ`, `waterAt`, `landingClearings` (Task 1); `DeckLayout`, `VesselSpec` (Task 1); `VesselPose`, `ctxFor`, `fields512` (Task 2 / testing.ts); `BITT_H`, `bittXZ` (Task 3/4 common.ts); `QualitySettings.ancon` (Task 3); `sampleField`, `WorldFields`; `RIVER_DIR`; `cellRng`.
 - Produces:
   - `type V3 = [number, number, number]` (rope.ts)
   - `MAX_SAG = 2.4`, `spanSag(span: number, slack: number): number`
   - `writeSpan(a: V3, b: V3, sag: number, n: number, out: Float32Array, offset: number): number` (writes n + 1 points, returns the next point offset)
   - `writeRopeLine(postA: V3, guideA: V3, guideB: V3, postB: V3, slack: number, segs: number, out: Float32Array): number` (2·(segs + 1) points)
   - `writeTube(pts: Float32Array, count: number, radius: number, radial: number, pos: Float32Array, nrm: Float32Array): void`, `tubeIndex(count: number, radial: number): Uint16Array`
-  - `POST_BACK = 4`, `POST_H = 1.1`, `interface RopeRig { east: [V3, V3]; west: [V3, V3] }` (index 0 = local +Z line, 1 = −Z line), `lateral(g): XZ`, `ropeRig(g, L, f): RopeRig`, `upstreamSide(g): 1 | -1`, `shoreRopePost(g, f): V3`, `guideLocal(L, end: 1 | -1, line: 0 | 1): V3`, `mooringLocal(L, line: 0 | 1): V3`, `cleatLocal(L, side: 1 | -1): V3`
+  - `POST_BACK = 4`, `POST_H = 1.1`, `interface RopeRig { east: [V3, V3]; west: [V3, V3] }` (index 0 = local +Z line, 1 = −Z line), `lateral(g): XZ`, `ropeRig(g, L, f): RopeRig` (posts snapped inland onto land), `upstreamSide(g): 1 | -1`, `shoreRopePost(g, f): V3`, `guideLocal(L, end, line, out): V3`, `mooringLocal(L, line, out): V3` (top of the east bitt), `cleatLocal(L, side, out): V3` — all write into `out` (no per-frame allocation)
   - `POLE_LEN = 5.5`, `buildPole(seed: number): THREE.BufferGeometry` (unit length along −Y: y = 0 top … y = −1 tip, real radii)
   - `class RopeSet { readonly group: THREE.Group; constructor(o: { spec: VesselSpec; layout: DeckLayout; geom: CrossingGeometry; fields: WorldFields; segments: number; radial: number }); update(pose: VesselPose, pxScale: number): void; lineCount: number; dispose(): void }`
 
@@ -1535,31 +1905,27 @@ test('tube: rings at the radius, unit normals, outward winding', () => {
 ```ts
 // src/ancon/rigging.test.ts
 import { expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
-import { getEra } from '../data/eras';
+import { ERAS } from '../data/eras';
 import { RIVER_DIR } from '../geo/constants';
-import { buildFields, sampleField, WATER } from '../terrain/fields';
-import { crossingGeometry } from './geometry';
-import { POST_BACK, POST_H, ropeRig, shoreRopePost } from './rigging';
+import { sampleField, WATER } from '../terrain/fields';
+import { LANDING_CLEARING } from '../vegetation/masks';
+import { landingClearings, waterAt } from './geometry';
+import { POST_H, ropeRig, shoreRopePost } from './rigging';
 import { deckLayout, vesselSpec } from './spec';
+import { fields512, geom512 } from './testing';
 
-for (const bankOffset of [0, 8]) test(`bank posts on land behind each shore (bankOffset ${bankOffset})`, () => {
-  const f = buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset });
-  const g = crossingGeometry(f), L = deckLayout(vesselSpec(getEra('1984'))), rig = ropeRig(g, L, f);
-  const cell = (x: number, z: number) => {
-    const G = f.grid, i = Math.floor((x - G.minX) / G.cell), j = Math.floor((z - G.minZ) / G.cell);
-    return f.water[j * G.size + i];
-  };
-  for (const [posts, shore] of [[rig.east, g.shoreEast], [rig.west, g.shoreWest]] as const) {
-    for (const p of posts) {
-      expect(cell(p[0], p[2])).toBe(WATER.LAND);
+test.each([0, 8])('bank posts: on land, eye POST_H above the ground, inside the landing clearing, one per rope line (bankOffset %i)', (bank) => {
+  const f = fields512(bank), g = geom512(bank), [cE, cW] = landingClearings(g);
+  for (const e of ERAS.filter((x) => x.ancon.propulsion.value === 'ropes' || x.ancon.propulsion.value === 'moored')) {
+    const L = deckLayout(vesselSpec(e)), rig = ropeRig(g, L, f);
+    for (const [posts, c] of [[rig.east, cE], [rig.west, cW]] as const) for (const p of posts) {
+      expect(waterAt(f, p[0], p[2]), e.id).toBe(WATER.LAND);
       expect(p[1]).toBeCloseTo(sampleField(f, f.height, p[0], p[2]) + POST_H, 6);
-      expect(Math.hypot(p[0] - shore[0], p[2] - shore[1])).toBeCloseTo(Math.hypot(POST_BACK, L.ropeZ), 6);
+      expect(Math.hypot(p[0] - c[0], p[2] - c[1]), e.id).toBeLessThan(LANDING_CLEARING[0]);
     }
-    expect(Math.hypot(posts[0][0] - posts[1][0], posts[0][2] - posts[1][2])).toBeCloseTo(2 * L.ropeZ, 6);
   }
   const s = shoreRopePost(g, f);
+  expect(waterAt(f, s[0], s[2])).toBe(WATER.LAND);
   expect((s[0] - g.shoreEast[0]) * -RIVER_DIR[0] + (s[2] - g.shoreEast[1]) * -RIVER_DIR[1]).toBeGreaterThan(0); // upstream side
 });
 ```
@@ -1583,23 +1949,26 @@ test('pole: unit length along −Y, real radii, cheap, deterministic', () => {
 
 ```ts
 // src/ancon/RopeSet.test.ts
+import type * as THREE from 'three';
 import { expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
 import { getEra, type EraId } from '../data/eras';
-import { buildFields } from '../terrain/fields';
-import { crossingGeometry } from './geometry';
 import { computeVesselPose, createVesselPose } from './pose';
 import { RopeSet } from './RopeSet';
-import { ropeRig } from './rigging';
-import { deckLayout, vesselSpec } from './spec';
+import { mooringLocal, ropeRig } from './rigging';
+import { ctxFor, fields512 } from './testing';
 
-const f = buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 });
-const geom = crossingGeometry(f);
 const make = (id: EraId) => {
-  const spec = vesselSpec(getEra(id)), layout = deckLayout(spec);
-  return { spec, layout, set: new RopeSet({ spec, layout, geom, fields: f, segments: 32, radial: 6 }) };
+  const ctx = ctxFor(id), bank = getEra(id).river.bankOffset.value;
+  return { ctx, bank, set: new RopeSet({ spec: ctx.spec, layout: ctx.layout, geom: ctx.geom, fields: fields512(bank), segments: 32, radial: 6 }) };
 };
+const firstRing = (set: RopeSet, line = 0) => {
+  const mesh = set.group.children.filter((c) => (c as THREE.Mesh).isMesh && !(c as THREE.InstancedMesh).isInstancedMesh)[line] as THREE.Mesh;
+  const p = mesh.geometry.attributes.position.array as Float32Array;
+  let cx = 0, cy = 0, cz = 0;
+  for (let j = 0; j < 6; j++) { cx += p[j * 3] / 6; cy += p[j * 3 + 1] / 6; cz += p[j * 3 + 2] / 6; }
+  return { p, c: [cx, cy, cz] };
+};
+
 test('line count per era kind', () => {
   expect(make('1935').set.lineCount).toBe(2);   // two hauling ropes
   expect(make('1840').set.lineCount).toBe(1);   // Lombera shore rope
@@ -1607,20 +1976,23 @@ test('line count per era kind', () => {
   expect(make('1925').set.lineCount).toBe(0);
 });
 test('hauling rope starts at its east post and stays finite while crossing', () => {
-  const { spec, layout, set } = make('1975'), pose = createVesselPose();
-  computeVesselPose(90, { geom, spec, layout, flow: 0.35 }, pose);
-  set.update(pose, 0.001);
-  const mesh = set.group.children.find((c) => c.type === 'Mesh') as import('three').Mesh;
-  const p = mesh.geometry.attributes.position.array as Float32Array;
+  const { ctx, bank, set } = make('1975');
+  set.update(computeVesselPose(90, ctx, createVesselPose()), 0.001);
+  const { p, c } = firstRing(set), post = ropeRig(ctx.geom, ctx.layout, fields512(bank)).east[0];
   expect(p.every(Number.isFinite)).toBe(true);
-  const post = ropeRig(geom, layout, f).east[0];
-  let cx = 0, cy = 0, cz = 0;
-  for (let j = 0; j < 6; j++) { cx += p[j * 3] / 6; cy += p[j * 3 + 1] / 6; cz += p[j * 3 + 2] / 6; }
-  expect(Math.hypot(cx - post[0], cy - post[1], cz - post[2])).toBeLessThan(1e-3);
+  expect(Math.hypot(c[0] - post[0], c[1] - post[1], c[2] - post[2])).toBeLessThan(1e-3);
+});
+test('1986 mooring lines start at the top of an east bitt', () => {
+  const { ctx, set } = make('1986'), pose = computeVesselPose(0, ctx, createVesselPose());
+  set.update(pose, 0.001);
+  const { c } = firstRing(set, 0), b = mooringLocal(ctx.layout, 0, [0, 0, 0]);
+  const v = { x: b[0], y: b[1], z: b[2] };
+  const e = pose.matrix.elements, w = [e[0] * v.x + e[4] * v.y + e[8] * v.z + e[12], e[1] * v.x + e[5] * v.y + e[9] * v.z + e[13], e[2] * v.x + e[6] * v.y + e[10] * v.z + e[14]];
+  expect(Math.hypot(c[0] - w[0], c[1] - w[1], c[2] - w[2])).toBeLessThan(1e-3);
 });
 ```
 
-Run `npx vitest run src/ancon` → FAIL (modules missing). (If a post lands in water for the pre-dam bank because the shoreline runs oblique to the line, raise `POST_BACK` to 6 — it is an inferred value — rather than loosening the test.)
+Run `npx vitest run src/ancon` → FAIL (modules missing). Posts are computed from the 512 placement fields and snapped inland onto land (0.5 m steps, ≤ 20 m), so they are on land for both bank offsets and stay inside the landing clearing (preflight F3).
 
 - [ ] **Step 2: `rope.ts`**
 
@@ -1689,13 +2061,15 @@ export function tubeIndex(count: number, radial: number): Uint16Array {
 ```ts
 // src/ancon/rigging.ts
 import { RIVER_DIR } from '../geo/constants';
-import { sampleField, type WorldFields } from '../terrain/fields';
-import type { CrossingGeometry, XZ } from './geometry';
+import { sampleField, WATER, type WorldFields } from '../terrain/fields';
+import { waterAt, type CrossingGeometry, type XZ } from './geometry';
 import type { V3 } from './rope';
 import type { DeckLayout } from './spec';
+import { BITT_H, bittXZ } from './vessels/common';
 
-/** Bank posts stand this far inland of the waterline, their rope eye this high above the ground (inferred). */
+/** Bank posts stand this far inland of the waterline (snapped further inland onto land if needed), rope eye POST_H above the ground (inferred). */
 export const POST_BACK = 4, POST_H = 1.1;
+const SNAP_STEP = 0.5, SNAP_MAX = 20;
 export interface RopeRig { east: [V3, V3]; west: [V3, V3] }
 /** World XZ direction of vessel-local +Z. */
 export const lateral = (g: CrossingGeometry): XZ => [-g.dir[1], g.dir[0]];
@@ -1704,12 +2078,17 @@ export const upstreamSide = (g: CrossingGeometry): 1 | -1 => {
   const n = lateral(g);
   return -(n[0] * RIVER_DIR[0] + n[1] * RIVER_DIR[1]) >= 0 ? 1 : -1;
 };
-function post(f: WorldFields, x: number, z: number): V3 { return [x, sampleField(f, f.height, x, z) + POST_H, z]; }
+/** A post at (x, z), moved inland along (ix, iz) in 0.5 m steps until it stands on land. */
+function post(f: WorldFields, x: number, z: number, ix: number, iz: number): V3 {
+  for (let s = 0; s <= SNAP_MAX && waterAt(f, x, z) !== WATER.LAND; s += SNAP_STEP) { x += ix * SNAP_STEP; z += iz * SNAP_STEP; }
+  return [x, sampleField(f, f.height, x, z) + POST_H, z];
+}
 
 /** Two bank posts per shore, one per rope line (line 0 on local +Z, line 1 on −Z). */
 export function ropeRig(g: CrossingGeometry, L: DeckLayout, f: WorldFields): RopeRig {
   const n = lateral(g);
-  const at = (s: XZ, inland: number, zo: number) => post(f, s[0] + g.dir[0] * inland + n[0] * zo, s[1] + g.dir[1] * inland + n[1] * zo);
+  const at = (s: XZ, inland: number, zo: number) =>
+    post(f, s[0] + g.dir[0] * inland + n[0] * zo, s[1] + g.dir[1] * inland + n[1] * zo, g.dir[0] * Math.sign(inland), g.dir[1] * Math.sign(inland));
   return {
     east: [at(g.shoreEast, -POST_BACK, L.ropeZ), at(g.shoreEast, -POST_BACK, -L.ropeZ)],
     west: [at(g.shoreWest, POST_BACK, L.ropeZ), at(g.shoreWest, POST_BACK, -L.ropeZ)],
@@ -1718,17 +2097,55 @@ export function ropeRig(g: CrossingGeometry, L: DeckLayout, f: WorldFields): Rop
 /** 1840s Lombera inset: one post on the Loíza bank, 3 m to the upstream side of the line. */
 export function shoreRopePost(g: CrossingGeometry, f: WorldFields): V3 {
   const n = lateral(g), k = upstreamSide(g) * 3;
-  return post(f, g.shoreEast[0] - g.dir[0] * POST_BACK + n[0] * k, g.shoreEast[1] - g.dir[1] * POST_BACK + n[1] * k);
+  return post(f, g.shoreEast[0] - g.dir[0] * POST_BACK + n[0] * k, g.shoreEast[1] - g.dir[1] * POST_BACK + n[1] * k, -g.dir[0], -g.dir[1]);
 }
-/** Deck-local point where rope `line` crosses the guide roller at `end`. */
-export const guideLocal = (L: DeckLayout, end: 1 | -1, line: 0 | 1): V3 => [end * (L.halfLength - 0.3), L.guideY, (line === 0 ? 1 : -1) * L.ropeZ];
-/** 1986: mooring lines leave the east-end bitts. */
-export const mooringLocal = (L: DeckLayout, line: 0 | 1): V3 => [-(L.halfLength - 0.3), L.deckY + 0.3, (line === 0 ? 1 : -1) * (L.halfBeam - 0.3)];
+const set3 = (o: V3, x: number, y: number, z: number) => { o[0] = x; o[1] = y; o[2] = z; return o; };
+/** Deck-local point where rope `line` crosses the guide roller at `end` (writes into `out`). */
+export const guideLocal = (L: DeckLayout, end: 1 | -1, line: 0 | 1, out: V3): V3 => set3(out, end * (L.halfLength - 0.3), L.guideY, (line === 0 ? 1 : -1) * L.ropeZ);
+/** 1986: a mooring line leaves the top of the east bitt on `line`'s side (bittXZ, BITT_H — the steel builder puts the bitt there). */
+export const mooringLocal = (L: DeckLayout, line: 0 | 1, out: V3): V3 => {
+  const [x, z] = bittXZ(L, -1, line === 0 ? 1 : -1);
+  return set3(out, x, L.deckY + BITT_H, z);
+};
 /** 1840: the shore rope ties to the gunwale cleat amidships on `side`. */
-export const cleatLocal = (L: DeckLayout, side: 1 | -1): V3 => [0, L.deckY + 0.5, side * L.halfBeam];
+export const cleatLocal = (L: DeckLayout, side: 1 | -1, out: V3): V3 => set3(out, 0, L.deckY + 0.5, side * L.halfBeam);
 ```
 
-`src/ancon/pole.ts`: `export const POLE_LEN = 5.5;` (mangrove/majagüilla pole, research §2.3; length inferred from the 1.5–3 m depth of §1.2) and `buildPole(seed)`: a tube along −Y from y = 0 (top, r 0.03) to y = −1 (butt/tip, r 0.045), 8 radial × 12 segments, the centreline crooked by ± 0.015 m in x and z at 5 control points (`cellRng(seed, 5, 705)`, smooth interpolation; offsets are absolute metres because the pole is scaled only in y); vertex colours grey-brown bark (#6b5a45 ± 8 %) with a paler worn grip band for y ∈ [−0.35, −0.1] (#a39580). Non-indexed or indexed is fine; include `normal` and `color`.
+```ts
+// src/ancon/pole.ts
+import * as THREE from 'three';
+import { cellRng } from '../vegetation/rng';
+
+/** Mangrove / majagüilla push pole (research §2.3); length inferred from the 1.5–3 m depth (research §1.2). */
+export const POLE_LEN = 5.5;
+const RADIAL = 8, SEGS = 12, BARK = new THREE.Color(0x6b5a45), GRIP = new THREE.Color(0xa39580);
+
+/** Unit-length pole along −Y (y = 0 top … y = −1 tip/butt) with real radii (0.03 → 0.045 m); scale y by POLE_LEN. */
+export function buildPole(seed: number): THREE.BufferGeometry {
+  const r = cellRng(seed, 5, 705), crook = Array.from({ length: 5 }, () => [(r() - 0.5) * 0.03, (r() - 0.5) * 0.03]);
+  const pos: number[] = [], nrm: number[] = [], col: number[] = [], idx: number[] = [], c = new THREE.Color();
+  for (let i = 0; i <= SEGS; i++) {
+    const t = i / SEGS, y = -t, rad = 0.03 + 0.015 * t;
+    const k = t * 4, k0 = Math.min(3, Math.floor(k)), u = k - k0, s = u * u * (3 - 2 * u);
+    const ox = crook[k0][0] + (crook[k0 + 1][0] - crook[k0][0]) * s, oz = crook[k0][1] + (crook[k0 + 1][1] - crook[k0][1]) * s;
+    c.copy(y > -0.35 && y < -0.1 ? GRIP : BARK).multiplyScalar(0.92 + 0.16 * r());
+    for (let j = 0; j < RADIAL; j++) {
+      const a = (j / RADIAL) * Math.PI * 2, nx = Math.cos(a), nz = Math.sin(a);
+      pos.push(ox + nx * rad, y, oz + nz * rad); nrm.push(nx, 0, nz); col.push(c.r, c.g, c.b);
+    }
+  }
+  for (let i = 0; i < SEGS; i++) for (let j = 0; j < RADIAL; j++) {
+    const a = i * RADIAL + j, b = i * RADIAL + ((j + 1) % RADIAL), d = a + RADIAL, e = b + RADIAL;
+    idx.push(a, d, b, b, d, e);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  return g;
+}
+```
 
 - [ ] **Step 4: `RopeSet`**
 
@@ -1761,10 +2178,14 @@ export class RopeSet {
   private shorePost: V3 | null = null;
   private readonly a: V3 = [0, 0, 0]; private readonly b: V3 = [0, 0, 0];
   private readonly material: THREE.Material;
+  private postMaterial: THREE.Material | null = null;
+  private readonly local: V3 = [0, 0, 0];
+  private readonly shoreSide: 1 | -1;
   private readonly uPx = { value: 0.001 };
 
   constructor(private o: { spec: VesselSpec; layout: DeckLayout; geom: CrossingGeometry; fields: WorldFields; segments: number; radial: number }) {
     const { spec } = o;
+    this.shoreSide = upstreamSide(o.geom);
     this.mode = spec.moored ? 'moor' : spec.propulsion === 'ropes' ? 'haul' : spec.shoreRope ? 'shore' : 'none';
     // Ropes stay at least ~0.6 px wide on screen: grow along the normal with distance (no shimmer at bank range).
     this.material = new CustomShaderMaterial({
@@ -1799,9 +2220,10 @@ export class RopeSet {
   private addPosts() {
     const tops: V3[] = this.rig ? (this.mode === 'moor' ? [...this.rig.east] : [...this.rig.east, ...this.rig.west]) : this.shorePost ? [this.shorePost] : [];
     if (!tops.length) return;
-    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.12, 1.8, 8), new THREE.MeshStandardMaterial({ color: 0x4f4234, roughness: 0.9 }), tops.length);
+    this.postMaterial = new THREE.MeshStandardMaterial({ color: 0x4f4234, roughness: 0.9 });
+    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.12, 1.8, 8), this.postMaterial, tops.length);
     const m = new THREE.Matrix4();
-    tops.forEach((t, i) => posts.setMatrixAt(i, m.makeTranslation(t[0], t[1] + 0.1 - 0.9, t[2])));   // 1.8 m post, top 0.1 m above the rope eye
+    for (let i = 0; i < tops.length; i++) posts.setMatrixAt(i, m.makeTranslation(tops[i][0], tops[i][1] + 0.1 - 0.9, tops[i][2]));   // 1.8 m post, top 0.1 m above the rope eye
     posts.castShadow = true; posts.receiveShadow = true;
     this.group.add(posts);
   }
@@ -1810,34 +2232,35 @@ export class RopeSet {
   update(pose: VesselPose, pxScale: number) {
     this.uPx.value = pxScale;
     const { layout: L, segments, radial } = this.o, m = pose.matrix, slack = pose.state.slack;
-    this.lines.forEach((line, i) => {
-      const k = i as 0 | 1;
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i], k = i as 0 | 1;
       if (this.mode === 'haul' && this.rig) {
-        const gE = toWorld(guideLocal(L, -1, k), m, this.a), gW = toWorld(guideLocal(L, 1, k), m, this.b);
+        const gE = toWorld(guideLocal(L, -1, k, this.local), m, this.a), gW = toWorld(guideLocal(L, 1, k, this.local), m, this.b);
         writeRopeLine(this.rig.east[k], gE, gW, this.rig.west[k], slack, segments, line.pts);
       } else if (this.mode === 'moor' && this.rig) {
-        const bitt = toWorld(mooringLocal(L, k), m, this.a), p = this.rig.east[k];
+        const bitt = toWorld(mooringLocal(L, k, this.local), m, this.a), p = this.rig.east[k];
         writeSpan(bitt, p, spanSag(Math.hypot(p[0] - bitt[0], p[2] - bitt[2]), 0.6), line.count - 1, line.pts, 0);
       } else if (this.shorePost) {
-        const cleat = toWorld(cleatLocal(L, upstreamSide(this.o.geom)), m, this.a), p = this.shorePost;
+        const cleat = toWorld(cleatLocal(L, this.shoreSide, this.local), m, this.a), p = this.shorePost;
         writeSpan(p, cleat, spanSag(Math.hypot(cleat[0] - p[0], cleat[2] - p[2]), 1), line.count - 1, line.pts, 0);
       }
       const g = line.mesh.geometry;
       writeTube(line.pts, line.count, ROPE_R, radial, g.attributes.position.array as Float32Array, g.attributes.normal.array as Float32Array);
       g.attributes.position.needsUpdate = true; g.attributes.normal.needsUpdate = true;
-    });
+    }
   }
 
   dispose() {
     this.group.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     this.material.dispose();
+    this.postMaterial?.dispose();
   }
 }
 ```
 
-(Move the post mesh's material into `dispose()` too. Ropes do not cast shadows: a 4.4 cm rope in a 4096 map over ±140 m is sub-texel and would flicker.)
+(The post material is kept and disposed with the ropes. Ropes do not cast shadows: a 4.4 cm rope in a 4096 map over ±140 m is sub-texel and would flicker.)
 
-- [ ] **Step 5: Wire into `<Ancon>`.** Build `const ropes = useMemo(() => new RopeSet({ spec, layout, geom, fields: near, segments: q.ancon.ropeSegments, radial: q.ancon.ropeRadial }), [spec, layout, geom, near, q.ancon.ropeSegments, q.ancon.ropeRadial]);` with `useEffect(() => () => ropes.dispose(), [ropes])`; in the frame callback, after the hull transforms: `ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height)` (`cam = state.camera as THREE.PerspectiveCamera`); render `<primitive object={ropes.group} />` **outside** the hull group (ropes are in world space; wrap the return in a fragment). Switch `import type * as THREE` to a value import. Remove the `void q` line.
+- [ ] **Step 5: Wire into `<Ancon>`.** Switch `import type * as THREE` to a value import; build `const ropes = useMemo(() => new RopeSet({ spec, layout, geom: ctx.geom, fields: place, segments: q.ancon.ropeSegments, radial: q.ancon.ropeRadial }), [spec, layout, ctx, place, q.ancon.ropeSegments, q.ancon.ropeRadial]);` (posts sit on the same 512 fields as the crossing) with `useEffect(() => () => ropes.dispose(), [ropes])`; the frame callback takes `(state, dt)` and, after the hull transforms, calls `ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height)` (`cam = state.camera as THREE.PerspectiveCamera`); render `<primitive object={ropes.group} />` **outside** the hull group (world space; wrap the return in a fragment). Remove the `void q` line. (The full component after Task 8 is shown in Task 8, Step 4.)
 
 - [ ] **Step 6: Visual check** (quality bar: ropes are the signature of the 1935–84 ancón; they must read as two thin, taut, slightly drooping lines catching the golden light, and as slack lines dipping into the water while the ferry waits):
   - `?era=1975&cam=bank&c=90&freeze=1` — two taut ropes from the posts on both banks through the deck guides.
@@ -1870,10 +2293,10 @@ EOF
   - `type V3 = [number, number, number]`; `PARTS` (14 names: `hips torso head upperArmL foreArmL upperArmR foreArmR thighL shinL thighR shinR footL footR skirt`), `type PartName`, `PART_INDEX: Record<PartName, number>`
   - `type PoseKind = 'stand' | 'walk' | 'haul' | 'pole'`; `interface Body { height: number; build: number; dress: boolean }`; `interface PoseInput { kind: PoseKind; phase: number; lean?: number; handL?: V3; handR?: V3 }` (hand targets figure-local; when given they override the FK arm for any kind)
   - `interface FigurePose { parts: Float32Array /* 16 × 14, figure-local, column-major */; handL: V3; handR: V3; headTop: number }`, `createFigurePose()`
-  - `proportions(b: Body)`, `segmentMatrix(from: V3, to: V3, rx: number, rz: number, out: THREE.Matrix4): THREE.Matrix4` (maps local (0,0,0) → from, (0,−1,0) → to), `solveTwoBone(root, target, l1, l2, hint, mid, end): boolean`, `poseFigure(body: Body, input: PoseInput, out: FigurePose): FigurePose`
+  - `interface Proportions`, `proportions(b: Body, out?: Proportions): Proportions`, `segmentMatrix(from: V3, to: V3, rx: number, rz: number, out: THREE.Matrix4): THREE.Matrix4` (maps local (0,0,0) → from, (0,−1,0) → to), `solveTwoBone(root, target, l1, l2, hint, mid, end): boolean`, `poseFigure(body: Body, input: PoseInput, out: FigurePose): FigurePose` (no allocation), `ZERO_MATRIX` (all 16 elements 0 — hides a part or an instance)
   - `type HatKind = 'none' | 'straw' | 'fedora' | 'cap' | 'wrap'`; `interface FigureLook { female: boolean; dress: boolean; height: number; build: number; hat: HatKind; colors: Record<PartName, number>; hatColor: number }`; `SKINS: number[]`; `PALETTES: Record<ClothingStyle, Palette>`; `dressFigure(style: ClothingStyle, seed: number, female: boolean): FigureLook`
   - `type GeoKind = 'hips' | 'torso' | 'head' | 'limb' | 'foot' | 'skirt'`; `PART_GEO: Record<PartName, GeoKind>`; `buildFigureGeometries(): Record<GeoKind, THREE.BufferGeometry>`; `buildHatGeometries(): Record<Exclude<HatKind, 'none'>, THREE.BufferGeometry>` (head units: head radius 1, crown top y = 1.15); `FIGURE_TRI_BUDGET = 720`
-  - `class FigureBatch { readonly group: THREE.Group; readonly meshes: Record<GeoKind, THREE.InstancedMesh>; readonly hats: Record<Exclude<HatKind, 'none'>, THREE.InstancedMesh>; constructor(max: number, material: THREE.Material); setLook(i: number, look: FigureLook): void; set(i: number, world: THREE.Matrix4, pose: FigurePose, hat: HatKind): void; hide(i: number): void; commit(): void; dispose(): void }`
+  - `PER_KIND: Record<GeoKind, number>` (from `PART_GEO`: limb 8, foot 2, others 1); `class FigureBatch { readonly group: THREE.Group; readonly meshes: Record<GeoKind, THREE.InstancedMesh>; readonly hats: Record<Exclude<HatKind, 'none'>, THREE.InstancedMesh>; constructor(max: number, material: THREE.Material); setLook(i: number, look: FigureLook): void; set(i: number, world: THREE.Matrix4, pose: FigurePose, hat: HatKind): void; hide(i: number): void; commit(): void; dispose(): void }`
 
 Figure frame: origin on the ground between the feet, +Y up, +Z forward (the figure faces +Z), +X = the figure's left. Stylised, faceless (spec §2): a head is an egg, hands end the forearms. Proportions (fractions of height H): hip joint 0.53, thigh 0.245, shin 0.245, foot height 0.04, torso 0.30, neck 0.035, head radius 0.065, upper arm 0.175, forearm (incl. hand) 0.20, shoulder half-width 0.12·build, hip half-width 0.055·build.
 
@@ -2008,7 +2431,7 @@ test('limb geometry spans y 0 → −1 (segmentMatrix convention)', () => {
 // src/people/figureBatch.test.ts
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import { FigureBatch } from './figureBatch';
+import { FigureBatch, PER_KIND } from './figureBatch';
 import { dressFigure } from './palettes';
 import { createFigurePose, PART_INDEX, poseFigure } from './rig';
 
@@ -2024,6 +2447,17 @@ test('instances = world × part; hats go to their own mesh; hidden figures colla
   batch.hats.cap.getMatrixAt(0, m); expect(m.elements.every((v) => v === 0)).toBe(true);
   batch.meshes.head.getMatrixAt(1, m); expect(m.elements.every((v) => v === 0)).toBe(true);
   const c = new THREE.Color(); batch.meshes.head.getColorAt(0, c); expect(c.getHex()).toBe(look.colors.head);
+});
+test('two foot slots per figure: feet never land in another figure slot', () => {
+  expect(PER_KIND).toEqual({ hips: 1, torso: 1, head: 1, limb: 8, foot: 2, skirt: 1 });
+  const batch = new FigureBatch(2, new THREE.MeshStandardMaterial());
+  const look = dressFigure('modern', 3, false), pose = poseFigure({ height: look.height, build: look.build, dress: false }, { kind: 'walk', phase: 0.25 }, createFigurePose());
+  batch.hide(0); batch.set(1, new THREE.Matrix4(), pose, 'none');
+  const m = new THREE.Matrix4();
+  for (const slot of [0, 1]) { batch.meshes.foot.getMatrixAt(slot, m); expect(m.elements.every((v) => v === 0)).toBe(true); }   // figure 0 stays hidden
+  batch.meshes.foot.getMatrixAt(3, m);
+  const footR = new THREE.Matrix4().fromArray(pose.parts, PART_INDEX.footR * 16);
+  m.elements.forEach((v, k) => expect(v).toBeCloseTo(footR.elements[k], 5));
 });
 ```
 
@@ -2046,20 +2480,25 @@ export interface PoseInput { kind: PoseKind; phase: number; lean?: number; handL
 export interface FigurePose { parts: Float32Array; handL: V3; handR: V3; headTop: number }
 export const createFigurePose = (): FigurePose => ({ parts: new Float32Array(16 * PARTS.length), handL: [0, 0, 0], handR: [0, 0, 0], headTop: 0 });
 
-export function proportions(b: Body) {
+export interface Proportions {
+  H: number; thigh: number; shin: number; footH: number; footLen: number; footW: number; torso: number; neck: number; headR: number;
+  upperArm: number; foreArm: number; shoulderHalf: number; hipHalf: number; rUpperArm: number; rForeArm: number; rThigh: number; rShin: number;
+}
+/** Segment lengths and radii (m) for a body; writes into `out` (no allocation when one is passed). */
+export function proportions(b: Body, out = {} as Proportions): Proportions {
   const H = b.height, w = b.build;
-  return {
-    H, thigh: 0.245 * H, shin: 0.245 * H, footH: 0.04 * H, footLen: 0.15 * H, footW: 0.06 * H * w,
-    torso: 0.3 * H, neck: 0.035 * H, headR: 0.065 * H, upperArm: 0.175 * H, foreArm: 0.2 * H,
-    shoulderHalf: 0.12 * H * w, hipHalf: 0.055 * H * w,
-    rUpperArm: 0.028 * H * w, rForeArm: 0.022 * H * w, rThigh: 0.045 * H * w, rShin: 0.032 * H * w,
-  };
+  out.H = H; out.thigh = 0.245 * H; out.shin = 0.245 * H; out.footH = 0.04 * H; out.footLen = 0.15 * H; out.footW = 0.06 * H * w;
+  out.torso = 0.3 * H; out.neck = 0.035 * H; out.headR = 0.065 * H; out.upperArm = 0.175 * H; out.foreArm = 0.2 * H;
+  out.shoulderHalf = 0.12 * H * w; out.hipHalf = 0.055 * H * w;
+  out.rUpperArm = 0.028 * H * w; out.rForeArm = 0.022 * H * w; out.rThigh = 0.045 * H * w; out.rShin = 0.032 * H * w;
+  return out;
 }
 
 const DOWN = new THREE.Vector3(0, -1, 0), X = new THREE.Vector3(1, 0, 0);
 const _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
 const _m = new THREE.Matrix4(), _up = new THREE.Vector3(), _fw = new THREE.Vector3();
-const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+/** A matrix with all 16 elements 0 — hides an instance / a part (makeScale(0,0,0) would keep element 15 = 1). */
+export const ZERO_MATRIX = new THREE.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 /** Matrix taking a unit segment geometry (y 0 → −1, radius 1) onto from → to with radii rx, rz. */
 export function segmentMatrix(from: V3, to: V3, rx: number, rz: number, out: THREE.Matrix4): THREE.Matrix4 {
@@ -2089,13 +2528,16 @@ export function solveTwoBone(root: V3, target: V3, l1: number, l2: number, hint:
   return reached;
 }
 
-const TAU = Math.PI * 2;
+const TAU = Math.PI * 2, SIDES = [1, -1] as const, _P = {} as Proportions;
 const hip: V3 = [0, 0, 0], knee: V3 = [0, 0, 0], ankle: V3 = [0, 0, 0], sh: V3 = [0, 0, 0], el: V3 = [0, 0, 0], hint: V3 = [0, 0, 0];
 
 /** Figure-local part matrices for a pose (see PARTS). Legs are FK with the longer leg on the ground; arms are FK or IK to hand targets. */
+function put(out: FigurePose, n: PartName, m: THREE.Matrix4) { m.toArray(out.parts, PART_INDEX[n] * 16); }
+/** Vertical extent of a leg (thigh swing sw, knee bend k). */
+function legExt(P: Proportions, sw: number, k: number) { return P.thigh * Math.cos(sw) + P.shin * Math.cos(sw - k); }
+
 export function poseFigure(body: Body, input: PoseInput, out: FigurePose): FigurePose {
-  const P = proportions(body), H = P.H, c = Math.sin(TAU * input.phase), M = out.parts;
-  const put = (n: PartName, m: THREE.Matrix4) => m.toArray(M, PART_INDEX[n] * 16);
+  const P = proportions(body, _P), H = P.H, c = Math.sin(TAU * input.phase);
   let swingL = 0.04, swingR = -0.03, kneeL = 0.05, kneeR = 0.05, sway = 0, armSwing = 0, lean = input.lean ?? 0.03;
   switch (input.kind) {
     case 'stand': sway = 0.007 * H * c; break;
@@ -2111,28 +2553,27 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
       lean = input.lean ?? -0.12 - 0.08 * c;
       break;
   }
-  const ext = (sw: number, k: number) => P.thigh * Math.cos(sw) + P.shin * Math.cos(sw - k);
-  const hipH = Math.max(ext(swingL, kneeL), ext(swingR, kneeR)) + P.footH;
-  for (const s of [1, -1] as const) {
+  const hipH = Math.max(legExt(P, swingL, kneeL), legExt(P, swingR, kneeR)) + P.footH;
+  for (const s of SIDES) {
     const sw = s > 0 ? swingL : swingR, k = s > 0 ? kneeL : kneeR;
     hip[0] = s * P.hipHalf + sway; hip[1] = hipH; hip[2] = 0;
     knee[0] = hip[0]; knee[1] = hipH - P.thigh * Math.cos(sw); knee[2] = P.thigh * Math.sin(sw);
     ankle[0] = hip[0]; ankle[1] = knee[1] - P.shin * Math.cos(sw - k); ankle[2] = knee[2] + P.shin * Math.sin(sw - k);
-    put(s > 0 ? 'thighL' : 'thighR', body.dress ? ZERO : segmentMatrix(hip, knee, P.rThigh, P.rThigh, _m));
-    put(s > 0 ? 'shinL' : 'shinR', segmentMatrix(knee, ankle, P.rShin, P.rShin, _m));
-    put(s > 0 ? 'footL' : 'footR', _m.makeScale(P.footW, P.footH, P.footLen).setPosition(ankle[0], ankle[1] - P.footH, ankle[2]));
+    put(out, s > 0 ? 'thighL' : 'thighR', body.dress ? ZERO_MATRIX : segmentMatrix(hip, knee, P.rThigh, P.rThigh, _m));
+    put(out, s > 0 ? 'shinL' : 'shinR', segmentMatrix(knee, ankle, P.rShin, P.rShin, _m));
+    put(out, s > 0 ? 'footL' : 'footR', _m.makeScale(P.footW, P.footH, P.footLen).setPosition(ankle[0], ankle[1] - P.footH, ankle[2]));
   }
   // Pelvis and torso (lean = rotation about X; + bends forward).
   _up.set(0, Math.cos(lean), Math.sin(lean)); _fw.set(0, -Math.sin(lean), Math.cos(lean));
-  put('torso', _m.makeBasis(X, _up, _fw).scale(_s.set(P.shoulderHalf, P.torso, P.shoulderHalf)).setPosition(sway, hipH, 0));
-  put('hips', _m.makeScale(P.hipHalf * 1.7, 0.07 * H, 0.09 * H).setPosition(sway, hipH, 0));
-  put('skirt', body.dress ? _m.makeScale(P.hipHalf * 2.4, hipH - 0.08 * H, P.hipHalf * 2.4).setPosition(sway, hipH + 0.02 * H, 0) : ZERO);
+  put(out, 'torso', _m.makeBasis(X, _up, _fw).scale(_s.set(P.shoulderHalf, P.torso, P.shoulderHalf)).setPosition(sway, hipH, 0));
+  put(out, 'hips', _m.makeScale(P.hipHalf * 1.7, 0.07 * H, 0.09 * H).setPosition(sway, hipH, 0));
+  put(out, 'skirt', body.dress ? _m.makeScale(P.hipHalf * 2.4, hipH - 0.08 * H, P.hipHalf * 2.4).setPosition(sway, hipH + 0.02 * H, 0) : ZERO_MATRIX);
   const hx = sway, hy = hipH + _up.y * (P.torso + P.neck) + P.headR * 1.1, hz = _up.z * (P.torso + P.neck);
   _q.setFromAxisAngle(X, lean * 0.3);
-  put('head', _m.compose(_p.set(hx, hy, hz), _q, _s.set(P.headR, P.headR, P.headR)));
+  put(out, 'head', _m.compose(_p.set(hx, hy, hz), _q, _s.set(P.headR, P.headR, P.headR)));
   out.headTop = hy + P.headR * 1.15;
   // Arms.
-  for (const s of [1, -1] as const) {
+  for (const s of SIDES) {
     const ts = P.torso - 0.03 * H;
     sh[0] = sway + s * P.shoulderHalf * 0.92; sh[1] = hipH + _up.y * ts; sh[2] = _up.z * ts;
     const target = s > 0 ? input.handL : input.handR, hand = s > 0 ? out.handL : out.handR;
@@ -2142,8 +2583,8 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
       el[0] = sh[0] + s * P.upperArm * 0.08; el[1] = sh[1] - P.upperArm * Math.cos(a); el[2] = sh[2] + P.upperArm * Math.sin(a);
       hand[0] = el[0] + s * P.foreArm * 0.05; hand[1] = el[1] - P.foreArm * Math.cos(b); hand[2] = el[2] + P.foreArm * Math.sin(b);
     }
-    put(s > 0 ? 'upperArmL' : 'upperArmR', segmentMatrix(sh, el, P.rUpperArm, P.rUpperArm, _m));
-    put(s > 0 ? 'foreArmL' : 'foreArmR', segmentMatrix(el, hand, P.rForeArm, P.rForeArm, _m));
+    put(out, s > 0 ? 'upperArmL' : 'upperArmR', segmentMatrix(sh, el, P.rUpperArm, P.rUpperArm, _m));
+    put(out, s > 0 ? 'foreArmL' : 'foreArmR', segmentMatrix(el, hand, P.rForeArm, P.rForeArm, _m));
   }
   return out;
 }
@@ -2247,7 +2688,85 @@ export function buildHatGeometries(): Record<Exclude<HatKind, 'none'>, THREE.Buf
 }
 ```
 
-`FigureBatch` (`src/people/figureBatch.ts`): builds `buildFigureGeometries()` / `buildHatGeometries()` once (module-level cache), one `InstancedMesh` per `GeoKind` with capacity `max × partsOfKind` (limb: 8, others 1) and one per hat kind with capacity `max`; all share `material` (a `MeshStandardMaterial` with roughness 0.8 — colours come from `instanceColor`); `castShadow = receiveShadow = true`, `frustumCulled = false`. Slot of part p of figure i = `i × perKind[PART_GEO[p]] + k`, where k is p's rank among the parts of its kind in `PARTS` order. `setLook(i, look)` writes `setColorAt` for every part slot and the hat slot (`look.hatColor`). `set(i, world, pose, hat)`: for every part `tmp.fromArray(pose.parts, PART_INDEX[p] * 16).premultiply(world)` → `setMatrixAt(slot)`; hat: the head matrix goes to `hats[hat]` slot i and a zero matrix to the other hat meshes (all zero when `hat === 'none'`). `hide(i)` zeroes every slot of figure i. `commit()` flags `instanceMatrix.needsUpdate` (and `instanceColor.needsUpdate` when a look changed). `dispose()` disposes geometries (not the shared cache) and meshes. No allocation in `set`/`hide` (module-level `tmp` matrix and a shared `ZERO`).
+`FigureBatch` — slots per geometry kind come from `PART_GEO` (two foot slots per figure, preflight F9); hidden slots are written with `ZERO_MATRIX` (all 16 elements 0, preflight F4):
+
+```ts
+// src/people/figureBatch.ts
+import * as THREE from 'three';
+import { buildFigureGeometries, buildHatGeometries, PART_GEO, type GeoKind } from './geometry';
+import type { FigureLook, HatKind } from './palettes';
+import { PART_INDEX, PARTS, ZERO_MATRIX, type FigurePose } from './rig';
+
+type Hat = Exclude<HatKind, 'none'>;
+const GEO_KINDS: GeoKind[] = ['hips', 'torso', 'head', 'limb', 'foot', 'skirt'];
+const HATS: Hat[] = ['straw', 'fedora', 'cap', 'wrap'];
+/** Parts per figure of each geometry kind, counted from PART_GEO (limb 8, foot 2, the rest 1). */
+export const PER_KIND = GEO_KINDS.reduce((o, k) => { o[k] = PARTS.filter((p) => PART_GEO[p] === k).length; return o; }, {} as Record<GeoKind, number>);
+/** Rank of each part among the parts of its kind (PARTS order): slot = figure · PER_KIND[kind] + rank. */
+const RANK = PARTS.map((p, i) => PARTS.slice(0, i).filter((q) => PART_GEO[q] === PART_GEO[p]).length);
+let geoCache: { body: Record<GeoKind, THREE.BufferGeometry>; hats: Record<Hat, THREE.BufferGeometry> } | null = null;
+const _m = new THREE.Matrix4(), _c = new THREE.Color();
+
+/** Up to `max` stylised figures, drawn as one InstancedMesh per body-part geometry and per hat kind (≈ 10 draw calls). */
+export class FigureBatch {
+  readonly group = new THREE.Group();
+  readonly meshes: Record<GeoKind, THREE.InstancedMesh>;
+  readonly hats: Record<Hat, THREE.InstancedMesh>;
+  private looksDirty = false;
+
+  constructor(readonly max: number, material: THREE.Material) {
+    geoCache ??= { body: buildFigureGeometries(), hats: buildHatGeometries() };
+    const make = (g: THREE.BufferGeometry, n: number) => {
+      const m = new THREE.InstancedMesh(g, material, n);
+      m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
+      for (let i = 0; i < n; i++) { m.setMatrixAt(i, ZERO_MATRIX); m.setColorAt(i, _c.set(0xffffff)); }
+      this.group.add(m);
+      return m;
+    };
+    this.meshes = {} as Record<GeoKind, THREE.InstancedMesh>;
+    for (const k of GEO_KINDS) this.meshes[k] = make(geoCache.body[k], max * PER_KIND[k]);
+    this.hats = {} as Record<Hat, THREE.InstancedMesh>;
+    for (const h of HATS) this.hats[h] = make(geoCache.hats[h], max);
+  }
+
+  setLook(i: number, look: FigureLook) {
+    for (let p = 0; p < PARTS.length; p++) {
+      const k = PART_GEO[PARTS[p]];
+      this.meshes[k].setColorAt(i * PER_KIND[k] + RANK[p], _c.set(look.colors[PARTS[p]]));
+    }
+    if (look.hat !== 'none') this.hats[look.hat].setColorAt(i, _c.set(look.hatColor));
+    this.looksDirty = true;
+  }
+
+  /** Figure i at `world` (figure → world) in `pose`, wearing `hat`. */
+  set(i: number, world: THREE.Matrix4, pose: FigurePose, hat: HatKind) {
+    for (let p = 0; p < PARTS.length; p++) {
+      const k = PART_GEO[PARTS[p]];
+      this.meshes[k].setMatrixAt(i * PER_KIND[k] + RANK[p], _m.fromArray(pose.parts, p * 16).premultiply(world));
+    }
+    _m.fromArray(pose.parts, PART_INDEX.head * 16).premultiply(world);
+    for (const h of HATS) this.hats[h].setMatrixAt(i, h === hat ? _m : ZERO_MATRIX);
+  }
+
+  hide(i: number) {
+    for (const k of GEO_KINDS) for (let r = 0; r < PER_KIND[k]; r++) this.meshes[k].setMatrixAt(i * PER_KIND[k] + r, ZERO_MATRIX);
+    for (const h of HATS) this.hats[h].setMatrixAt(i, ZERO_MATRIX);
+  }
+
+  commit() {
+    for (const k of GEO_KINDS) this.meshes[k].instanceMatrix.needsUpdate = true;
+    for (const h of HATS) this.hats[h].instanceMatrix.needsUpdate = true;
+    if (this.looksDirty) {
+      for (const k of GEO_KINDS) this.meshes[k].instanceColor!.needsUpdate = true;
+      for (const h of HATS) this.hats[h].instanceColor!.needsUpdate = true;
+      this.looksDirty = false;
+    }
+  }
+
+  /** Disposes the instance buffers; the shared part geometries stay cached for the app's life. */
+  dispose() { for (const m of [...Object.values(this.meshes), ...Object.values(this.hats)]) m.dispose(); }
+}
+```
 
 - [ ] **Step 5: Visual check (standalone).** Temporarily mount a `FigureBatch` with 8 figures in `World.tsx` on the Loíza bank (x ≈ landing + 6 m), two of each pose (`stand`, `walk` phase 0.25, `haul` with hand targets 0.4 m ahead at 1 m height, `pole` with targets along a 30° pole line), styles cycling through the four palettes. Shot at `?cam=bank` golden hour and a close orbit (`?debug=1`, orbit in the browser pane). Acceptance: faceless stylised silhouettes that read clearly as people at 10–40 m — correct proportions, grounded feet, readable hats and period clothing colours; the haul and pole poses read as effort (lean, braced legs); backlit figures keep their silhouette against the water. Remove the temporary mount. `npm test`, `npm run build`. Commit:
 
@@ -2270,20 +2789,20 @@ EOF
 - Modify: `src/ancon/Ancon.tsx`
 
 **Interfaces:**
-- Consumes: `CrossingState`, `CROSSING_TIMINGS`, `legDuration` (Task 2); `SeatAnchor`, `seatAnchors`, `haulerStationX` (Task 2); `VesselPose` (Task 2); `DeckLayout`, `VesselSpec` (Task 1); `POLE_LEN`, `buildPole` (Task 5); `dressFigure`, `FigureLook` (Task 6); `PoseInput`, `V3`, `Body`, `poseFigure`, `createFigurePose`, `segmentMatrix` (Task 6); `FigureBatch` (Task 6); `hash3`.
+- Consumes: `CrossingState`, `CROSSING_TIMINGS`, `legDuration` (Task 2); `clamp01`, `fract`, `lerp`, `lerpAngle`, `smooth` (ease.ts); `SeatAnchor`, `seatAnchors`, `haulerStationX`, `haulerZ` (Task 2); `ctxFor` (testing.ts); `VesselPose` (Task 2); `DeckLayout`, `VesselSpec` (Task 1); `POLE_LEN`, `buildPole` (Task 5); `dressFigure`, `FigureLook` (Task 6); `PoseInput`, `V3`, `Body`, `poseFigure`, `createFigurePose`, `segmentMatrix` (Task 6); `FigureBatch` (Task 6); `hash3`.
 - Produces:
   - `type Role = 'hauler' | 'poler' | 'helmsman' | 'passenger'`; `interface Actor { role: Role; index: number; look: FigureLook; spot: SeatAnchor | null }`
   - `interface ActorFrame { visible: boolean; pos: V3; yaw: number; pose: PoseInput; handL: V3; handR: V3; hasPole: boolean; poleTop: V3; poleTip: V3 }` (deck-local; hand targets figure-local), `createActorFrame()`, `interface ActorCtx { spec: VesselSpec; layout: DeckLayout }`
   - `castActors(spec: VesselSpec, seats: SeatAnchor[], eraSeed: number, passengerScale?: number): Actor[]`
   - `actorFrame(a: Actor, st: CrossingState, clock: number, ctx: ActorCtx, out: ActorFrame): ActorFrame` (pure)
-  - constants `HAUL_HZ = 0.5`, `STROKE_S = 7`, `PUSH = 0.65`, `POLE_BED = 2.1`, `STEER_DEPTH = 0.5`, `WALK_SPEED = 1.4`, `STRIDE = 1.1`, `TURN_S = 0.8`, `MOVE_END`; helpers `lerpAngle(a, b, w)`, `faceDir(dx, dz)`, `toFigure(p, pos, yaw, out)`
+  - constants `HAUL_HZ = 0.5`, `STROKE_S = 7`, `PUSH = 0.65`, `POLE_BED = 2.1`, `STEER_DEPTH = 0.5`, `WALK_SPEED = 1.4`, `STRIDE = 1.1`, `TURN_S = 0.8`, `MOVE_END`; helpers `faceDir(dx, dz)`, `toFigure(p, pos, yaw, out)`
   - `class CrewSet { readonly group: THREE.Group; constructor(actors: Actor[]); update(pose: VesselPose, ctx: ActorCtx): void; poleCount: number; dispose(): void }`
 
 Choreography (spec §13, research §2.3):
-- **Rope haulers** (1935–1984): one or two per rope line at `haulerStationX`, 0.35 m inboard of the rope; while hauling they face the direction of travel and pull hand over hand (each hand reaches 0.4 m ahead on the rope, grips, pulls back to 0.2 m behind; the hands alternate); while docked they stand facing the centreline. In 1984 hauler 0 is María Luisa Cortijo, the anconera.
+- **Rope haulers** (1935–1984): one or two per rope line at `haulerStationX(k, perSide, L, side)`, `haulerZ` = 0.35 m inboard of the rope — never inside a car slot (on the one-car 1935 deck they stand at the ends, x = ±2.65; preflight F20); while hauling they face the direction of travel and pull hand over hand (each hand reaches 0.4 m ahead on the rope, grips, pulls back to 0.2 m behind; the hands alternate); while docked they stand facing the centreline. In 1984 hauler 0 is María Luisa Cortijo, the anconera.
 - **Polers** (≤ 1925): walk the side lane (|z| = halfBeam − 0.45). A 7 s stroke: plant the pole ahead, then walk aft facing aft, leaning into it, the pole biting the bed `POLE_BED` m down outside the hull (65 %); then walk forward carrying the pole raised (35 %). Idle holding the pole upright while loading; during unloading they carry it to the next leg's first stroke position.
-- **Helmsman** (≤ 1925): at the trailing end, facing the side, a steering pole trailing in the water as a rudder, sweeping slowly; during unloading he walks to the other end (the next leg's trailing end).
-- **Passengers**: during `load` they walk on from the departure end to their standing spot (staggered), stand through the crossing, and during `unload` walk off at the arrival end (they vanish at the deck edge — landings/banks come in Phase 4).
+- **Helmsman** (≤ 1925): at the trailing end, facing the side, a steering pole trailing in the water as a rudder, sweeping slowly; during unloading he waits until the passengers have gone ashore, then walks the centre line to the other end (the next leg's trailing end), finishing 0.5 s before the leg ends (preflight F25).
+- **Passengers**: during `load` they walk on from the departure end to their standing spot (staggered), along a lane 0.6 m off the centre line (clear of the helmsman), stand through the crossing, and during `unload` walk off at the arrival end the same way (they vanish at the deck edge — landings/banks come in Phase 4). Standing spots keep ≥ 0.75 m from the helmsman's end positions (seats.ts).
 - Nothing teleports: feet move < 0.3 m and heading < 0.8 rad per 0.1 s, across phases and legs (test).
 
 - [ ] **Step 1: Failing tests**
@@ -2403,31 +2922,38 @@ describe('choreography', () => {
     const s = setup('1975');
     for (const a of s.actors) expect(frame(s, a, 123.45)).toEqual(frame(s, a, 123.45));
   });
+  test('the helmsman crosses the deck only after the passengers have left (unload)', () => {
+    for (const id of ['1840', '1900', '1925'] as EraId[]) {
+      const s = setup(id), helm = s.actors.find((x) => x.role === 'helmsman')!, pax = s.actors.filter((x) => x.role === 'passenger');
+      for (let c = T.load + T.castOff + T.cross + T.dock; c < L; c += 0.1) {
+        const h = frame(s, helm, c);
+        for (const p of pax) {
+          const f = frame(s, p, c);
+          if (f.visible) expect(Math.hypot(f.pos[0] - h.pos[0], f.pos[2] - h.pos[2]), `${id} @${c.toFixed(1)}`).toBeGreaterThan(0.6);
+        }
+      }
+    }
+  });
 });
 ```
 
 ```ts
 // src/ancon/CrewSet.test.ts
+import type * as THREE from 'three';
 import { expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
-import { getEra, type EraId } from '../data/eras';
-import { buildFields } from '../terrain/fields';
+import type { EraId } from '../data/eras';
 import { castActors } from './crew';
 import { CrewSet } from './CrewSet';
-import { crossingGeometry } from './geometry';
 import { computeVesselPose, createVesselPose } from './pose';
 import { seatAnchors } from './seats';
-import { deckLayout, vesselSpec } from './spec';
+import { ctxFor } from './testing';
 
-const geom = crossingGeometry(buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 }));
 test.each([['1925', 2], ['1935', 0], ['1840', 3]] as [EraId, number][])('%s: one pole per poler/helmsman, all matrices finite', (id, poles) => {
-  const spec = vesselSpec(getEra(id)), layout = deckLayout(spec), set = new CrewSet(castActors(spec, seatAnchors(spec, layout), 1));
-  const pose = computeVesselPose(90, { geom, spec, layout, flow: 0.5 }, createVesselPose());
-  set.update(pose, { spec, layout });
+  const ctx = ctxFor(id), set = new CrewSet(castActors(ctx.spec, seatAnchors(ctx.spec, ctx.layout), 1));
+  set.update(computeVesselPose(90, ctx, createVesselPose()), ctx);
   expect(set.poleCount).toBe(poles);
   set.group.traverse((o) => {
-    if ('instanceMatrix' in o) expect(Array.from((o as import('three').InstancedMesh).instanceMatrix.array).every(Number.isFinite)).toBe(true);
+    if ((o as THREE.InstancedMesh).isInstancedMesh) expect(Array.from((o as THREE.InstancedMesh).instanceMatrix.array).every(Number.isFinite)).toBe(true);
   });
 });
 ```
@@ -2442,8 +2968,9 @@ import { dressFigure, type FigureLook } from '../people/palettes';
 import type { PoseInput, PoseKind, V3 } from '../people/rig';
 import { hash3 } from '../vegetation/rng';
 import { CROSSING_TIMINGS as T, type CrossingState } from './crossing';
+import { clamp01, fract, lerp, lerpAngle, smooth } from './ease';
 import { POLE_LEN } from './pole';
-import { haulerStationX, type SeatAnchor } from './seats';
+import { haulerStationX, haulerZ, type SeatAnchor } from './seats';
 import type { DeckLayout, VesselSpec } from './spec';
 
 export type Role = 'hauler' | 'poler' | 'helmsman' | 'passenger';
@@ -2471,16 +2998,7 @@ export const createActorFrame = (): ActorFrame => ({
   hasPole: false, poleTop: [0, 0, 0], poleTip: [0, 0, 0],
 });
 
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
-const smooth = (u: number) => u * u * (3 - 2 * u);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const fract = (x: number) => x - Math.floor(x);
 const set3 = (o: V3, x: number, y: number, z: number) => { o[0] = x; o[1] = y; o[2] = z; return o; };
-/** Blend angles the short way (a fixed direction when exactly opposite). */
-export function lerpAngle(a: number, b: number, w: number) {
-  const d = ((((b - a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
-  return a + d * w;
-}
 /** Yaw that faces deck direction (dx, dz). */
 export const faceDir = (dx: number, dz: number) => Math.atan2(dx, dz);
 /** Deck point → figure-local for a figure at `pos` facing `yaw`. */
@@ -2563,8 +3081,8 @@ function ropeHand(p: number, tr: number, x: number, side: number, L: DeckLayout,
   return set3(out, x + tr * h, L.guideY + (pull ? 0 : 0.08 * Math.sin(Math.PI * u)), side * L.ropeZ);
 }
 function hauler(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
-  const side = a.index % 2 === 0 ? 1 : -1, perSide = Math.ceil(spec.crew / 2), x = haulerStationX(Math.floor(a.index / 2), perSide, L);
-  set3(f.pos, x, L.deckY, side * (L.ropeZ - 0.35));
+  const side = a.index % 2 === 0 ? 1 : -1, perSide = Math.ceil(spec.crew / 2), x = haulerStationX(Math.floor(a.index / 2), perSide, L, side);
+  set3(f.pos, x, L.deckY, haulerZ(side, L));
   const w = smooth(clamp01(st.effort / 0.3));
   f.yaw = lerpAngle(side > 0 ? Math.PI : 0, faceDir(st.travel, 0), w);
   if (w < 0.5) { f.pose.kind = 'stand'; f.pose.phase = fract(clock * 0.12 + a.index * 0.31); return; }
@@ -2628,6 +3146,8 @@ function poler(a: Actor, st: CrossingState, { layout: L }: ActorCtx, f: ActorFra
 }
 
 // ---- helmsman ----
+/** The helmsman crosses the deck at the very end of unloading, after the passengers have gone ashore (they leave by ≈ MOVE_END + 8 s). */
+const helmWalkStart = (L: DeckLayout) => MOVE_END + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
 function helmsman(st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
   const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
   const sweep = 0.22 * Math.sin(clock * 0.45) * (0.3 + 0.7 * st.effort);
@@ -2639,25 +3159,28 @@ function helmsman(st: CrossingState, clock: number, { layout: L }: ActorCtx, f: 
     applyShape(mixShape(poleShape('carry', xEnd, 0.3, 1, -tr, 0, L, sA), steerShape(xEnd, tr, sweep, L, sB), k, sE), f);
     return;
   }
-  const d = 2 * (L.halfLength - 0.5), walked = Math.min(d, (tau - MOVE_END) * WALK_SPEED), x = xEnd + tr * walked;
-  const k = smooth(clamp01((tau - MOVE_END) / TURN_S));
+  // Unload: stand at the trailing end (pole now carried), then walk to the far end — next leg's trailing end.
+  const t0 = helmWalkStart(L), d = 2 * (L.halfLength - 0.5), walked = clamp01((tau - t0) / (d / WALK_SPEED)) * d, x = xEnd + tr * walked;
+  const kPole = smooth(clamp01((tau - MOVE_END) / TURN_S)), kTurn = smooth(clamp01((tau - t0) / TURN_S));
   set3(f.pos, x, L.deckY, 0);
-  f.yaw = lerpAngle(0, faceDir(tr, 0), k);
-  f.pose.kind = walked < d ? 'walk' : 'stand'; f.pose.phase = fract(walked / STRIDE);
-  applyShape(mixShape(steerShape(xEnd, tr, sweep, L, sA), poleShape('carry', x, 0.3, 1, tr, 0, L, sB), k, sE), f);
+  f.yaw = lerpAngle(0, faceDir(tr, 0), kTurn);
+  f.pose.kind = tau > t0 && walked < d ? 'walk' : 'stand'; f.pose.phase = fract(tau > t0 ? walked / STRIDE : clock * 0.1);
+  applyShape(mixShape(steerShape(xEnd, tr, sweep, L, sA), poleShape('carry', x, 0.3, 1, tr, 0, L, sB), kPole, sE), f);
 }
 
 // ---- passengers ----
+/** Passengers board and leave 0.6 m off the centreline (clear of the helmsman, who stands on it at the ends). */
+const LANE_Z = 0.6;
 function passenger(a: Actor, st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
-  const spot = a.spot!, tau = st.tLeg, i = a.index, sx = spot.pos[0], sz = spot.pos[2];
+  const spot = a.spot!, tau = st.tLeg, i = a.index, sx = spot.pos[0], sz = spot.pos[2], ze = sz >= 0 ? LANE_Z : -LANE_Z;
   const xIn = -st.travel * L.halfLength, xOut = st.travel * L.halfLength;
-  const board0 = 1 + i * 0.9, boardDist = Math.hypot(sx - xIn, sz), board1 = board0 + boardDist / WALK_SPEED;
-  const leave0 = MOVE_END + 0.5 + i * 0.25, leaveDist = Math.hypot(xOut - sx, sz), leave1 = leave0 + leaveDist / WALK_SPEED;
-  const walkIn = faceDir(sx - xIn, sz), walkOut = faceDir(xOut - sx, -sz);
-  if (tau < board0 || tau >= leave1) { f.visible = false; set3(f.pos, xIn, L.deckY, 0); return; }
+  const board0 = 1 + i * 0.9, boardDist = Math.hypot(sx - xIn, sz - ze), board1 = board0 + boardDist / WALK_SPEED;
+  const leave0 = MOVE_END + 0.5 + i * 0.25, leaveDist = Math.hypot(xOut - sx, ze - sz), leave1 = leave0 + leaveDist / WALK_SPEED;
+  const walkIn = faceDir(sx - xIn, sz - ze), walkOut = faceDir(xOut - sx, ze - sz);
+  if (tau < board0 || tau >= leave1) { f.visible = false; set3(f.pos, xIn, L.deckY, ze); return; }
   if (tau < board1) {
     const u = (tau - board0) * WALK_SPEED, k = u / boardDist;
-    set3(f.pos, xIn + (sx - xIn) * k, L.deckY, sz * k);
+    set3(f.pos, xIn + (sx - xIn) * k, L.deckY, ze + (sz - ze) * k);
     f.yaw = walkIn; f.pose.kind = 'walk'; f.pose.phase = fract(u / STRIDE);
     return;
   }
@@ -2668,7 +3191,7 @@ function passenger(a: Actor, st: CrossingState, clock: number, { layout: L }: Ac
     return;
   }
   const u = (tau - leave0) * WALK_SPEED, k = u / leaveDist;
-  set3(f.pos, sx + (xOut - sx) * k, L.deckY, sz * (1 - k));
+  set3(f.pos, sx + (xOut - sx) * k, L.deckY, sz + (ze - sz) * k);
   f.yaw = lerpAngle(spot.yaw, walkOut, smooth(clamp01((tau - leave0) / TURN_S)));
   f.pose.kind = 'walk'; f.pose.phase = fract(u / STRIDE);
 }
@@ -2741,7 +3264,7 @@ export class CrewSet {
 }
 ```
 
-- [ ] **Step 4: Wire into `<Ancon>`.** `const seats = useMemo(() => seatAnchors(spec, layout), [spec, layout]);` `const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);` + dispose effect; `const actorCtx = useMemo(() => ({ spec, layout }), [spec, layout]);` in the frame callback after `ropes.update(...)`: `crew.update(pose, actorCtx);`; render `<primitive object={crew.group} />` next to the ropes (world space).
+- [ ] **Step 4: Wire into `<Ancon>`.** `const seats = useMemo(() => seatAnchors(spec, layout), [spec, layout]);` `const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);` + `useEffect(() => () => crew.dispose(), [crew])`; in the frame callback after `ropes.update(...)`: `crew.update(pose, ctx);` (a `PoseContext` is an `ActorCtx`); render `<primitive object={crew.group} />` next to the ropes (world space).
 
 - [ ] **Step 5: Visual check** (quality bar: the "boatman on a wooden boat" moment — people must sell the effort and the scale):
   - `?era=1925&cam=bank&c=70&freeze=1` — the poler leaning into his pole on the far side, the helmsman at the trailing end with the steering pole in the water, three passengers in white cotton and straw hats.
@@ -2773,7 +3296,7 @@ EOF
 **Interfaces:**
 - Consumes: `computeVesselPose`, `createVesselPose`, `PoseContext`, `VesselPose` (Task 2).
 - Produces:
-  - `WAKE_N = 16`, `WAKE_DT = 1.5`; `writeWake(clock: number, ctx: PoseContext, out: Float32Array, scratch: VesselPose): Float32Array` — `[x, z, age s, strength 0..1] × WAKE_N`, sample 0 = the trailing end now, sample i = the trailing end `i · WAKE_DT` s ago (pure: recomputes past poses, so `?freeze` / `?c` shots are reproducible)
+  - `WAKE_N = 16`, `WAKE_DT = 1.5`, `WAKE_REF = 1.1`; `writeWake(clock: number, ctx: PoseContext, out: Float32Array, scratch: VesselPose): Float32Array` — `[x, z, age s, strength 0..1] × WAKE_N`, sample 0 = the trailing end now, sample i = the trailing end `i · WAKE_DT` s ago; strength = |speed| / WAKE_REF × (1 − current slack), i.e. exactly 0 whenever the ferry is docked or moored (pure: recomputes past poses, so `?freeze` / `?c` shots are reproducible)
   - `wakeUniforms = { uWake: { value: Float32Array(4·WAKE_N) }, uHull: { value: Vector4 /* x, z, cos yaw, sin yaw */ }, uHullSize: { value: Vector3 /* reach, halfBeam, |speed| */ }, uWakeOn: { value: 0 | 1 } }`; `updateWakeUniforms(pose: VesselPose, ctx: PoseContext): void`; `clearWakeUniforms(): void`
   - GLSL `vec3 vesselWake(vec2 p)` in `waterFragment` → (hull-contact foam, ripple height, trailing-wake foam)
 
@@ -2782,21 +3305,15 @@ EOF
 ```ts
 // src/ancon/wake.test.ts
 import { expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
-import { getEra } from '../data/eras';
-import { buildFields } from '../terrain/fields';
 import { waterFragment } from '../scene/water/waterShader';
-import { CROSSING_TIMINGS as T } from './crossing';
-import { crossingGeometry } from './geometry';
-import { computeVesselPose, createVesselPose, type PoseContext } from './pose';
-import { deckLayout, vesselSpec } from './spec';
+import { CROSSING_TIMINGS as T, legDuration } from './crossing';
+import { computeVesselPose, createVesselPose } from './pose';
+import { ctxFor } from './testing';
 import { WAKE_DT, WAKE_N, writeWake } from './wake';
 
-const spec = vesselSpec(getEra('1975')), layout = deckLayout(spec);
-const ctx: PoseContext = { geom: crossingGeometry(buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 })), spec, layout, flow: 0.35 };
-const MID = T.load + T.castOff + T.cross / 2;
-const run = (c: number) => writeWake(c, ctx, new Float32Array(4 * WAKE_N), createVesselPose());
+const ctx = ctxFor('1975'), layout = ctx.layout;
+const MID = T.load + T.castOff + T.cross / 2, L = legDuration();
+const run = (c: number, context = ctx) => writeWake(c, context, new Float32Array(4 * WAKE_N), createVesselPose());
 
 test('sample 0 is the trailing end now; ages step by WAKE_DT', () => {
   const w = run(MID), p = computeVesselPose(MID, ctx, createVesselPose());
@@ -2805,18 +3322,23 @@ test('sample 0 is the trailing end now; ages step by WAKE_DT', () => {
   expect(w[1]).toBeCloseTo(p.position.z - hz * layout.reach * p.travel, 4);
   for (let i = 0; i < WAKE_N; i++) expect(w[i * 4 + 2]).toBeCloseTo(i * WAKE_DT, 9);
 });
-test('mid-crossing the trail lies behind the vessel at full strength; docked it is off', () => {
+test('mid-crossing the trail lies behind at full strength; exactly 0 whenever the ferry is docked', () => {
   const w = run(MID), p = computeVesselPose(MID, ctx, createVesselPose());
   const hx = Math.cos(p.yaw) * p.travel, hz = -Math.sin(p.yaw) * p.travel;
   for (let i = 1; i < WAKE_N; i++) expect((w[i * 4] - w[0]) * hx + (w[i * 4 + 1] - w[1]) * hz).toBeLessThan(0);
-  expect(w[3]).toBeGreaterThan(0.5);
-  const d = run(5);
-  for (let i = 0; i < WAKE_N; i++) expect(d[i * 4 + 3]).toBe(0);
+  expect(w[3]).toBeGreaterThan(0.8);
+  for (const c of [5, T.load - 0.5, L - 3, L + 5]) {          // loading / unloading on both banks, just after a crossing
+    const d = run(c);
+    for (let i = 0; i < WAKE_N; i++) expect(d[i * 4 + 3], `c=${c} sample ${i}`).toBe(0);
+  }
+  const moored = run(MID, ctxFor('1986'));
+  for (let i = 0; i < WAKE_N; i++) expect(moored[i * 4 + 3]).toBe(0);
 });
 test('deterministic', () => { expect(Array.from(run(123.4))).toEqual(Array.from(run(123.4))); });
 test('the water shader declares the same number of wake samples', () => {
   expect(waterFragment).toContain(`uniform vec4 uWake[${WAKE_N}]`);
   expect(waterFragment).toContain(`i < ${WAKE_N - 1}`);
+  expect(waterFragment).not.toMatch(/pow\(\s*\(dd/);   // no pow() with a possibly negative base
 });
 ```
 
@@ -2829,14 +3351,22 @@ Run → FAIL.
 import { computeVesselPose, type PoseContext, type VesselPose } from './pose';
 
 export const WAKE_N = 16, WAKE_DT = 1.5;
-/** Trailing-end track: [x, z, age, strength] × WAKE_N (strength = |speed| / 1.6 m/s, clamped). */
+/** Speed (m/s) that draws a full-strength wake: the cruise on the 122–138 m dock-to-dock line is ≈ 1.0–1.1 m/s. */
+export const WAKE_REF = 1.1;
+/**
+ * Trailing-end track: [x, z, age s, strength 0..1] × WAKE_N; sample i is the trailing end i·WAKE_DT s ago.
+ * Strength = |speed| / WAKE_REF, faded by the *current* state (× (1 − slack)): exactly 0 whenever the
+ * ferry is docked (slack = 1 in load/unload and for the moored barge), easing in at cast-off and out
+ * while docking. Pure: recomputes past poses into `scratch`; no allocation.
+ */
 export function writeWake(clock: number, ctx: PoseContext, out: Float32Array, scratch: VesselPose): Float32Array {
+  const live = 1 - computeVesselPose(clock, ctx, scratch).state.slack;
   for (let i = 0; i < WAKE_N; i++) {
     const p = computeVesselPose(clock - i * WAKE_DT, ctx, scratch), r = ctx.layout.reach * p.travel;
     out[i * 4] = p.position.x - Math.cos(p.yaw) * r;
     out[i * 4 + 1] = p.position.z + Math.sin(p.yaw) * r;
     out[i * 4 + 2] = i * WAKE_DT;
-    out[i * 4 + 3] = Math.min(1, Math.abs(p.speed) / 1.6);
+    out[i * 4 + 3] = Math.min(1, Math.abs(p.speed) / WAKE_REF) * live;
   }
   return out;
 }
@@ -2890,7 +3420,8 @@ vec3 vesselWake(vec2 p) {
     float age = mix(a.z, c.z, h), str = mix(a.w, c.w, h);
     float w = uHullSize.y * 0.6 + age * 0.35;                       // the wake spreads as it ages
     float dd = length(p - a.xy - ab * h);
-    float edge = exp(-pow((dd - w) / 0.5, 2.0)) + 0.5 * (1.0 - smoothstep(0.0, w, dd));
+    float e = (dd - w) * 2.0;                                       // (dd − w) / 0.5, squared below: no pow() of a negative base
+    float edge = exp(-e * e) + 0.5 * (1.0 - smoothstep(0.0, w, dd));
     trail = max(trail, str * exp(-age / 12.0) * edge);
   }
   return vec3(contact, ripple, trail);
@@ -2913,7 +3444,98 @@ and right after `float foam = band * smoothstep(0.45, 0.85, fn) * mix(0.8, 0.12,
 
 The `16` / `15` literals must match `WAKE_N` / `WAKE_N − 1` (the test reads the shader string); use `${WAKE_N}` interpolation only if the import does not create a cycle (`waterShader.ts` → `ancon/wake.ts` → `pose.ts` is fine, but keep literals if in doubt — the test guards them).
 
-- [ ] **Step 4: Wire.** In `Water.tsx`, inside the `useMemo` right after `new Reflector(...)`: `Object.assign((r.material as THREE.ShaderMaterial).uniforms, wakeUniforms);` — the Reflector clones `shader.uniforms`, so the shared objects are swapped in before the first compile. In `<Ancon>`'s frame callback, after `crew.update(...)`: `updateWakeUniforms(pose, ctx);` and add `useEffect(() => () => clearWakeUniforms(), [])`.
+- [ ] **Step 4: Wire.** In `Water.tsx`, inside the `useMemo` right after `new Reflector(...)`: `Object.assign((r.material as THREE.ShaderMaterial).uniforms, wakeUniforms);` — the Reflector clones `shader.uniforms`, so the shared objects are swapped in before the first compile. In `<Ancon>`'s frame callback, after `crew.update(...)`: `updateWakeUniforms(pose, ctx);` and add `useEffect(() => () => clearWakeUniforms(), [])`. The component after this task (Tasks 3, 5, 7, 8 combined; it type-checks as written):
+
+```tsx
+// src/ancon/Ancon.tsx
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef } from 'react';
+import * as THREE from 'three';
+import type { Era } from '../data/eras';
+import type { QualitySettings } from '../quality';
+import { useStore } from '../state/store';
+import { sampleField, type WorldFields } from '../terrain/fields';
+import { placementFields } from '../terrain/placementFields';
+import { castActors } from './crew';
+import { CrewSet } from './CrewSet';
+import { advanceClock } from './crossing';
+import { crossingGeometry } from './geometry';
+import { vesselMaterials } from './materials';
+import { apronLift, computeVesselPose, makePoseContext } from './pose';
+import { RopeSet } from './RopeSet';
+import { seatAnchors } from './seats';
+import { vesselSpec } from './spec';
+import { anconTiming } from './stats';
+import { emitVesselPose, sharedVesselPose } from './vesselPose';
+import { buildVessel } from './vessels';
+import { clearWakeUniforms, updateWakeUniforms } from './wakeUniforms';
+
+/**
+ * The ferry for the current era. One useFrame drives everything, in order: crossing clock →
+ * vessel pose (shared, see useVesselPose) → hull + apron transforms → ropes → crew → wake →
+ * timing → pose listeners (the ride camera). Nothing else computes the live pose.
+ */
+export function Ancon({ near, era, q, frozen, castShadow }: {
+  near: WorldFields; era: Era; q: QualitySettings; frozen: boolean; castShadow: boolean;
+}) {
+  const start = useStore((s) => s.crossingStart), speed = useStore((s) => s.crossingSpeed);
+  const bank = era.river.bankOffset.value;
+  const spec = useMemo(() => vesselSpec(era), [era]);
+  // Crossing geometry always comes from the fixed 512 placement fields (never the tier's grid).
+  const place = useMemo(() => placementFields(bank, near), [bank, near]);
+  const ctx = useMemo(() => makePoseContext(crossingGeometry(place), spec, era.river.flow.value,
+    (x: number, z: number) => sampleField(near, near.height, x, z)), [place, spec, era, near]);
+  const layout = ctx.layout;
+  const parts = useMemo(() => buildVessel(spec, layout, 1), [spec, layout]);
+  useEffect(() => () => parts.forEach((p) => p.geometry.dispose()), [parts]);
+  const ropes = useMemo(() => new RopeSet({ spec, layout, geom: ctx.geom, fields: place, segments: q.ancon.ropeSegments, radial: q.ancon.ropeRadial }),
+    [spec, layout, ctx, place, q.ancon.ropeSegments, q.ancon.ropeRadial]);
+  useEffect(() => () => ropes.dispose(), [ropes]);
+  const seats = useMemo(() => seatAnchors(spec, layout), [spec, layout]);
+  const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);
+  useEffect(() => () => crew.dispose(), [crew]);
+  useEffect(() => () => clearWakeUniforms(), []);
+  const mats = vesselMaterials();
+  const hull = useRef<THREE.Group>(null);
+  const aprons = useRef<(THREE.Group | null)[]>([]);
+  const clock = useRef(start);
+  useEffect(() => { clock.current = start; }, [start]);
+
+  useFrame((state, dt) => {
+    const t0 = performance.now();
+    clock.current = advanceClock(clock.current, Math.min(dt, 0.1), frozen, speed);
+    const pose = computeVesselPose(clock.current, ctx, sharedVesselPose);
+    const g = hull.current;
+    if (g) { g.matrix.copy(pose.matrix); g.matrixWorldNeedsUpdate = true; }
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i], a = aprons.current[i];
+      if (p.apron && a) a.rotation.z = p.apron.end * apronLift(pose.state, p.apron.end);
+    }
+    const cam = state.camera as THREE.PerspectiveCamera;
+    ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height);
+    crew.update(pose, ctx);
+    updateWakeUniforms(pose, ctx);
+    anconTiming.add(performance.now() - t0);
+    emitVesselPose(ctx);
+  });
+
+  return (
+    <>
+      <group ref={hull} matrixAutoUpdate={false}>
+        {parts.map((p, i) => p.apron ? (
+          <group key={i} ref={(el) => { aprons.current[i] = el; }} position={[p.apron.hinge[0], p.apron.hinge[1], 0]}>
+            <mesh geometry={p.geometry} material={mats[p.material]} position={[-p.apron.hinge[0], -p.apron.hinge[1], 0]} castShadow={castShadow} receiveShadow />
+          </group>
+        ) : (
+          <mesh key={i} geometry={p.geometry} material={mats[p.material]} castShadow={castShadow} receiveShadow />
+        ))}
+      </group>
+      <primitive object={ropes.group} />
+      <primitive object={crew.group} />
+    </>
+  );
+}
+```
 
 - [ ] **Step 5: Visual check** (quality bar: reflective water that reacts to the vessel — a soft foam line where hull meets water, gentle rings when idle, a fading V-shaped wake behind a moving ferry, and the hull, crew and ropes mirrored in the river):
   - `?era=1984&cam=bank&c=90&freeze=1`, `?era=1840&cam=bank&c=90&freeze=1` — wake behind the trailing end, fading over ~20 s of track.
@@ -2939,12 +3561,11 @@ EOF
 
 **Files:**
 - Create: `src/ancon/rideCamera.ts` (+ `rideCamera.test.ts`)
-- Modify: `src/ancon/pose.ts` (`PoseContext.groundAt?`), `src/ancon/Ancon.tsx`, `src/scene/Cameras.tsx`, `src/state/store.test.ts`
+- Modify: `src/scene/Cameras.tsx`, `src/state/store.test.ts`
 
 **Interfaces:**
-- Consumes: `VesselPose`, `PoseContext`, `computeVesselPose` (Task 2); `CROSSING_TIMINGS`, `legDuration` (Task 2); `DeckLayout` (Task 1); `onVesselPose` (Task 2); `sampleField`.
+- Consumes: `VesselPose`, `PoseContext` (incl. `groundAt`, set by `<Ancon>` since Task 3), `computeVesselPose` (Task 2); `CROSSING_TIMINGS`, `legDuration`, `crossingState`, `DEFAULT_CROSSING_START` (Task 2); `smooth` (ease.ts); `DeckLayout` (Task 1); `landingClearings`, `LANDING_CLEARING` (Task 1); `onVesselPose` (Task 2); `ctxFor` (testing.ts).
 - Produces:
-  - `PoseContext.groundAt?: (x: number, z: number) => number` (terrain height; set by `<Ancon>`)
   - `RIDE = { back: 8, up: 4.2, side: 2.6, ahead: 22, lookY: 1.2, minClear: 1.8 }`
   - `rideYaw(clock: number, moored: boolean, T?: CrossingTimings): number` — 0 (camera behind the east end) on leg 0, π on leg 1, a smooth half-orbit around the deck across `unload` + next `load`; continuous and monotonic
   - `rideView(pose: VesselPose, L: DeckLayout, yaw: number, pos: THREE.Vector3, target: THREE.Vector3, groundAt?): void`
@@ -2959,18 +3580,15 @@ Spec §13: `ride` is third-person on the deck, like the quality-bar reference (a
 // src/ancon/rideCamera.test.ts
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
-import geo from '../data/geo/loiza.json';
-import type { GeoBundle } from '../data/geo/types';
-import { getEra } from '../data/eras';
-import { buildFields } from '../terrain/fields';
+import { ERAS } from '../data/eras';
+import { LANDING_CLEARING } from '../vegetation/masks';
 import { CROSSING_TIMINGS as T, legDuration } from './crossing';
-import { crossingGeometry } from './geometry';
-import { computeVesselPose, createVesselPose, type PoseContext } from './pose';
+import { landingClearings } from './geometry';
+import { computeVesselPose, createVesselPose } from './pose';
 import { carryCamera, rideView, rideYaw } from './rideCamera';
-import { deckLayout, vesselSpec } from './spec';
+import { ctxFor } from './testing';
 
-const spec = vesselSpec(getEra('1975')), layout = deckLayout(spec);
-const ctx: PoseContext = { geom: crossingGeometry(buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 })), spec, layout, flow: 0.35 };
+const ctx = ctxFor('1975'), layout = ctx.layout;
 const L = legDuration(), MID = T.load + T.castOff + T.cross / 2;
 const poseAt = (c: number) => computeVesselPose(c, ctx, createVesselPose());
 
@@ -3008,16 +3626,28 @@ test('the camera never dips under the bank', () => {
   rideView(poseAt(5), layout, 0, pos, tgt, () => 10);
   expect(pos.y).toBeCloseTo(11.8, 9);
 });
+test('docked, the ride camera stands inside the landing clearing (no trees in the lens)', () => {
+  for (const e of ERAS) {
+    const c = ctxFor(e.id), [cE, cW] = landingClearings(c.geom), pos = new THREE.Vector3(), tgt = new THREE.Vector3();
+    for (const [clock, centre] of (c.spec.moored ? [[5, cE]] : [[5, cE], [L + 5, cW]]) as [number, readonly [number, number]][]) {   // 1986 stays at Loíza
+      rideView(computeVesselPose(clock, c, createVesselPose()), c.layout, rideYaw(clock, c.spec.moored), pos, tgt);
+      expect(Math.hypot(pos.x - centre[0], pos.z - centre[1]), `${e.id} @${clock}`).toBeLessThan(LANDING_CLEARING[0]);
+    }
+  }
+});
 ```
 
 ```ts
-// src/state/store.test.ts — add
-test('the page opens on the ride camera at the era’s golden hour', () => {
-  const s = useStore.getState();
-  expect(s.camera).toBe('ride');
-  expect(s.timeOfDay).toBe(defaultTime(s.eraId));
+// src/state/store.test.ts — add (with `CROSSING_TIMINGS, createCrossingState, crossingState` imported from '../ancon/crossing')
+test('the page opens on the ferry loading at Loíza, casting off within 10 s', () => {
+  const st = crossingState(useStore.getState().crossingStart, createCrossingState());
+  expect([st.phase, st.leg]).toEqual(['load', 0]);
+  const wait = CROSSING_TIMINGS.load - st.tLeg;
+  expect(wait).toBeGreaterThan(0); expect(wait).toBeLessThanOrEqual(10);
 });
 ```
+
+(The ride camera and golden-hour defaults are already asserted by the Task 3 store test and the existing golden-hour test; this one pins the new behaviour: the first thing the visitor sees is the cast-off.)
 
 Run → FAIL (module missing).
 
@@ -3027,12 +3657,12 @@ Run → FAIL (module missing).
 // src/ancon/rideCamera.ts
 import * as THREE from 'three';
 import { CROSSING_TIMINGS, legDuration, type CrossingTimings } from './crossing';
+import { smooth as sm } from './ease';
 import type { VesselPose } from './pose';
 import type { DeckLayout } from './spec';
 
 /** Third-person deck camera: behind the trailing end, raised, a little to one side, looking over the crew ahead. */
 export const RIDE = { back: 8, up: 4.2, side: 2.6, ahead: 22, lookY: 1.2, minClear: 1.8 };
-const sm = (u: number) => u * u * (3 - 2 * u);
 
 /** Orbit angle about the deck: π·(legs done), easing half a turn across unload + the next load. */
 export function rideYaw(clock: number, moored: boolean, T: CrossingTimings = CROSSING_TIMINGS): number {
@@ -3066,7 +3696,7 @@ export function carryCamera(prev: THREE.Matrix4, next: THREE.Matrix4, dYaw: numb
 }
 ```
 
-In `pose.ts` add `groundAt?: (x: number, z: number) => number;` to `PoseContext`. In `<Ancon>` add to the ctx memo: `groundAt: (x: number, z: number) => sampleField(near, near.height, x, z)`.
+`PoseContext.groundAt` is already set by `<Ancon>` (Task 3). The docked camera stands 8.8 m inland of the shore (back 8 m behind a hull whose tip rests 0.8 m on the bank), 2.8 m from the clearing centre — inside the 22 m clear radius (test).
 
 `Cameras.tsx`:
 
@@ -3373,15 +4003,22 @@ test('decade picker switches era, updates the URL, steps with ← →, revisits 
   const rail = page.getByRole('navigation', { name: 'Choose an era' });
   await expect(rail.getByRole('button')).toHaveCount(8);
   await expect(rail.getByRole('button', { pressed: true })).toHaveAttribute('aria-label', /1960s–1970s/);
+  const runsOf = () => page.evaluate(() => window.__ANCON_VEG__!.placeRuns.length);
+  const before = await runsOf();
   await rail.getByRole('button', { name: /1980–1986/ }).click();
   await expect(page).toHaveURL(/era=1984/);
+  // 1984 has new densities: wait until its placement has actually run (it happens inside the R3F tree, not with the DOM title).
+  await page.waitForFunction((n) => window.__ANCON_VEG__!.placeRuns.length > n, before, { timeout: 30_000 });
   await expect(page.locator('.title-card__era')).toContainText('The steel barge');
-  const runs = await page.evaluate(() => window.__ANCON_VEG__!.placeRuns.length);
+  const runs = await runsOf();
   await page.keyboard.press('ArrowLeft');
   await expect(page).toHaveURL(/era=1975/);
+  await expect(page.locator('.title-card__era')).toContainText('Weekend outings');
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/era=1984/);
-  expect(await page.evaluate(() => window.__ANCON_VEG__!.placeRuns.length)).toBe(runs);   // revisits: no new placement
+  await expect(page.locator('.title-card__era')).toContainText('The steel barge');
+  await page.waitForTimeout(1500);                                                          // let both switches render
+  expect(await runsOf()).toBe(runs);   // revisits: no new placement
   await expect(page).toHaveURL(/freeze=1/);
   const box = await rail.getByRole('button').first().boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -3549,7 +4186,9 @@ EOF
 
 ## Self-review
 
-- **Spec §13 coverage.** Art in code (T3–T6) ✔. Vessel builder per kind with Sourced per-era values: 1840/1900 barge + 1840 shore rope (T1 data, T3 builder, T5 rope), 1925 plank platform with push + steer poles (T3, T7), 1935–1975 wooden platform on stringers with end aprons growing 1 → 4 → 6 cars (T1, T3), 1984 steel pontoon 20 × 7.5 m with welded seams, hinged ramps, curb, rope guides, fouling (T4), 1986 moored idle at Loíza (T2 `mooredState`, T4, T5 mooring lines) ✔. Crossing geometry from the two landings, inside the 2a clearings (T1) ✔. Propulsion: poles ≤ 1925 (T7), two taut ropes bank post to bank post through deck guides, 2–3 haulers, sag while waiting, one draw call per rope (T5, T7) ✔. Deterministic loop load → castOff → cross → dock → unload + reverse, ~3 min, time-scalable, `?freeze`/`?c` (T2, T3) ✔. Drift along `RIVER_DIR` + crew correction + crab (T2) ✔. Pitch/roll/heave (T2) ✔. Wake/foam in the water shader, vessel in the reflection (T8) ✔. People: primitives, no faces, era palettes, `pole`/`haul`/`stand`/`walk`, crew + a few passengers, no vehicles (T6, T7) ✔. Picker: 8 buttons, touch-sized, ← →, URL, instant, placement cache per (densities, bankOffset, tier) (T10) ✔. `ride` = deck camera on the moving vessel, default view ride at golden hour (T9; store defaults + e2e default shot in T11) ✔. Perf ≤ 1.5 ms / ≥ 60 fps measured (T11) ✔. Tests: state machine (T2), builders sizes + triangle budgets (T3, T4, T6), rope sag (T5), e2e per vessel kind (T11), picker (T10) ✔. Future hook: `useVesselPose()`, `onVesselPose`, deck-local `seatAnchors` with car slots (T2) ✔.
+- **Spec §13 coverage.** Art in code (T3–T6) ✔. Vessel builder per kind with Sourced per-era values: 1840/1900 barge + 1840 shore rope (T1 data, T3 builder, T5 rope), 1925 plank platform with push + steer poles (T3, T7), 1935–1975 wooden platform on stringers with end aprons growing 1 → 4 → 6 cars (T1, T3), 1984 steel pontoon 20 × 7.5 m with welded seams, hinged ramps, curb, rope guides, fouling (T4), 1986 moored idle at Loíza (T2 `mooredState`, T4, T5 mooring lines) ✔. Crossing geometry from the two landings — docks on the waterline nearest each landing coordinate, the 2a clearings re-centred on them (T1) ✔. Propulsion: poles ≤ 1925 (T7), two taut ropes bank post to bank post through deck guides, 2–3 haulers, sag while waiting, one draw call per rope (T5, T7) ✔. Deterministic loop load → castOff → cross → dock → unload + reverse, ~3 min, time-scalable, `?freeze`/`?c` (T2, T3) ✔. Drift along `RIVER_DIR` + crew correction + crab (T2) ✔. Pitch/roll/heave (T2) ✔. Wake/foam in the water shader, vessel in the reflection (T8) ✔. People: primitives, no faces, era palettes, `pole`/`haul`/`stand`/`walk`, crew + a few passengers, no vehicles (T6, T7) ✔. Picker: 8 buttons, touch-sized, ← →, URL, instant, placement cache per (densities, bankOffset, tier) (T10) ✔. `ride` = deck camera on the moving vessel, default view ride at golden hour (T9; store defaults + e2e default shot in T11) ✔. Perf ≤ 1.5 ms / ≥ 60 fps measured (T11) ✔. Tests: state machine (T2), builders sizes + triangle budgets (T3, T4, T6), rope sag (T5), e2e per vessel kind (T11), picker (T10) ✔. Future hook: `useVesselPose()`, `onVesselPose`, deck-local `seatAnchors` with car slots (T2) ✔.
+- **Preflight (2026-09-26-phase-3-ancon/preflight.md) — all 26 findings addressed.** F1 docks at the waterline nearest each landing (`nearestShore`), clearings re-centred on the shore points (`landingClearings`, masks.ts), posts and the docked ride camera tested inside the 22 m radius; F2/F3/F11 crossing from the fixed 512 placement fields (`placementFields`), one shared fixture module (`testing.ts`), posts snapped onto land; F4 `ZERO_MATRIX` all zeros; F5/F12 one `STEEL` palette (FOUL greener, RUST darker than the SHELL panels), shell/rake geometry and panel base stated in code; F6/F8 wake strength × (1 − current slack), no `pow` of a negative base; F7 docks precomputed in `makePoseContext`, out-params in rigging, allocation-free `mooredState`/`proportions`/`poseFigure`/RopeSet loops; F9 `PER_KIND` from `PART_GEO`; F10 picker e2e waits for the new era's placement; F13 barge ends at ±hl in code; F14/F15/F21 accepted with rationale lines (T1, T3, Global Constraints); F16 timing note (122–138 m, ≈ 1.0–1.1 m/s) and tests; F17 seat example + epsilon slot test; F18 store test replaced (cast-off within 10 s); F19 `ease.ts`, shared palette/apron helpers, shared fixtures; F20 hauler stations outside car slots (+ test); F22 file map; F23 post material disposed; F24 `advanceClock` integrates dt·speed; F25 helmsman walks after the passengers leave, passengers use a 0.6 m side lane (+ test); F26 bitts at `bittXZ`, mooring lines start at their tops (+ tests).
+- **Test code was executed** against the plan's code in a scratch copy of the repo outside `src/` (all unit tests pass, `tsc --noEmit` clean for the modules and the final `<Ancon>`); browser-only painters, the Cameras/DecadePicker/Vegetation wiring and the e2e specs are verified by `npm run build` / `npm run e2e` in the tasks.
 - **Carry-over.** Phase 6 items pulled forward because the picker needs them: era switch keeps time relative to golden hour (T10), fields cached per bankOffset (T10). Still parked: crossfade transition (Phase 6), placement in a worker (not needed once cached), noon teal grade and 2b polish.
 - **Placeholder scan.** Art steps describe exact dimensions/colours where code is repetitive (barge, plank platform, steel pontoon, textures), following the Phase 2a plan's convention for art generators; every pure module has full code and tests.
-- **Names checked across tasks:** `vesselSpec`, `deckLayout`, `DeckLayout.{halfLength, halfBeam, deckY, apron, reach, guideY, ropeZ, lanes, rows}`, `crossingGeometry`, `dockPoint`, `APRON_REST`, `crossingState`, `createCrossingState`, `mooredState`, `crossingClock`, `CROSSING_TIMINGS`, `legDuration`, `computeVesselPose`, `createVesselPose`, `PoseContext` (+ `groundAt?` in T9), `apronLift`, `sharedVesselPose`, `emitVesselPose`, `onVesselPose`, `useVesselPose`, `seatAnchors`, `haulerStationX`, `buildVessel`, `TRI_BUDGET`, `vesselSuite`, `bounds`, `vesselMaterials`, `canvasTexture`, `anconTiming`, `spanSag`, `writeSpan`, `writeRopeLine`, `writeTube`, `tubeIndex`, `ropeRig`, `shoreRopePost`, `upstreamSide`, `guideLocal`, `mooringLocal`, `cleatLocal`, `POLE_LEN`, `buildPole`, `RopeSet`, `poseFigure`, `solveTwoBone`, `segmentMatrix`, `dressFigure`, `FigureBatch`, `castActors`, `actorFrame`, `CrewSet`, `writeWake`, `wakeUniforms`, `updateWakeUniforms`, `clearWakeUniforms`, `rideYaw`, `rideView`, `carryCamera`, `clampAboveGround`, `stepEra`, `withEra`, `shiftTime`, `KeyedCache`, `placementKey`.
+- **Names checked across tasks:** `vesselSpec`, `deckLayout`, `DeckLayout.{halfLength, halfBeam, deckY, apron, reach, guideY, ropeZ, lanes, rows}`, `placementFields`, `crossingGeometry`, `nearestShore`, `waterAt`, `dockPoint`, `landingClearings`, `APRON_REST`, `CLEAR_INLAND`, `fields512`, `geom512`, `ctxFor`, `tris`, `clamp01`/`smooth`/`smoothIntegral`/`lerp`/`fract`/`lerpAngle`, `crossingState`, `createCrossingState`, `mooredState`, `advanceClock`, `CROSSING_TIMINGS`, `CrossingTimings`, `legDuration`, `makePoseContext`, `computeVesselPose`, `createVesselPose`, `PoseContext.{dockEast, dockWest, lineLen, groundAt}`, `apronLift`, `sharedVesselPose`, `emitVesselPose`, `onVesselPose`, `useVesselPose`, `seatAnchors`, `haulerStationX`, `haulerZ`, `buildVessel`, `TRI_BUDGET`, `vesselSuite`, `bounds`, `WOOD`, `STEEL`, `woodTone`, `plankApron`, `bittXZ`, `BITT_H`, `vesselMaterials`, `canvasTexture`, `anconTiming`, `spanSag`, `writeSpan`, `writeRopeLine`, `writeTube`, `tubeIndex`, `ropeRig`, `shoreRopePost`, `upstreamSide`, `guideLocal`, `mooringLocal`, `cleatLocal`, `POLE_LEN`, `buildPole`, `RopeSet`, `poseFigure`, `proportions`, `solveTwoBone`, `segmentMatrix`, `ZERO_MATRIX`, `dressFigure`, `FigureBatch`, `PER_KIND`, `castActors`, `actorFrame`, `CrewSet`, `writeWake`, `WAKE_REF`, `wakeUniforms`, `updateWakeUniforms`, `clearWakeUniforms`, `rideYaw`, `rideView`, `carryCamera`, `clampAboveGround`, `stepEra`, `withEra`, `shiftTime`, `KeyedCache`, `placementKey`.
