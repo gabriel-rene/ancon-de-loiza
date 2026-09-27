@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { VesselMaterialId } from './vessels/common';
-import { paintPlanks } from './textures';
+import { paintPlanks, paintSteel } from './textures';
 
 let cache: Record<VesselMaterialId, THREE.MeshStandardMaterial> | null = null;
 export const canvasTexture = (c: HTMLCanvasElement) => {
@@ -12,7 +12,7 @@ export const canvasTexture = (c: HTMLCanvasElement) => {
 export function vesselMaterials() {
   cache ??= {
     wood: new THREE.MeshStandardMaterial({ map: canvasTexture(paintPlanks()), vertexColors: true, roughness: 0.88 }),
-    steel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.3 }),   // Task 4 adds its painted map
+    steel: new THREE.MeshStandardMaterial({ map: canvasTexture(paintSteel()), vertexColors: true, roughness: 0.62, metalness: 0.3 }),
     iron: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.5 }),   // colour: WOOD.iron (vertex)
   };
   return cache;

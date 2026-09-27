@@ -115,3 +115,78 @@ export function paintPlanks(): HTMLCanvasElement {
 
   return c;
 }
+
+/**
+ * Painted steel plate detail map, 1024 × 1024 = TEX_M × TEX_M metres. Light neutral fill so the
+ * STEEL vertex colours carry the tone: mottled paint wear, rust drip streaks running down canvas v
+ * (half start on two plate-edge lines per tile), pitting and a few bright scratches.
+ */
+export function paintSteel(): HTMLCanvasElement {
+  const c = canvas(SIZE, SIZE), g = c.getContext('2d')!;
+  const r = cellRng(0, 0, 7202);
+  g.fillStyle = '#c9c9c2';
+  g.fillRect(0, 0, SIZE, SIZE);
+
+  // Mottled paint wear: soft darker and lighter blotches.
+  for (let i = 0; i < 400; i++) {
+    const x = r() * SIZE, y = r() * SIZE, rad = 12 + 90 * r(), a = 0.04 + 0.06 * r();
+    const rgb = r() < 0.55 ? '70,68,62' : '245,245,240';
+    wrapped(g, () => {
+      const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+      grad.addColorStop(0, `rgba(${rgb},${a.toFixed(3)})`); grad.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = grad; g.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
+    });
+  }
+
+  // Broad faint rust washes (rain carrying rust down the plate).
+  for (let i = 0; i < 30; i++) {
+    const x = r() * SIZE, y = r() * SIZE, w = 20 + 40 * r(), len = 100 + 200 * r(), a = 0.05 + 0.05 * r();
+    wrapped(g, () => {
+      const grad = g.createLinearGradient(x, y, x, y + len);
+      grad.addColorStop(0, 'rgba(138,74,34,0)'); grad.addColorStop(0.25, `rgba(138,74,34,${a.toFixed(3)})`); grad.addColorStop(1, 'rgba(138,74,34,0)');
+      g.fillStyle = grad;
+      g.beginPath(); g.ellipse(x, y + len / 2, w / 2, len / 2, 0, 0, 2 * Math.PI); g.fill();
+    });
+  }
+  // Rust drips: run down canvas v (down the hull: plates map v upward), tapering and wandering, from a
+  // source; half of them start on the two plate-edge lines per tile (rows 0.15 and 0.65 fall on the
+  // hull's deck edge at y ≈ 0.7 m and 1.7 m).
+  const edges = [SIZE * 0.15, SIZE * 0.65];
+  for (let i = 0; i < 120; i++) {
+    const x = r() * SIZE, y = i % 2 === 0 ? edges[i % 4 === 0 ? 0 : 1] + 4 * r() : r() * SIZE;
+    const w = 2 + 3 * r(), len = 30 + 170 * r(), a = 0.15 + 0.3 * r(), ph = r() * 6.3, amp = 0.5 + 1.5 * r();
+    const pts: [number, number][] = [];
+    for (let s = 0; s <= 12; s++) { const t = s / 12; pts.push([x + amp * Math.sin(ph + t * 5) * t, y + t * len]); }
+    wrapped(g, () => {
+      const grad = g.createLinearGradient(x, y, x, y + len);
+      grad.addColorStop(0, `rgba(138,74,34,${a.toFixed(3)})`); grad.addColorStop(0.4, `rgba(138,74,34,${(a * 0.6).toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(138,74,34,0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      pts.forEach(([px, py], k) => { const hw = (w / 2) * (1 - 0.7 * (k / 12)); if (k === 0) g.moveTo(px - hw, py); else g.lineTo(px - hw, py); });
+      for (let k = 12; k >= 0; k--) { const [px, py] = pts[k], hw = (w / 2) * (1 - 0.7 * (k / 12)); g.lineTo(px + hw, py); }
+      g.closePath(); g.fill();
+    });
+  }
+  // Rust along the plate-edge lines themselves (the seam weeps where the paint cracked).
+  for (const ey of edges) for (let i = 0; i < 40; i++) {
+    const x = r() * SIZE, w = 10 + 50 * r(), a = 0.08 + 0.12 * r(), h = 2 + 2 * r();
+    wrapped(g, () => { g.fillStyle = `rgba(120,62,28,${a.toFixed(3)})`; g.fillRect(x, ey - 1, w, h); });
+  }
+
+  // Pitting: one-pixel dark pits.
+  for (let i = 0; i < 3000; i++) {
+    const x = Math.floor(r() * SIZE), y = Math.floor(r() * SIZE), a = 0.2 + 0.4 * r();
+    g.fillStyle = `rgba(52,44,38,${a.toFixed(3)})`; g.fillRect(x, y, 1, 1);
+  }
+
+  // A few bright scratches (bare steel through the paint).
+  for (let i = 0; i < 24; i++) {
+    const x = r() * SIZE, y = r() * SIZE, len = 20 + 80 * r(), ang = r() * Math.PI;
+    wrapped(g, () => {
+      g.strokeStyle = 'rgba(250,250,245,0.25)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + len * Math.cos(ang), y + len * Math.sin(ang)); g.stroke();
+    });
+  }
+  return c;
+}

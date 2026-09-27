@@ -103,13 +103,16 @@ export const WOOD = {
   strake: new THREE.Color(0x7d7263), tar: new THREE.Color(0x221d19), iron: new THREE.Color(0x2b2826),
 };
 /**
- * Steel pontoon paint. In linear space: FOUL (g/r ≈ 1.8) is greener than SHELL (g/r ≈ 1.4), the
- * side-panel base; RUST (luminance ≈ 0.02) is darker than SHELL (≈ 0.065) and DECK, so lerping
- * toward RUST darkens — the idle 1986 barge (more rust) is darker than the working 1984 one.
+ * Steel pontoon paint (sRGB hex → linear). The painted map multiplies these by ≈ 0.55, so they are
+ * set light enough to survive it: weathered grey-green topside paint, a worn grey deck. In linear
+ * space FOUL (g/r ≈ 1.33, luminance ≈ 0.08) is greener and darker than SHELL (g/r ≈ 1.24, ≈ 0.24),
+ * the side-panel base; RUST (≈ 0.07) is darker than SHELL and DECK, so lerping toward RUST darkens —
+ * the idle 1986 barge (more rust) is darker than the working 1984 one. WELD is the recessed core seen
+ * through plate seams (painted dark: the shadow map cannot resolve a 10 cm recess).
  */
 export const STEEL = {
-  deck: new THREE.Color(0x6f746c), shell: new THREE.Color(0x3f4a4c), rust: new THREE.Color(0x3a2618),
-  foul: new THREE.Color(0x34461f), antifoul: new THREE.Color(0x5a2a22),
+  deck: new THREE.Color(0x7f8078), shell: new THREE.Color(0x7d8a86), rust: new THREE.Color(0x6b3f22),
+  foul: new THREE.Color(0x4a5530), antifoul: new THREE.Color(0x5a2a22), weld: new THREE.Color(0x2a2520),
 };
 
 /** A tone between `base` and a random partner (weathering / sun bleaching), deterministic in `r`. */
