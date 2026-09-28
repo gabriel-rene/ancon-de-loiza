@@ -89,4 +89,41 @@ scene renders without console errors; the cane meshes use the same shared wind-s
 (`makePlantMaterials`) already exercised by every other foliage type, so sway wasn't re-verified
 pixel-by-pixel beyond confirming no errors.
 
+**Task 6, review round 2: per-corner jitter reverted; staircase fixed at the raster instead**
+
+Round 1's per-grid-corner x/z jitter (±3 m, meant to break up the field boundary's 10 m
+staircase and give the neon-flat colour some macro variation) broke mesh watertightness: merged
+top-row quads and merged wall runs only carry jitter offsets at their *own* end corners, so a
+neighbouring row's or wall's vertices at a different merged span landed at a different offset for
+what should be the same shared edge — visible as thin light crack lines through field interiors
+and wall faces in `cane_1900_tuned.png`'s round-1 successors. Reverted entirely: removed
+`cornerOffset`/`cornerXZ` and its test from `caneMesh.ts`/`caneMesh.test.ts`; `buildCaneGeometry`
+is back to Task 5's exact-grid-corner positions (fully watertight, `wall()` takes raw world
+coordinates again, not grid indices). Kept the per-vertex colour (`caneTint`: per-field rank +
+low-frequency world mottle) — that part of round 1 was correct and wasn't implicated in the
+cracking.
+
+The staircase itself is now addressed at the source, in `caneFields.ts`: `CANE_CELL` 10 → 5 m,
+so a diagonal field boundary's steps are half as large. To keep the lane width from also halving
+(spec: 6–10 m lanes), lane detection no longer scales with `CANE_CELL/2`; it uses a new,
+independent `LANE_HALF = 4` m constant. `MIN_CELLS` (the scrap-drop threshold) is now derived
+from a `MIN_AREA = 2000` m² constant divided by the (now smaller) cell area, giving `MIN_CELLS =
+80` at `CANE_CELL = 5` — the same 2000 m² floor as before, just expressed in more, smaller cells.
+Road dilation doubled from 1 to 2 cells, keeping it at the same ~10 m absolute clearance now that
+cells are half as wide.
+
+Real-layout numbers at the new cell size: **96 fields** (was 96 at the 10 m grid too, coincidentally
+— well inside the 30–120 test range), **21,818 triangles** (9,022 top + 12,796 side) for all
+fields shown — up from Task 5's 10,650 at the 10 m grid (roughly double, as expected: the finer
+raster roughly doubles the row/column count merged-quad boundaries run along, in each axis), but
+still only 36.4% of the 60,000-triangle budget.
+
+`caneFields.test.ts`'s `f.cells >= 20` assertion now reads `f.cells >= MIN_CELLS` (imported,
+rather than re-hardcoding the new threshold); the "uses 10 m cells" test title was renamed since
+it no longer describes a fixed value (the assertion itself always compared against the exported
+`CANE_CELL` constant, so it never actually hardcoded 10 and needed no logic change). The lane
+test ("no two 4-neighbour cells belong to different fields") and the `tiny()` fixture in
+`caneMesh.test.ts` (its own hardcoded synthetic 4×4/10 m grid, independent of `CANE_CELL`) needed
+no changes and still pass.
+
 ## Deferred

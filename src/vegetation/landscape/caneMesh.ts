@@ -6,23 +6,6 @@ export const CANE_FRINGE = 0.6;
 export const CANE_SINK = 0.3;
 export const CANE_TOP_TILE = 4, CANE_SIDE_TILE = 2.5;
 
-const CORNER_JITTER = 3, CORNER_SEED = 4201;
-/**
- * Deterministic ± CORNER_JITTER (metres) world-space offset for one grid corner (i, j), shared by
- * every vertex — top or wall — that sits at that corner, so the mesh stays watertight while the
- * raw 10 m field raster loses its dead-straight edges and regular staircase diagonals.
- */
-function cornerOffset(i: number, j: number): [number, number] {
-  const dx = (hash3(i, j, CORNER_SEED) / 4294967296 - 0.5) * 2 * CORNER_JITTER;
-  const dz = (hash3(i, j, CORNER_SEED + 1) / 4294967296 - 0.5) * 2 * CORNER_JITTER;
-  return [dx, dz];
-}
-/** World (x, z) of grid corner (i, j), jittered by `cornerOffset`. */
-const cornerXZ = (minX: number, minZ: number, c: number, i: number, j: number): [number, number] => {
-  const [dx, dz] = cornerOffset(i, j);
-  return [minX + i * c + dx, minZ + j * c + dz];
-};
-
 /** Smooth value noise in [0, 1] on a `scale`-metre lattice (bilinear, deterministic in `seed`). */
 function fieldNoise(x: number, z: number, scale: number, seed: number): number {
   const fx = x / scale, fz = z / scale, i = Math.floor(fx), j = Math.floor(fz);
@@ -54,15 +37,16 @@ function caneTint(rank: number, x: number, z: number): [number, number, number] 
  * follow `heightAt`). Sides: each straight run of boundary edges (a shown cell next to a cell that
  * is not the same shown field) becomes one wall from CANE_SINK below the ground to CANE_FRINGE
  * above the top, facing out; the side texture's alpha-cut leaf tips make that top edge ragged.
- * Every vertex is displaced in x/z by `cornerOffset` of its grid corner (shared between the top
- * and any wall meeting there, so the mesh stays watertight) and coloured by `caneTint`.
+ * Merged runs share their exact grid-corner positions (no per-vertex displacement), so the top and
+ * every wall meeting it stay watertight; each vertex is coloured by `caneTint`. The raw 10 m-grid
+ * staircase this leaves on field boundaries is broken up at the source instead, by cutting
+ * `caneLayout` on a finer cell (`CANE_CELL`, phase 2c review round 2).
  */
 export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number, z: number) => number) {
   const { size: n, cell: c, minX, minZ } = layout.grid;
   const id = (i: number, j: number) => (i < 0 || j < 0 || i >= n || j >= n || !shown[j * n + i] ? -1 : layout.field[j * n + i]);
   const hOf = (f: number) => layout.fields[f].height;
   const rankOf = (f: number) => layout.fields[f].rank;
-  const corner = (i: number, j: number) => cornerXZ(minX, minZ, c, i, j);
 
   const tp: number[] = [], tn: number[] = [], tu: number[] = [], tf: number[] = [], tc: number[] = [], ti: number[] = [];
   for (let j = 0; j < n; j++) {
@@ -72,9 +56,9 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
       if (f < 0) { i++; continue; }
       let e = i + 1;
       while (e < n && id(e, j) === f) e++;
-      const h = hOf(f), rank = rankOf(f), b = tp.length / 3;
-      for (const [ci, cj] of [[i, j], [e, j], [i, j + 1], [e, j + 1]] as const) {
-        const [x, z] = corner(ci, cj), col = caneTint(rank, x, z);
+      const xa = minX + i * c, xb = minX + e * c, za = minZ + j * c, zb = za + c, h = hOf(f), rank = rankOf(f), b = tp.length / 3;
+      for (const [x, z] of [[xa, za], [xb, za], [xa, zb], [xb, zb]]) {
+        const col = caneTint(rank, x, z);
         tp.push(x, heightAt(x, z) + h, z); tn.push(0, 1, 0); tu.push(x / CANE_TOP_TILE, z / CANE_TOP_TILE); tf.push(0.35);
         tc.push(...col);
       }
@@ -84,10 +68,8 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
   }
 
   const sp: number[] = [], sn: number[] = [], su: number[] = [], sf: number[] = [], sc: number[] = [], si: number[] = [];
-  /** One wall between grid corners (ia, ja)–(ib, jb) with outward normal (nx, nz), for field `f`. */
-  const wall = (ia: number, ja: number, ib: number, jb: number, nx: number, nz: number, f: number) => {
-    const h = hOf(f), rank = rankOf(f);
-    const [xa, za] = corner(ia, ja), [xb, zb] = corner(ib, jb);
+  /** One wall from (xa, za) to (xb, zb) with outward normal (nx, nz), for field height h. */
+  const wall = (xa: number, za: number, xb: number, zb: number, nx: number, nz: number, h: number, rank: number) => {
     const len = Math.hypot(xb - xa, zb - za), b = sp.length / 3;
     for (const [x, z, u] of [[xa, za, 0], [xb, zb, len / CANE_SIDE_TILE]] as const) {
       const g = heightAt(x, z), col = caneTint(rank, x, z);
@@ -101,27 +83,27 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
   };
   // Edges along x (north/south faces), merged per row.
   for (const [dj, nz] of [[-1, -1], [1, 1]] as const) for (let j = 0; j < n; j++) {
-    const jc = dj < 0 ? j : j + 1;
+    const z = minZ + (dj < 0 ? j : j + 1) * c;
     let i = 0;
     while (i < n) {
       const f = id(i, j);
       if (f < 0 || id(i, j + dj) === f) { i++; continue; }
       let e = i + 1;
       while (e < n && id(e, j) === f && id(e, j + dj) !== f) e++;
-      wall(i, jc, e, jc, 0, nz, f);
+      wall(minX + i * c, z, minX + e * c, z, 0, nz, hOf(f), rankOf(f));
       i = e;
     }
   }
   // Edges along z (west/east faces), merged per column.
   for (const [di, nx] of [[-1, -1], [1, 1]] as const) for (let i = 0; i < n; i++) {
-    const ic = di < 0 ? i : i + 1;
+    const x = minX + (di < 0 ? i : i + 1) * c;
     let j = 0;
     while (j < n) {
       const f = id(i, j);
       if (f < 0 || id(i + di, j) === f) { j++; continue; }
       let e = j + 1;
       while (e < n && id(i, e) === f && id(i + di, e) !== f) e++;
-      wall(ic, j, ic, e, nx, 0, f);
+      wall(x, minZ + j * c, x, minZ + e * c, nx, 0, hOf(f), rankOf(f));
       j = e;
     }
   }

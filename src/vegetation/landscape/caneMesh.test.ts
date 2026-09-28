@@ -47,23 +47,4 @@ describe('buildCaneGeometry', () => {
     expect(tris(g.top) + tris(g.sides)).toBeLessThanOrEqual(60_000);
     expect(tris(g.top)).toBeGreaterThan(0);
   });
-  test('shared grid corners get identical x/z offsets (top and walls stay watertight)', () => {
-    // Every vertex is displaced from its raw (i × cell, j × cell) grid corner by < CANE_CELL / 2,
-    // so the corner it belongs to can be recovered by rounding — group by that and check every
-    // vertex sharing a corner (within one mesh or across top/sides) landed at the same x/z.
-    const cell = L.grid.cell, seen = new Map<string, [number, number]>();
-    const check = (attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute) => {
-      for (let k = 0; k < attr.count; k++) {
-        const x = attr.getX(k), z = attr.getZ(k);
-        const key = `${Math.round(x / cell)},${Math.round(z / cell)}`;
-        const prev = seen.get(key);
-        if (prev) { expect(x).toBeCloseTo(prev[0], 9); expect(z).toBeCloseTo(prev[1], 9); }
-        else seen.set(key, [x, z]);
-      }
-    };
-    check(top.getAttribute('position'));
-    check(sides.getAttribute('position'));
-    // Sanity: corners are actually jittered off the raw grid, not coincidentally exact.
-    expect([...seen.values()].some(([x, z]) => Math.abs(x % cell) > 1e-6 || Math.abs(z % cell) > 1e-6)).toBe(true);
-  });
 });

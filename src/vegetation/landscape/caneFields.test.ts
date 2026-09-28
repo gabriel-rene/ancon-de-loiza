@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import geo from '../../data/geo/loiza.json';
 import type { GeoBundle, XZ } from '../../data/geo/types';
-import { CANE_CELL, caneLayout, inCane, shownMask } from './caneFields';
+import { CANE_CELL, caneLayout, inCane, MIN_CELLS, shownMask } from './caneFields';
 
 const G = geo as unknown as GeoBundle;
 const pip = (r: XZ[], x: number, z: number) => {
@@ -19,7 +19,7 @@ const centre = (k: number) => {
 };
 
 describe('caneLayout', () => {
-  test('uses 10 m cells and is deterministic', () => {
+  test('uses CANE_CELL-metre cells and is deterministic', () => {
     expect(L.grid.cell).toBe(CANE_CELL);
     expect(caneLayout(G).field).toEqual(L.field);
   });
@@ -27,7 +27,7 @@ describe('caneLayout', () => {
     expect(L.fields.length).toBeGreaterThanOrEqual(30);
     expect(L.fields.length).toBeLessThanOrEqual(120);
     for (const f of L.fields) {
-      expect(f.cells).toBeGreaterThanOrEqual(20);
+      expect(f.cells).toBeGreaterThanOrEqual(MIN_CELLS);
       expect(f.rank).toBeGreaterThanOrEqual(0); expect(f.rank).toBeLessThan(1);
       expect(f.height).toBeGreaterThanOrEqual(2.5); expect(f.height).toBeLessThanOrEqual(3.5);
     }

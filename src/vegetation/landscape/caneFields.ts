@@ -5,14 +5,24 @@ import { hash3 } from '../rng';
 /*
  * Sugar-cane fields (phase 2c, spec §2–§3). The OSM grassland — open, inland, on the Torrecilla /
  * Carolina side, where the Iturregui cane land lay [S1] — is cut by a jittered grid of field
- * boundaries (~220 m pitch, ±50 m) into fields on a 10 m cell grid. Cells on a boundary line are
- * cart lanes. Water, roads (+1 cell) and scraps under 20 cells are dropped. Each field has a fixed
- * random rank; an era shows the fields whose rank < its cane share, so the era sets nest and no
- * field moves between eras. Depends only on the geo bundle, never on the quality tier.
+ * boundaries (~220 m pitch, ±50 m) into fields on a 5 m cell grid. A cell within LANE_HALF metres
+ * of a boundary line is a cart lane. Water, roads (+2 cells) and scraps under MIN_CELLS (2000 m²)
+ * are dropped. Each field has a fixed random rank; an era shows the fields whose rank < its cane
+ * share, so the era sets nest and no field moves between eras. Depends only on the geo bundle,
+ * never on the quality tier.
  */
 
-export const CANE_CELL = 10;
-const PITCH = 220, JITTER = 50, MIN_CELLS = 20, SEED = 1900;
+export const CANE_CELL = 5;
+const PITCH = 220, JITTER = 50, SEED = 1900;
+/** Half-width (m) of a boundary line's cart lane: a cell whose centre falls within this of a
+ * jittered boundary line is a lane, not field — independent of CANE_CELL, so halving the cell
+ * size sharpens the field raster without widening the lanes it cuts (spec: 6–10 m lanes). */
+const LANE_HALF = 4;
+/** Minimum field area (m²) to keep (drops raster scraps); MIN_CELLS follows from CANE_CELL. */
+const MIN_AREA = 2000;
+export const MIN_CELLS = Math.round(MIN_AREA / (CANE_CELL * CANE_CELL));
+/** Road dilation, in cells (2 × 5 m = 10 m either way): how far from a road centreline cane is kept clear. */
+const ROAD_DILATE = 2;
 const u01 = (i: number, j: number, s: number) => hash3(i, j, s) / 4294967296;
 
 export interface CaneField { rank: number; height: number; cells: number }
@@ -33,7 +43,7 @@ export function caneLayout(geo: GeoBundle): CaneLayout {
   for (const r of geo.roads) if (!r.bridge) drawPolyline(grid, road, r.points, 1);
   for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
     if (!road[j * size + i]) continue;
-    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+    for (let dj = -ROAD_DILATE; dj <= ROAD_DILATE; dj++) for (let di = -ROAD_DILATE; di <= ROAD_DILATE; di++) {
       const a = i + di, b = j + dj;
       if (a >= 0 && b >= 0 && a < size && b < size) ok[b * size + a] = 0;
     }
@@ -44,7 +54,7 @@ export function caneLayout(geo: GeoBundle): CaneLayout {
   const lines = (axis: number, min: number) => Array.from({ length: K + 1 }, (_, k) => min + k * PITCH + (2 * u01(k, axis, SEED) - 1) * JITTER);
   const xs = lines(0, grid.minX), zs = lines(1, grid.minZ);
   const band = (ls: number[], v: number) => { let k = 0; while (k + 1 < ls.length && ls[k + 1] <= v) k++; return k; };
-  const onLine = (ls: number[], v: number, k: number) => Math.abs(v - ls[k]) < CANE_CELL / 2 || (k + 1 < ls.length && Math.abs(ls[k + 1] - v) < CANE_CELL / 2);
+  const onLine = (ls: number[], v: number, k: number) => Math.abs(v - ls[k]) < LANE_HALF || (k + 1 < ls.length && Math.abs(ls[k + 1] - v) < LANE_HALF);
 
   const field = new Int32Array(N).fill(-1);
   const index = new Map<number, number>(), fields: CaneField[] = [];
