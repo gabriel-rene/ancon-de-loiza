@@ -14,6 +14,7 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
     fragmentShader: /* glsl */ `
       uniform sampler2D uInfo; uniform vec4 uRect;
       uniform sampler2D uLitter; uniform vec4 uLitterRect;
+      uniform sampler2D uCover; uniform vec4 uCoverRect;
       uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunI;
       varying vec3 vW; varying vec3 vNw;
       ${SNOISE_GLSL}
@@ -39,6 +40,16 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         float litter = texture2D(uLitter, lu).r * inL * (1.0 - m.g);
         vec3 needles = mix(vec3(0.13,0.075,0.04), vec3(0.21,0.13,0.07), n2) * mix(0.85, 1.1, n3);
         c = mix(c, needles, 0.85 * litter);
+        // Far ground cover: same habitat weights as the near clumps, tinted in past their radius.
+        vec2 cu = (vW.xz - uCoverRect.xy) / uCoverRect.z;
+        float inC = step(0.0, cu.x) * step(cu.x, 1.0) * step(0.0, cu.y) * step(cu.y, 1.0);
+        vec4 cov = texture2D(uCover, cu) * inC;
+        vec3 vine = mix(vec3(0.10,0.20,0.05), vec3(0.16,0.27,0.07), n3);
+        float vineP = cov.b * smoothstep(0.45, 0.7, snoise(vW.xz * 0.35) * 0.5 + 0.5);   // patches on the sand
+        c = mix(c, vine, 0.8 * vineP);
+        vec3 reed = mix(vec3(0.12,0.17,0.05), vec3(0.20,0.22,0.09), n2);
+        c = mix(c, reed, 0.6 * cov.g * (1.0 - m.r));
+        c *= mix(1.0, mix(0.92, 1.06, n3), cov.r);                                        // grass: slight tuft mottling
         float wet = 1.0 - smoothstep(0.05, 0.7, vW.y);
         c *= mix(1.0, 0.5, wet);
         float slope = 1.0 - clamp(vNw.y, 0.0, 1.0);

@@ -4,9 +4,10 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
-import { groundUniforms, NO_LITTER } from '../scene/groundUniforms';
+import { groundUniforms, NO_COVER, NO_LITTER } from '../scene/groundUniforms';
 import type { WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
+import { coverMap } from './coverMap';
 import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
@@ -114,6 +115,22 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       tex.dispose();
     };
   }, [sets, near]);
+
+  // Far ground-cover tint: matches the near clumps' habitat rule beyond their placement radius.
+  useEffect(() => {
+    const g = pf.grid, ext = g.cell * g.size, size = 256;
+    const data = coverMap(pf, masksFor(pf), groundDens, size);
+    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.needsUpdate = true;
+    groundUniforms.uCover.value = tex;
+    groundUniforms.uCoverRect.value.set(g.minX, g.minZ, ext, 0);
+    return () => {
+      if (groundUniforms.uCover.value === tex) groundUniforms.uCover.value = NO_COVER;
+      tex.dispose();
+    };
+  }, [pf, groundDens]);
 
   return <>
     {PLACEMENT_ORDER.map((id) => {

@@ -25,7 +25,7 @@ export class Occupancy {
   mark(x: number, z: number, r: number) { this.each(x, z, r, (k) => { this.cells[k] = 1; }); }
 }
 
-function siteAt(f: WorldFields, m: VegMasks, x: number, z: number): Site | null {
+export function siteAt(f: WorldFields, m: VegMasks, x: number, z: number): Site | null {
   const g = f.grid, i = Math.floor((x - g.minX) / g.cell), j = Math.floor((z - g.minZ) / g.cell);
   if (i < 0 || j < 0 || i >= g.size || j >= g.size) return null;
   const k = j * g.size + i;
