@@ -17,7 +17,10 @@ export interface SpeciesRule {
    */
   clump: { scale: number; strength: number;
     /** Instance scale × (1 + size·(2n − 1)): taller plants in the heart of a grove, a rolling canopy line. */
-    size: number };
+    size: number;
+    /** When set, a second value-noise lattice at scale/3 multiplies into the first octave, breaking up any
+     * residual regularity from a single lattice (groups of groups instead of one clean blob shape). */
+    octave?: number };
   /** Habitat suitability 0..1 at a site. */ density(s: Site): number;
   /** Trunk radius (m) that ground cover must not overlap; default 0.5. */
   trunk?: number;
@@ -43,7 +46,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards.
   coconut: {
-    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 45, strength: 0.8, size: 0 },
+    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 160, strength: 1, size: 0.08, octave: 1 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3 || s.landCls === LANDCLS.WETLAND) return 0;
       const coast = s.seaDist > 12 ? 1 - smooth(180, 320, s.seaDist) : 0;
@@ -63,7 +66,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Avicennia germinans: basin mangrove behind the red fringe, low wet ground (research §5, S22/S34).
   blackMangrove: {
-    spacing: 4, radius: 1.8, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 40, strength: 0.5, size: 0.2 }, trunk: 0.4,
+    spacing: 4, radius: 1.8, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 55, strength: 1, size: 0.2, octave: 1 }, trunk: 0.4,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);
@@ -74,7 +77,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Laguncularia racemosa: basin mangrove behind the red fringe, mixed with black mangrove but nearer the fringe (research §5, S22/S34).
   whiteMangrove: {
-    spacing: 4, radius: 1.6, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 30, strength: 0.55, size: 0.2 }, trunk: 0.35,
+    spacing: 4, radius: 1.6, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 40, strength: 0.9, size: 0.2, octave: 1 }, trunk: 0.35,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);

@@ -15,16 +15,64 @@ const at = (arr: Float32Array | Uint8Array, x: number, z: number) => {
   return arr[j * f.grid.size + i];
 };
 
+/**
+ * Mean nearest-neighbour distance ÷ the value expected for a fully random pattern of the same
+ * density (0.5/√density): R ≈ 1 random, < 1 clustered (groups and gaps), > 1 evenly spaced
+ * (a planted-looking grid). O(n²); callers should pass a bounded subset for large species.
+ */
+function clarkEvansR(p: { x: number; z: number }[]) {
+  let sum = 0;
+  for (const a of p) { let d = Infinity; for (const b of p) if (a !== b) d = Math.min(d, Math.hypot(a.x - b.x, a.z - b.z)); sum += d; }
+  const xs = p.map((q) => q.x), zs = p.map((q) => q.z);
+  const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs));
+  return (sum / p.length) / (0.5 / Math.sqrt(p.length / area));
+}
+
+/**
+ * A fixed 650 m square centred on the species' own instances' centroid — big enough to span
+ * several clumps (so real gaps show up as reduced R, not just a bounding-box artefact) and small
+ * enough to keep the O(n²) Clark–Evans loop under a second for species with thousands of
+ * instances across the whole 2560 m map. Uses the subset's own bounding box for its area.
+ */
+function centroidWindow<T extends { x: number; z: number }>(p: T[], size = 650): T[] {
+  const xs = p.map((q) => q.x), zs = p.map((q) => q.z);
+  const cx = xs.reduce((a, b) => a + b, 0) / xs.length, cz = zs.reduce((a, b) => a + b, 0) / zs.length;
+  return p.filter((q) => Math.abs(q.x - cx) < size / 2 && Math.abs(q.z - cz) < size / 2);
+}
+
 describe('placement', () => {
-  const all = placeAll(f, m, { redMangrove: 1, coconut: 1, casuarina: 1 }, 7);
+  const all = placeAll(f, m, { redMangrove: 1, coconut: 1, casuarina: 1, blackMangrove: 1, whiteMangrove: 1 }, 7);
 
   test('deterministic', () => {
-    expect(placeAll(f, m, { redMangrove: 1, coconut: 1, casuarina: 1 }, 7)).toEqual(all);
+    expect(placeAll(f, m, { redMangrove: 1, coconut: 1, casuarina: 1, blackMangrove: 1, whiteMangrove: 1 }, 7)).toEqual(all);
   });
   test('plausible counts on the real map', () => {
     expect(all.redMangrove.length).toBeGreaterThan(400);
     expect(all.coconut.length).toBeGreaterThan(300);
     expect(all.casuarina.length).toBeGreaterThan(150);
+  });
+  test('palms stand in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
+    const R = clarkEvansR(centroidWindow(all.coconut));
+    expect(R).toBeLessThan(0.8);
+  });
+  // R8: black mangrove reads as even rows up close too ("orchard" look); white mangrove shares
+  // its rule shape, so the same clumping fix applies to both (task-9-report.md).
+  test('black mangrove stands in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
+    const R = clarkEvansR(centroidWindow(all.blackMangrove));
+    expect(R).toBeLessThan(0.8);
+  });
+  test('white mangrove stands in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
+    const R = clarkEvansR(centroidWindow(all.whiteMangrove));
+    expect(R).toBeLessThan(0.8);
+  });
+  test('clumping fix keeps counts within ±25% of pre-task-9 tuning', () => {
+    // Baselines: coconut 3605, blackMangrove 5580, whiteMangrove 1898 (task-9-report.md).
+    expect(all.coconut.length).toBeGreaterThan(3605 * 0.75);
+    expect(all.coconut.length).toBeLessThan(3605 * 1.25);
+    expect(all.blackMangrove.length).toBeGreaterThan(5580 * 0.75);
+    expect(all.blackMangrove.length).toBeLessThan(5580 * 1.25);
+    expect(all.whiteMangrove.length).toBeGreaterThan(1898 * 0.75);
+    expect(all.whiteMangrove.length).toBeLessThan(1898 * 1.25);
   });
   test('mangroves hug the river, never the open coast', () => {
     for (const p of all.redMangrove) {

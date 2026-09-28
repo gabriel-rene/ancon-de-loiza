@@ -94,7 +94,7 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
   const rule = RULES[species], g = f.grid, sp = rule.spacing * (opts.spacingMul ?? 1), extent = g.cell * g.size;
   const n = Math.floor(extent / sp), out: PlantInstance[] = [];
   const salt = species.length * 7919 + species.charCodeAt(0), noiseSeed = opts.seed * 977 + salt;
-  const { scale: cs, strength: cstr, size: csize } = rule.clump;
+  const { scale: cs, strength: cstr, size: csize, octave } = rule.clump;
   const hab = habitat(f, m, species);
   const b = opts.bounds;
   const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
@@ -111,7 +111,8 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
     if (!s) continue;
     const d = rule.density(s) * opts.density * (1 - s.clear);
     if (d <= 0) continue;
-    const cn = valueNoise(x, z, cs, noiseSeed);
+    let cn = valueNoise(x, z, cs, noiseSeed);
+    if (octave) cn = Math.min(1, Math.max(0, cn * (0.6 + 0.8 * valueNoise(x, z, cs / 3, noiseSeed + 17))));
     if (accept >= d * (1 - cstr + 2 * cstr * cn)) continue;
     if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
     if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
