@@ -394,3 +394,36 @@ the spec's 3–6 range; all `plantation.test.ts` tests pass unchanged.
 - (Task 9) The 5 m staircase on diagonal field edges shows as lit vertical stripes on close
   walls. The wall texture u restarts on every merged run.
 - (Task 9) Pre-2c: flat-grey patch over a casuarina cluster at q=low.
+
+## Controller ledger (build session 2026-09-28)
+
+Rulings and deferred minors from the subagent-driven build, copied from the git-ignored ledger.
+
+- Ruling: T1 Step 1 skipped — controller already created the branch — none if wrong.
+- Ruling: T8 memo deps stay [key, near, far] — key already carries survival — stale farm palms after era switch if wrong (visible in T8 on-screen check).
+- Task 2: minor (deferred): eras.ts farm/age helpers have identical bodies (plan-mandated, cosmetic)
+- Task 3: Ruling: on-screen palm-age check (inconclusive from cam=bank) moved to Task 8's aerial check of the farm blocks and the Task 9 art gate — young farm palms stand in open rows there — if wrong, a palm-age art bug surfaces one task later
+- Task 3: minor (deferred): Vegetation.tsx speciesAssets comma-joined const (plan snippet)
+- Task 4: Ruling: cane layout does not test Site.clear — the landing clearings (≤40 m round the landings by the river) lie far from the grassland (x ≤ −579) — if wrong, cane could touch a landing; Task 6 visual check would show it
+- Task 4: minor (deferred): caneFields band() below first line edge case; key c*4096+r implicit bound
+- Task 5: minor (deferred): caneMesh.test sides aFlex toBeCloseTo where exact equality works; adjacent-field double wall impossible given lanes (Task 4 test)
+- Task 6: Ruling: file named CaneFieldsMesh.tsx (not CaneFields.tsx) — TS1149 case clash with caneFields.ts — none
+- Task 6: Ruling: woody plants must not grow inside shown cane (confirmed ⚠️: shrubs sit on cane tops in screenshots) — spec §2 puts cane on the grassland, a field has no trees — fix: placeAll skip + cane share in the placement key; cost if wrong: a few extra placement-cache entries
+- Task 6: minor (deferred): cane fields sway in lockstep (non-instanced wind phase = 0)
+- Task 6: minor (deferred): rulings note says 1935 shows grid lines; screenshot shows none
+- Task 6: minor (deferred): painter band magic numbers (70,120) vs CANE_FRINGE
+- Task 6: Ruling: drop the per-corner x/z jitter (cannot be watertight with merged runs within budget) and halve the staircase instead: CANE_CELL 10→5 m, MIN field area kept (MIN_CELLS 20→80), lanes as an 8 m band (centre within 4 m of a line → 5–10 m lanes, spec 6–10), road dilation 2 cells (10 m) — plan's 10 m cell was an art guess; spec fixes lanes 6–10 m, not the cell — cost if wrong: ~2× cane tris (est. ~21k, still < 60k) and a slower one-time layout
+- Task 6: Ruling: each field's top is flat at one y (mean ground over its cells + field height) so merged top edges are collinear by construction; wall top = that y + fringe, wall bottom = ground at run ends − 1.0 m (CANE_SINK 0.3→1.0) so long walls never float over bumps — the plain is 0–3 m, cane height already varies 2.5–3.5 m — cost if wrong: tops slightly off-level on sloped fields
+- Task 6: Ruling: LANE_HALF 4→5 so every lane is exactly two 5 m cells = 10 m (spec 6–10 m) — none
+- Task 6: minor (deferred): flat field tops make downhill walls tall (worst ~7.7 m, ground 5.06 m below a field mean) — check at Task 9 art gate
+- Task 7: minor (deferred): plantBlocks y not clamped like placeSpecies (Math.max(h,-0.3)); dry-land rule makes it moot
+- Task 9: Ruling: perf limit judged by the interleaved A/B (pre-2c 0006e08 vs 2c, same session): 2c within ±0.2 ms on every query/tier; the +2.6–2.9 ms vs the Task 1 table is machine drift (Photos analysis on GPU) — cost if wrong: an unseen 2c regression; final reviewer may ask for an idle-machine rerun
+- Task 9: Ruling: tall downhill cane walls — drop steep cells: a shown cell whose ground is more than 1.5 m below its field's mean ground is not cane (trimmed mask feeds both the mesh and inCane, so grass/woody skips match); cane is not planted on the riverbank drop — cost if wrong: a few fields lose their river edge
+- Task 9: minor (deferred): young palms near 3D vs far card look differ; 5 m staircase shows as lit stripes on close walls; q=low grey casuarina patch predates 2c
+- Task 9: Ruling: accept worst cane wall 6.3 m after the centre-based trim (was 7.8 m; ≤5 m was the controller's loose estimate; corner-based check deferred) — cost if wrong: ~3% of wall endpoints stand 0.7 m above cane-plus-bank height
+- Task 9: Ruling: the SHOWN cane mask may differ by a few cells per tier (trimSteep reads the tier's terrain); caneLayout itself stays tier-free — exception to the 'never on the tier' constraint — cost if wrong: a field edge differs by ≤ 1 % of cells between tiers
+- Task 9: minor (deferred): trimSteep uses pre-trim mean (rendered flat top can sit >1.5 m above kept cells); no real-layout worst-wall regression test; caneTint red channel up to ~1.45× (no clamp); LOD step visible in young farm palms (3D rosettes → olive cards)
+- Final review: I1 wet cane cells (Important); minors M1–M7; fact check flags C2/C3/C6 — Ruling: fix I1, M1–M4, M6 (spec note, no new shot), M7 and C2/C3/C6 in one wave; M5 (impostor rebake per era switch) deferred — cost if wrong: a short hitch on era switch
+- Ruling: C6 keep 1900 cane 'M' with the reason written (operation confirmed active pre-1920 by S1; share inferred) — cost if wrong: one confidence notch too high on an inferred value
+- Final review M5 (deferred): palm impostors re-bake on each era switch that changes palm age (no bake cache).
+- Out of scope (deferred): trimSteep doc still says "(phase 2c art gate)" / "~7.8 m"; real-layout cane test runtime not measured separately.
