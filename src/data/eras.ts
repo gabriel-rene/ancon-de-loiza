@@ -8,6 +8,17 @@ export type EraId = '1840' | '1900' | '1925' | '1935' | '1959' | '1975' | '1984'
 export type VesselKind = 'timberBarge' | 'plankPlatform' | 'woodPlatform' | 'steelPontoon';
 export type Propulsion = 'poles' | 'ropes' | 'moored';
 export type ClothingStyle = 'colonial' | 'earlyCentury' | 'midCentury' | 'modern';
+
+/** Era landscape (phase 2c, plants only). All values inferred; see spec 2c §2. */
+export interface Landscape {
+  /** Share (0..1) of the grassland cane fields shown, lowest rank first. */
+  cane: Sourced<number>;
+  /** Palm survival (0..1) in the coconut farm blocks; 0 = no farm blocks. */
+  plantation: Sourced<number>;
+  /** Palm age: 0 young (3–6 m), 0.5 half grown, 1 full grown. Wild and farm palms. */
+  palmAge: Sourced<number>;
+}
+
 export interface AnconEra {
   kind: Sourced<VesselKind>;
   /** Hull/deck length without the hinged end aprons, m. */
@@ -45,6 +56,7 @@ export interface Era {
     flow: Sourced<number>;
   };
   vegetation: Record<SpeciesId, Sourced<number>>;
+  landscape: Landscape;
   ancon: AnconEra;
 }
 
@@ -92,6 +104,23 @@ const VEG = {
   '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true), ALMOND),
 } satisfies Record<EraId, ReturnType<typeof veg>>;
 
+// Cane on the Iturregui estates, whose cane land reached Carolina; the ancón carried their cane
+// workers, late 1800s – early 1900s (S1, research §2.4, §5). The coast then shifted from sugar to
+// coconut (S23). Shares, block survival and palm ages are all inferred.
+const cane = (v: number, c: Confidence = 'L') => s(v, v > 0 ? ['S1'] : ['S1', 'S23'], c, true);
+const farm = (v: number) => s(v, ['S23'], 'L', true);
+const age = (v: number) => s(v, ['S23'], 'L', true);
+const LAND = {
+  '1840': { cane: cane(0.6), plantation: farm(0), palmAge: age(1) },
+  '1900': { cane: cane(1, 'M'), plantation: farm(1), palmAge: age(0) },
+  '1925': { cane: cane(0.3), plantation: farm(1), palmAge: age(0.5) },
+  '1935': { cane: cane(0), plantation: farm(1), palmAge: age(1) },
+  '1959': { cane: cane(0), plantation: farm(1), palmAge: age(1) },
+  '1975': { cane: cane(0), plantation: farm(0.85), palmAge: age(1) },
+  '1984': { cane: cane(0), plantation: farm(0.85), palmAge: age(1) },
+  '1986': { cane: cane(0), plantation: farm(0.85), palmAge: age(1) },
+} satisfies Record<EraId, Landscape>;
+
 // Clothing: research §7 is general Puerto Rican dress by period, [INFERRED] (L) — no ancón-specific source.
 const WEAR = (c: ClothingStyle) => s(c, [], 'L', true);
 const NO = (src: string[]) => s(false, src, 'H');
@@ -137,35 +166,35 @@ export const ERAS: Era[] = [
   { id: '1840', label: { es: 'Cruce colonial', en: 'Colonial crossing' }, years: { es: 'décadas de 1820–1890', en: '1820s–1890s' }, date: '1840-03-15',
     summary: s('An official ancón de pasaje, ordered in 1824, carries walkers, carts and animals across a fuller river on the camino real.', ['S3'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1840'], ancon: ANCON['1840'] },
+    vegetation: VEG['1840'], landscape: LAND['1840'], ancon: ANCON['1840'] },
   { id: '1900', label: { es: 'Era del azúcar', en: 'Sugar era' }, years: { es: 'décadas de 1900–1910', en: '1900s–1910s' }, date: '1905-04-09',
     summary: s('The Iturregui sugar family runs the crossing for cane workers. A wooden barge is poled across.', ['S1', 'S3'], 'M'),
     river: PRE_DAM,
-    vegetation: VEG['1900'], ancon: ANCON['1900'] },
+    vegetation: VEG['1900'], landscape: LAND['1900'], ancon: ANCON['1900'] },
   { id: '1925', label: { es: 'El ancón de los Cortijo', en: 'The Cortijo ancón' }, years: { es: 'década de 1920', en: '1920s' }, date: '1925-07-26',
     summary: s('Pedro Cortijo buys the ancón in 1920. A plank platform, two mangrove poles, 10 cents a crossing.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1925'], ancon: ANCON['1925'] },
+    vegetation: VEG['1925'], landscape: LAND['1925'], ancon: ANCON['1925'] },
   { id: '1935', label: { es: 'Las sogas', en: 'The ropes' }, years: { es: 'décadas de 1930–1940', en: '1930s–1940s' }, date: '1935-02-17',
     summary: s('Cars arrive. Two taut marine ropes span the river and two or three men haul the platform by hand.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1935'], ancon: ANCON['1935'] },
+    vegetation: VEG['1935'], landscape: LAND['1935'], ancon: ANCON['1935'] },
   { id: '1959', label: { es: 'Públicos', en: 'Públicos' }, years: { es: 'década de 1950', en: '1950s' }, date: '1959-08-02',
     summary: s('The platform grows. Shared taxis (públicos) cross. Upstream, the Carraízo dam tames the river.', ['S1', 'S4', 'S15'], 'M'),
     river: POST_DAM,
-    vegetation: VEG['1959'], ancon: ANCON['1959'] },
+    vegetation: VEG['1959'], landscape: LAND['1959'], ancon: ANCON['1959'] },
   { id: '1975', label: { es: 'Paseos de fin de semana', en: 'Weekend outings' }, years: { es: 'décadas de 1960–1970', en: '1960s–1970s' }, date: '1975-07-27',
     summary: s('Families cross for the day. The Cortijo bar has a terrace over the river. About six cars per trip.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1975'], ancon: ANCON['1975'] },
+    vegetation: VEG['1975'], landscape: LAND['1975'], ancon: ANCON['1975'] },
   { id: '1984', label: { es: 'La barcaza de acero', en: 'The steel barge' }, years: { es: '1980–1986', en: '1980–1986' }, date: '1984-02-17',
     summary: s('A steel-plate barge carries six to eight cars. Next door, the PR-187 bridge rises.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1984'], ancon: ANCON['1984'] },
+    vegetation: VEG['1984'], landscape: LAND['1984'], ancon: ANCON['1984'] },
   { id: '1986', label: { es: 'El puente', en: 'The bridge' }, years: { es: '1986', en: '1986' }, date: '1986-02-17',
     summary: s('The Puente de la Restauración opened in 1985. Regular ancón service ends in 1986.', ['S1', 'S4', 'S27'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1986'], ancon: ANCON['1986'] }
+    vegetation: VEG['1986'], landscape: LAND['1986'], ancon: ANCON['1986'] }
 ];
 
 export const ERA_IDS = ERAS.map((e) => e.id);

@@ -7,6 +7,7 @@ const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
   e.river.bankOffset,
   e.river.flow,
   ...(Object.values(e.vegetation) as Sourced<unknown>[]),
+  ...(Object.values(e.landscape) as Sourced<unknown>[]),
   ...(Object.values(e.ancon) as Sourced<unknown>[]),
 ];
 
@@ -78,5 +79,18 @@ describe('eras', () => {
       'colonial', 'earlyCentury', 'earlyCentury', 'earlyCentury', 'midCentury', 'modern', 'modern', 'modern',
     ]);
     for (const e of ERAS) expect(e.ancon.clothing.inferred).toBe(true);
+  });
+  test('landscape per era follows spec 2c §2', () => {
+    const col = (k: 'cane' | 'plantation' | 'palmAge') => ERAS.map((e) => e.landscape[k].value);
+    expect(col('cane')).toEqual([0.6, 1, 0.3, 0, 0, 0, 0, 0]);
+    expect(col('plantation')).toEqual([0, 1, 1, 1, 1, 0.85, 0.85, 0.85]);
+    expect(col('palmAge')).toEqual([1, 0, 0.5, 1, 1, 1, 1, 1]);
+    for (const e of ERAS) for (const v of Object.values(e.landscape)) {
+      expect(v.inferred).toBe(true);
+      expect(v.value).toBeGreaterThanOrEqual(0); expect(v.value).toBeLessThanOrEqual(1);
+    }
+    expect(getEra('1900').landscape.cane.confidence).toBe('M');
+    expect(getEra('1900').landscape.cane.sources).toContain('S1');
+    expect(getEra('1900').landscape.plantation.sources).toContain('S23');
   });
 });
