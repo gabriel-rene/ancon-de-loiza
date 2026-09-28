@@ -387,6 +387,93 @@ export function paintSeaGrapeLeaves(): HTMLCanvasElement {
 }
 
 /**
+ * Almond (Terminalia catappa) leaf card, 512×512 (≈ 1.2 m), transparent; lies flat at a branch
+ * tip. Short grey twigs from the card centre end in 6 rosettes (one central, five around) of
+ * 8–12 large obovate leaves (15–25 cm: narrow wedge base, broad rounded tip) radiating flat
+ * from the twig end. Glossy dark green (~#2f5a1e) with a pale midrib, faint lateral veins and a
+ * sheen stripe; ~8 % of leaves red, orange or yellow (turning before they fall — the geometry
+ * tints whole cards on top of this).
+ */
+export function paintAlmondLeaves(): HTMLCanvasElement {
+  const S = 512, px = S / 1.2;
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 9393);
+  const GREEN = [47, 90, 30], DEEP = [32, 64, 20], RIB = [168, 186, 120], TWIG = [110, 102, 92];
+  const TURN = [[172, 50, 30], [206, 108, 38], [196, 168, 60]];
+  const leaf = (x: number, y: number, ang: number, len: number, wid: number) => {
+    const r = rng();
+    const turned = r < 0.08 ? TURN[Math.floor(rng() * 3)] : null;
+    const v = 0.85 + 0.3 * rng();
+    const col = (turned ?? mix(GREEN, DEEP, rng())).map((q) => q * v);
+    g.save();
+    g.translate(x, y); g.rotate(ang);
+    const pet = len * 0.08, L = len - pet, hw = wid / 2;
+    const path = () => {
+      // Obovate: narrow wedge base, widest about 3/4 along, broad rounded tip.
+      g.beginPath(); g.moveTo(pet, 0);
+      g.bezierCurveTo(pet + L * 0.3, -hw * 0.35, pet + L * 0.5, -hw * 1.0, pet + L * 0.78, -hw * 0.98);
+      g.bezierCurveTo(pet + L * 1.02, -hw * 0.9, pet + L * 1.04, -hw * 0.15, pet + L, 0);
+      g.bezierCurveTo(pet + L * 1.04, hw * 0.15, pet + L * 1.02, hw * 0.9, pet + L * 0.78, hw * 0.98);
+      g.bezierCurveTo(pet + L * 0.5, hw * 1.0, pet + L * 0.3, hw * 0.35, pet, 0);
+      g.closePath();
+    };
+    g.strokeStyle = rgb(turned ? mix(col, [120, 80, 50], 0.4) : [96, 100, 60]); g.lineWidth = Math.max(1.5, wid * 0.08);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(pet + 2, 0); g.stroke();
+    path(); g.fillStyle = rgb(col); g.fill();
+    g.save(); path(); g.clip();
+    // Glossy: a soft highlight stripe to one side of the midrib, darker toward the margin.
+    const off = (rng() < 0.5 ? -1 : 1) * hw * (0.25 + 0.2 * rng());
+    const hi = mix(col, [236, 242, 220], 0.3);
+    const grad = g.createLinearGradient(0, off - hw * 0.6, 0, off + hw * 0.6);
+    grad.addColorStop(0, rgba(hi, 0)); grad.addColorStop(0.5, rgba(hi, 0.45 + 0.2 * rng())); grad.addColorStop(1, rgba(hi, 0));
+    g.fillStyle = grad; g.fillRect(pet, off - hw * 0.6, L * 1.05, hw * 1.2);
+    // Faint lateral veins, curving toward the tip.
+    g.strokeStyle = rgba(mix(col, RIB, 0.45), 0.55); g.lineWidth = Math.max(0.8, wid * 0.02);
+    const nv = 6 + Math.floor(rng() * 3);
+    for (let k = 1; k <= nv; k++) {
+      const x0 = pet + L * (0.1 + 0.8 * k / (nv + 1));
+      for (const s of [-1, 1]) {
+        g.beginPath(); g.moveTo(x0, 0); g.quadraticCurveTo(x0 + L * 0.06, s * hw * 0.45, x0 + L * 0.14, s * hw * 0.85); g.stroke();
+      }
+    }
+    path(); g.strokeStyle = rgb(col.map((q) => q * 0.6)); g.lineWidth = 1.2; g.stroke();
+    g.restore();
+    // Pale midrib.
+    g.strokeStyle = rgb(mix(col, RIB, 0.7)); g.lineWidth = Math.max(1, wid * 0.05);
+    g.beginPath(); g.moveTo(pet, 0); g.lineTo(pet + L * 0.92, 0); g.stroke();
+    g.restore();
+  };
+  // Rosette centres: one near the card centre, five in a ring (jittered).
+  const cx = S / 2, cy = S / 2;
+  const centres: [number, number][] = [[cx + (rng() - 0.5) * 20, cy + (rng() - 0.5) * 20]];
+  const a0 = rng() * Math.PI * 2;
+  for (let k = 0; k < 5; k++) {
+    const a = a0 + (k / 5) * Math.PI * 2 + (rng() - 0.5) * 0.5, d = S * lerp(0.22, 0.27, rng());
+    centres.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d]);
+  }
+  // Twigs from the card centre to each rosette (the leaves overlap them).
+  g.lineCap = 'round';
+  for (const [x, y] of centres.slice(1)) {
+    g.strokeStyle = rgb(TWIG.map((q) => q * (0.85 + 0.3 * rng()))); g.lineWidth = 4 + 2 * rng();
+    g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo((cx + x) / 2 + (rng() - 0.5) * 30, (cy + y) / 2 + (rng() - 0.5) * 30, x, y); g.stroke();
+  }
+  // Outer rosettes first; within a rosette, long (older, lower) leaves first.
+  for (const [x, y] of [...centres.slice(1), centres[0]]) {
+    const n = 8 + Math.floor(rng() * 5), ra = rng() * Math.PI * 2;
+    // Keep leaves inside the card: shorten those pointing at a near edge.
+    const leaves = Array.from({ length: n }, (_, k) => {
+      const ang = ra + (k / n) * Math.PI * 2 + (rng() - 0.5) * 0.4;
+      let len = lerp(0.15, 0.25, rng()) * px;
+      const room = Math.min(...[[Math.cos(ang), x], [Math.sin(ang), y]].map(([d, p]) => (d > 0 ? (S - 4 - p) / d : d < 0 ? (p - 4) / -d : Infinity)));
+      len = Math.min(len, room);
+      return { ang, len };
+    }).sort((p, q) => q.len - p.len);
+    for (const L of leaves) leaf(x, y, L.ang, L.len, L.len * lerp(0.48, 0.58, rng()));
+  }
+  return c;
+}
+
+/**
  * Casuarina wisp card, 512×1024 (≈ 1.4 × 2.4 m), transparent; canvas top = the card's top edge
  * at the branch. Casuarina "needles" are thin jointed branchlets hanging in soft tufts: a few
  * grey-brown twigs fan down from the top, and tufts of 18–36 hair-thin strands (1.6–2.8 px,

@@ -28,7 +28,7 @@ const assets = new Map<WoodyId, SpeciesAssets>();
 function speciesAssets(id: WoodyId): SpeciesAssets {
   let a = assets.get(id);
   if (!a) {
-    a = { variants: [1, 2, 3].map((s) => SPECIES[id]!.build(s)), materials: makeSpeciesMaterials(id).materials };
+    a = { variants: [1, 2, 3].map((s) => SPECIES[id].build(s)), materials: makeSpeciesMaterials(id).materials };
     assets.set(id, a);
   }
   return a;

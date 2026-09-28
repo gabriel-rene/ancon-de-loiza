@@ -143,7 +143,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
     },
   },
 };
-/** Woody species with a registry entry, larger plants first (they claim space first). Species tasks append here. */
-export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'coconut', 'blackMangrove', 'whiteMangrove', 'redMangrove', 'buttonwood', 'seaGrape'];
+/** Every woody species, larger plants first (they claim space first). */
+export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'almendro', 'coconut', 'blackMangrove', 'whiteMangrove', 'redMangrove', 'buttonwood', 'seaGrape'];
 /** Ground cover, placed per tile around the camera (see ground/tiles.ts). */
 export const GROUND_ORDER: GroundId[] = ['reeds', 'morningGlory', 'grass'];

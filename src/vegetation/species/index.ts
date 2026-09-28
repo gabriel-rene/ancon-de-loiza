@@ -1,11 +1,12 @@
 import type * as THREE from 'three';
 import type { PlantMaterials } from '../InstancedSpecies';
 import {
-  foliageTexture, paintBlackMangroveLeaves, paintButtonwoodLeaves, paintCasuarinaWisps, paintFrond, paintMangroveLeaves,
+  foliageTexture, paintAlmondLeaves, paintBlackMangroveLeaves, paintButtonwoodLeaves, paintCasuarinaWisps, paintFrond, paintMangroveLeaves,
   paintSeaGrapeLeaves, paintWhiteMangroveLeaves,
 } from '../textures';
 import type { PlantPart, WoodyId } from '../types';
 import { makePlantMaterials } from '../windMaterial';
+import { buildAlmendro } from './almendro';
 import { buildBlackMangrove, buildWhiteMangrove } from './basinMangrove';
 import { buildCasuarina } from './casuarina';
 import { buildMangrove } from './mangrove';
@@ -42,7 +43,7 @@ export interface SpeciesDef {
  * Species registry: generator, foliage painter and material settings per species. The palm
  * and mangrove values were tuned on screen in Tasks 7–8.
  */
-export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
+export const SPECIES: Record<WoodyId, SpeciesDef> = {
   coconut: {
     build: buildPalm, paint: paintFrond,
     // Trunk multiplier: the pale grey vertex colours read near-white under a high sun.
@@ -83,11 +84,17 @@ export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
     bark: { color: 0xffffff, roughness: 0.8, vertexColors: true },
     foliage: { color: 0xffffff, roughness: 0.5, translucency: 1.4, alphaTest: 0.5, vertexColors: true, texture: 'seaGrapeLeaves', tint: { value: 0.14, hue: 0.1 } },
   },
+  // Tropical almond by the landings (research §5, S1): smooth grey bark, glossy dark leaves.
+  almendro: {
+    build: buildAlmendro, paint: paintAlmondLeaves,
+    bark: { color: 0xffffff, roughness: 0.88, vertexColors: true },
+    foliage: { color: 0xffffff, roughness: 0.55, translucency: 1.3, alphaTest: 0.5, vertexColors: true, texture: 'almondLeaves', tint: { value: 0.12, hue: 0.1 } },
+  },
 };
 
 /** Paint the species' foliage texture and build its bark + foliage materials (browser-only). */
 export function makeSpeciesMaterials(id: WoodyId): { materials: PlantMaterials; map: THREE.Texture } {
-  const def = SPECIES[id]!;
+  const def = SPECIES[id];
   const map = foliageTexture(def.paint(), def.foliage.alphaTest, def.foliage.texture);
   const { color, roughness, translucency, alphaTest, vertexColors, tint } = def.foliage;
   return {
