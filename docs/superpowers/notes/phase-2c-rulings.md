@@ -217,6 +217,14 @@ non-grass species appeared inside a block's rectangle.
 
 **Frame rate.** Same 9 queries, same command, against `npm run build && npm run preview`.
 
+**Controller ruling (Task 9): limits accepted on the interleaved A/B evidence.** I built the
+pre-2c commit `0006e08` and timed it alternately with the 2c build in the same session, so both
+ran under the same machine load. On every query and tier, 2c is within ±0.2 ms of pre-2c
+(high: −0.02 / −0.07 / −0.01 ms; medium: +0.03 / −0.18 / +0.01 ms; low: +0.02 / +0.01 /
++0.01 ms; the last column below). The limit is +0.5 ms on high and no tier slower by more than
+that, so the limits pass. The Task 1 column is not comparable today: the pre-2c build itself
+now measures 2.3–2.9 ms slower than it did in Task 1, because of background load (below).
+
 | query | tier | fps | mean ms | p95 ms | Task 1 mean | same-session baseline mean | Δ vs same-session |
 |---|---|---|---|---|---|---|---|
 | `?era=1900&cam=ride&t=17.5&c=95&freeze=1&q=high` | high | 79.6 | 12.56 | 14.0 | 9.71 | 12.58 | −0.02 |
@@ -281,17 +289,10 @@ q=medium). "Δ" is the share of pixels that changed by more than 20/255.
   every species has.
 
 **Specific checks.**
-- *Tall downhill walls.* Measured on the real layout (all fields shown, high-tier fields): wall
-  heights above ground, taken at run ends, are mostly 3–5 m. 1,498 of 12,652 wall endpoints are
-  5–6.5 m, 304 are 6.5–8 m, and the worst is 7.8 m at (−1470, 1711). An ad-hoc shot there (camera
-  ~120 m off, 22 m up) shows a riverbank field ending in a straight green wall about twice cane
-  height, standing at the water's edge like a hedge. The 5 m staircase shows as regular lighter
-  vertical stripes, where the short cross-walls catch the sun. None of the tall walls is near
-  any preset camera: they are 1.5–3.6 km out, and at `fields` distance they don't read. But
-  users can orbit and zoom there (maxDistance 6000). A fix needs a design change: terraced tops
-  (several flat levels per field, with walls between them) or dropping steep bank cells from
-  the layout (which would then need a tier-independent height source). **Open, Important,
-  needs a ruling.**
+- *Tall downhill walls.* Measured on the real layout (all fields shown, high-tier fields): the
+  worst wall was 7.8 m above ground at (−1470, 1711), a riverbank field ending in a hedge-like
+  wall about twice cane height (ad-hoc shot). **Fixed per controller ruling**; see "Task 9:
+  steep-cell trim" below.
 - *Flat uniform slabs.* Confirmed at `fields` distance: the texture detail is lost to mips, so
   the only lever is the per-vertex tint. **Fixed** (focused, `caneMesh.ts` `caneTint` only): rank
   amplitude 0.12 → 0.30, mottle 0.18 → 0.24, and hue shifts about doubled (mature fields
@@ -310,10 +311,44 @@ q=medium). "Δ" is the share of pixels that changed by more than 20/255.
   before). So it **predates 2c**. It is a low-tier far ground/woody rendering artefact, not a
   2c issue.
 
+**Task 9: steep-cell trim (controller ruling)**
+
+`trimSteep(layout, shown, heightAt, maxDrop = 1.5)` in `caneMesh.ts` returns a copy of `shown`
+without the cells whose ground, sampled at the cell centre, lies more than 1.5 m below the mean
+ground of that cell's field. The mean is taken over the field's shown cells, in one pass. The
+per-field mean is now one helper (`meanGround`), shared with `buildCaneGeometry`'s flat-top Y.
+`CaneFieldsMesh.tsx` exports `caneHeightAt(near, far)`: `near` inside its extent, `far` beyond.
+It is the one `heightAt` used by both the mesh and the trim. `Vegetation.tsx` trims once
+(memo on `[caneByShare, near, far]`) and feeds the trimmed mask to both `inCane` (woody,
+ground-cover and cover-map skips) and `<CaneFields>`. Trimmed cells go back to grass, so the
+bank gets its grass and trees again. The trim reads the rendered terrain, so it can differ by
+a few cells per tier and per bank offset. Both are already in the placement key (`tier` =
+near/far grid sizes, and `bankOffset`), so no key change was needed.
+
+Real layout, share 1, bank offset 8 (pre-dam):
+
+| tier (near/far) | cells shown | dropped | fields touched | fields emptied | worst wall before → after | wall endpoints > 5 m before → after | triangles before → after |
+|---|---|---|---|---|---|---|---|
+| high 512/512 | 103,647 | 849 (0.8 %) | 41 of 96 | 0 | 7.76 → 6.29 m | 1,802 → 1,324 | 21,568 → 21,346 |
+| medium 384/256 | 103,647 | 1,014 | 35 | 0 | 8.44 → 6.31 m | 1,716 → 1,314 | 21,568 → 21,258 |
+| low 256/192 | 103,647 | 868 | 35 | 0 | 8.24 → 6.43 m | 1,514 → 1,202 | 21,568 → 21,402 |
+
+The worst case is **6.3 m, not the ≤ ~5 m hoped for**. The bound from the rule is field
+height (≤ 3.5) + 1.5 + fringe 0.6 = 5.6 m, but only at a cell *centre*. Walls stand on cell
+*corners*, which on a slope lie up to half a cell diagonal (3.5 m) further downhill. At high,
+358 of 12,468 wall endpoints exceed 5.6 m. A second trim pass (re-meaning after the first)
+only brings that to 286 and leaves the worst at 6.29 m. `maxDrop = 1.0` gives 26 over 5.6 m,
+worst 5.95 m, but drops 2,327 cells. Testing the lowest corner of each cell instead of its
+centre would enforce the 5.6 m bound exactly. I kept the ruled rule (centre, 1.5 m, one pass);
+the alternatives are for the controller to choose. On screen, at the same pose as the
+before-shot, the riverbank field now stops short of the bank. A grass strip with its bank trees
+shows between the water and a wall about cane height, where before there was a 7–8 m hedge.
+
 ## Deferred
 
-- (Task 9) Tall downhill cane walls on riverbank fields (worst 7.8 m). Listed above as an open
-  Important item that needs a design ruling.
+- (Task 9) Residual tall walls after the steep trim: worst 6.3 m, and 358 high-tier wall
+  endpoints above the 5.6 m centre bound, because walls stand on cell corners. The options
+  (corner test, `maxDrop` 1.0) are listed in "Task 9: steep-cell trim".
 - (Task 9) Young-palm LOD step: near 3D rosettes versus olive card tufts beyond LOD0 (visible
   in `1900-farm-noon`). This belongs to the impostor bake, not the palm geometry.
 - (Task 9) Cane sways in lockstep (non-instanced wind phase = 0). The fix belongs in

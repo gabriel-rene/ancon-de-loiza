@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import geo from '../../data/geo/loiza.json';
 import type { GeoBundle } from '../../data/geo/types';
 import { caneLayout, shownMask, type CaneLayout } from './caneFields';
-import { buildCaneGeometry, CANE_FRINGE, CANE_SINK } from './caneMesh';
+import { buildCaneGeometry, CANE_FRINGE, CANE_SINK, trimSteep } from './caneMesh';
 
 const tris = (g: THREE.BufferGeometry) => g.index!.count / 3;
 /** 4×4 cells of 10 m at the origin; one 2×2 field in the middle (cells (1,1)–(2,2)). */
@@ -57,5 +57,32 @@ describe('buildCaneGeometry', () => {
     const g = buildCaneGeometry(R, shownMask(R, 1), () => 1);
     expect(tris(g.top) + tris(g.sides)).toBeLessThanOrEqual(60_000);
     expect(tris(g.top)).toBeGreaterThan(0);
+  });
+});
+
+describe('trimSteep', () => {
+  /** One row of five 10 m cells, all one field; ground per cell centre falls downhill: 1, 1, 1, −1, −2 (mean 0). */
+  const row: CaneLayout = {
+    grid: { size: 5, cell: 10, minX: 0, minZ: 0 },
+    field: Int32Array.from({ length: 25 }, (_, k) => (k < 5 ? 0 : -1)),
+    fields: [{ rank: 0.1, height: 3, cells: 5 }],
+  };
+  const slope = [1, 1, 1, -1, -2];
+  const sloped = (x: number) => slope[Math.floor(x / 10)];
+  const shown = shownMask(row, 1);
+
+  test('drops a cell 2 m below its field mean, keeps one 1 m below', () => {
+    const out = trimSteep(row, shown, sloped);
+    expect(Array.from(out.slice(0, 5))).toEqual([1, 1, 1, 1, 0]);
+    expect(Array.from(shown.slice(0, 5))).toEqual([1, 1, 1, 1, 1]); // input untouched
+  });
+
+  test('flat ground: nothing dropped', () => {
+    expect(Array.from(trimSteep(row, shown, () => 0.4))).toEqual(Array.from(shown));
+  });
+
+  test('hidden cells stay hidden and do not count toward the mean', () => {
+    const half = shown.slice(); half[0] = half[1] = half[2] = 0; // mean of shown = −1.5
+    expect(Array.from(trimSteep(row, half, sloped).slice(0, 5))).toEqual([0, 0, 0, 1, 1]);
   });
 });

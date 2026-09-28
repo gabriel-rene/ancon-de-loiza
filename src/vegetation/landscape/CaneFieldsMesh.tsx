@@ -30,6 +30,13 @@ function caneMaterials(): Mats {
   return mats;
 }
 
+/** Rendered ground height: `near` inside its extent, `far` beyond. Shared by the cane mesh and the steep-cell trim. */
+export function caneHeightAt(near: WorldFields, far: WorldFields) {
+  const g = near.grid, x1 = g.minX + g.cell * g.size, z1 = g.minZ + g.cell * g.size;
+  return (x: number, z: number) =>
+    x > g.minX && x < x1 && z > g.minZ && z < z1 ? sampleField(near, near.height, x, z) : sampleField(far, far.height, x, z);
+}
+
 /**
  * Sugar-cane fields (phase 2c): the shown cells of `layout` as two meshes (top, sides) standing on
  * the rendered terrain (`near` inside its extent, `far` beyond). Swayed by the shared wind.
@@ -37,12 +44,7 @@ function caneMaterials(): Mats {
 export function CaneFields({ layout, shown, near, far, castShadow }: {
   layout: CaneLayout; shown: Uint8Array; near: WorldFields; far: WorldFields; castShadow: boolean;
 }) {
-  const geo = useMemo(() => {
-    const g = near.grid, x1 = g.minX + g.cell * g.size, z1 = g.minZ + g.cell * g.size;
-    const heightAt = (x: number, z: number) =>
-      x > g.minX && x < x1 && z > g.minZ && z < z1 ? sampleField(near, near.height, x, z) : sampleField(far, far.height, x, z);
-    return buildCaneGeometry(layout, shown, heightAt);
-  }, [layout, shown, near, far]);
+  const geo = useMemo(() => buildCaneGeometry(layout, shown, caneHeightAt(near, far)), [layout, shown, near, far]);
   useEffect(() => () => { geo.top.dispose(); geo.sides.dispose(); }, [geo]);
   const m = caneMaterials();
   if (!geo.top.index!.count) return null;

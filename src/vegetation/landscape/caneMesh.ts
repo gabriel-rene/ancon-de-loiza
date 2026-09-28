@@ -35,6 +35,38 @@ function caneTint(rank: number, x: number, z: number): [number, number, number] 
   return [val * (1 + 0.18 * rk - 0.1 * mottle), val * (1 + 0.04 * rk + 0.03 * mottle), val * (1 - 0.32 * rk - 0.16 * mottle)];
 }
 
+/** Per field: mean of `heightAt` over the centres of its shown cells (0 for a field with none shown). */
+function meanGround(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number, z: number) => number): Float64Array {
+  const { size: n, cell: c, minX, minZ } = layout.grid;
+  const sum = new Float64Array(layout.fields.length), cnt = new Int32Array(layout.fields.length);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, f = layout.field[k];
+    if (f < 0 || !shown[k]) continue;
+    sum[f] += heightAt(minX + (i + 0.5) * c, minZ + (j + 0.5) * c);
+    cnt[f]++;
+  }
+  for (let f = 0; f < sum.length; f++) sum[f] = cnt[f] ? sum[f] / cnt[f] : 0;
+  return sum;
+}
+
+/**
+ * `shown` without the cells whose ground (at the cell centre) lies more than `maxDrop` metres
+ * below the mean ground of that cell's field, taken over the field's shown cells (phase 2c art
+ * gate). Field tops are flat at that mean, so such cells — riverbank slopes — would stand behind
+ * a downhill wall far taller than the cane (up to ~7.8 m on the real layout). One pass; returns a
+ * copy.
+ */
+export function trimSteep(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number, z: number) => number, maxDrop = 1.5): Uint8Array {
+  const { size: n, cell: c, minX, minZ } = layout.grid;
+  const mean = meanGround(layout, shown, heightAt), out = shown.slice();
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, f = layout.field[k];
+    if (f < 0 || !out[k]) continue;
+    if (heightAt(minX + (i + 0.5) * c, minZ + (j + 0.5) * c) < mean[f] - maxDrop) out[k] = 0;
+  }
+  return out;
+}
+
 /**
  * Cane blocks for the shown cells of `layout` (spec 2c §3). Top: per grid row, each run of
  * consecutive cells of one field becomes one quad; every field's top is flat, at the mean of
@@ -58,15 +90,8 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
   const rankOf = (f: number) => layout.fields[f].rank;
 
   // One flat Y per field: mean ground height over its shown cells' centres, plus field height.
-  const nFields = layout.fields.length, sumY = new Float64Array(nFields), cnt = new Int32Array(nFields);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    const f = id(i, j);
-    if (f < 0) continue;
-    sumY[f] += heightAt(minX + (i + 0.5) * c, minZ + (j + 0.5) * c);
-    cnt[f]++;
-  }
-  const flatY = new Float64Array(nFields);
-  for (let f = 0; f < nFields; f++) flatY[f] = (cnt[f] ? sumY[f] / cnt[f] : 0) + hOf(f);
+  const flatY = meanGround(layout, shown, heightAt);
+  for (let f = 0; f < flatY.length; f++) flatY[f] += hOf(f);
 
   const tp: number[] = [], tn: number[] = [], tu: number[] = [], tf: number[] = [], tc: number[] = [], ti: number[] = [];
   for (let j = 0; j < n; j++) {

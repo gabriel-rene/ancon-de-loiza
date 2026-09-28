@@ -11,7 +11,8 @@ import { coverMap } from './coverMap';
 import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { caneLayout, inCane, shownMask, type CaneLayout } from './landscape/caneFields';
-import { CaneFields } from './landscape/CaneFieldsMesh';
+import { CaneFields, caneHeightAt } from './landscape/CaneFieldsMesh';
+import { trimSteep } from './landscape/caneMesh';
 import { findBlocks, insideBlocks, plantBlocks } from './landscape/plantation';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
@@ -87,7 +88,11 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   // No woody species grows where cane is shown: computed before placement so the near/far runs
   // (and the placement cache key, which must vary with cane share) can both skip it.
   const caneShare = era.landscape.cane.value;
-  const caneShown = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
+  const caneByShare = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
+  // Drop steep riverbank cells (flat field tops would stand on tall downhill walls there). The
+  // trim reads the rendered terrain, so it can differ by a few cells per tier and bank offset —
+  // both are already in the placement key (`tier`, `bankOffset`).
+  const caneShown = useMemo(() => (caneByShare ? trimSteep(caneFor(), caneByShare, caneHeightAt(near, far)) : null), [caneByShare, near, far]);
   const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
 
   const survival = era.landscape.plantation.value;
