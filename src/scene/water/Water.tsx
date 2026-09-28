@@ -22,9 +22,10 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
   const rect = (f: WorldFields) => new THREE.Vector4(f.grid.minX, f.grid.minZ, f.grid.cell * f.grid.size, 0);
 
   const mirror = useMemo(() => {
+    const tw = Math.round(size.width * dpr * reflScale), th = Math.round(size.height * dpr * reflScale);
     const r = new Reflector(new THREE.PlaneGeometry(40000, 40000), {
-      textureWidth: Math.round(size.width * dpr * reflScale),
-      textureHeight: Math.round(size.height * dpr * reflScale),
+      textureWidth: tw,
+      textureHeight: th,
       clipBias: 0.003,
       shader: {
         name: 'AnconWater',
@@ -39,6 +40,7 @@ export function Water({ near, far, sun, flow, reflScale, frozen }: {
           uRiverFlow: { value: new THREE.Vector2() }, uWind: { value: windDirVec.clone() },
           uHazeColor: { value: new THREE.Color() }, uHazeAway: { value: new THREE.Color() }, uHaze: { value: 0 },
           uDebugWater: { value: 0 },
+          uReflTexel: { value: new THREE.Vector2(1 / tw, 1 / th) },
         },
         vertexShader: waterVertex,
         fragmentShader: waterFragment,

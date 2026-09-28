@@ -467,3 +467,35 @@ failure output.
   green, matching the "foliage greens: still natural green, not shifted" bar the task originally
   asked for (round 1's own screenshot section had actually failed this by inspection, which is what
   round 2 fixes).
+
+## Task 11 — reflection
+
+Query: `?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium` (and `q=high`), 1440×900 @ dpr 1. Crops are
+x 900–1260, y 440–540 of the frame, upscaled 4× nearest.
+
+**Root cause: (a) reflection resolution, made visible by (c)'s binary alpha-test edges.** Not (b).
+- (b) ruled out by reading the code: three r186 `Reflector` makes a `WebGLRenderTarget` with
+  `samples: 4` (MSAA), `HalfFloatType`, and the RenderTarget defaults `minFilter = magFilter =
+  LinearFilter`, no mips. The water samples it under magnification (~2.9 screen px per texel on
+  medium), so mips would not matter anyway.
+- (a) confirmed by experiment: medium with `reflScale` forced to 1.0 (`e1-refl1-crop.png`) has no
+  stair-steps — the reflected fringe shows the same 1-px alpha-test aliasing as the direct view. At
+  0.35 (`before-med-crop.png`) the steps are ~3 px blocks; at 0.5 (`before-high-crop.png`) ~2 px.
+- (c) is why the steps are hard: the fringe beyond `reflLod0` is impostor cards with `alphaTest`
+  0.5, whose edges MSAA does not resolve (discard is per fragment), so each texel is fully in or
+  out and bilinear magnification only ramps across one texel.
+
+**Fix (try 1 of the brief, sufficient; tries 2–3 not needed):** the water shader now resolves the
+reflection with 4 bilinear taps on a rotated grid, radius 0.75 reflection texels
+(`src/scene/water/reflTaps.ts`, `uReflTexel` set from the target size in `Water.tsx`). Applies to
+every tier; the smoothing is in texels, so it is ~2.1 screen px on medium, ~1.5 on high.
+
+Crops (scratchpad): `task11-medium-before-after.png`, `task11-high-before-after.png` (top before,
+bottom after). The stepped silhouettes of the reflected mangrove line become soft ramps on both
+tiers; the reflection keeps its shapes and gaps (sky holes between crowns still read).
+High-frequency energy in the reflection band (mean |2nd x-difference| of luma, x 860–1440,
+y 478–545): medium 3.89 → 2.62, high 5.76 → 3.92.
+
+**Perf** (same session, HEAD build on :4174 vs fix on :4173, interleaved, 3 runs each,
+`perf.mjs … 10 1.5`, mean ms): ride medium 6.57 → 6.45, bank medium 6.00 → 5.83. No cost beyond
+noise (run-to-run spread ≈ 0.3 ms); 3 extra texture taps per water fragment are negligible here.

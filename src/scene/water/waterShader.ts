@@ -1,5 +1,6 @@
 import { glslFloat, WAKE_N, WAKE_SPREAD, WAKE_W0 } from '../../ancon/wakeConstants';
 import { SNOISE_GLSL } from '../glsl/noise';
+import { reflSampleGlsl } from './reflTaps';
 
 export const waterVertex = /* glsl */ `
 uniform mat4 textureMatrix;
@@ -22,9 +23,11 @@ uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunIntensity;
 uniform vec2 uRiverFlow; uniform vec2 uWind;
 uniform vec3 uHazeColor; uniform vec3 uHazeAway; uniform float uHaze;
 uniform float uDebugWater;
+uniform vec2 uReflTexel;   // 1 / reflection target size
 varying vec4 vReflUv;
 varying vec3 vWorld;
 ${SNOISE_GLSL}
+${reflSampleGlsl()}
 
 vec4 waterInfo(vec2 p) {
   vec2 a = (p - uNearRect.xy) / uNearRect.z;
@@ -140,7 +143,7 @@ void main() {
   float fres = 0.02 + 0.98 * pow(1.0 - clamp(dot(nF, V), 0.0, 1.0), 5.0);
   float distortion = mix(0.05, 0.02, river) / (1.0 + dist * 0.004);
   vec2 ruv = vReflUv.xy / vReflUv.w + n.xz * distortion;
-  vec3 refl = texture2D(tDiffuse, ruv).rgb;
+  vec3 refl = reflSample(ruv);
   // The mirror renders without post fog; add the haze the reflected ray would see.
   vec3 R = reflect(-V, n);
   vec3 hazeCol = mix(uHazeAway, uHazeColor, pow(0.5 + 0.5 * dot(R, uSunDir), 1.5));
