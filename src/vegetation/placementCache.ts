@@ -1,5 +1,5 @@
 import { PLACEMENT_ORDER } from './rules';
-import type { SpeciesId } from './types';
+import type { WoodyId } from './types';
 
 /** Small LRU cache keyed by string. */
 export class KeyedCache<T> {
@@ -17,5 +17,5 @@ export class KeyedCache<T> {
 }
 
 /** Placement results depend only on (densities, bank offset, tier) — spec §13. */
-export const placementKey = (dens: Record<SpeciesId, number>, bankOffset: number, tier: string) =>
+export const placementKey = (dens: Record<WoodyId, number>, bankOffset: number, tier: string) =>
   `${tier}|${bankOffset}|${PLACEMENT_ORDER.map((id) => dens[id].toFixed(4)).join(',')}`;

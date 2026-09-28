@@ -1,4 +1,5 @@
 import type { Bilingual } from '../i18n/text';
+import type { SpeciesId } from '../vegetation/types';
 
 export type Confidence = 'H' | 'M' | 'L';
 export interface Sourced<T> { value: T; sources: string[]; confidence: Confidence; inferred?: boolean }
@@ -43,7 +44,7 @@ export interface Era {
     /** Surface flow speed, m/s. */
     flow: Sourced<number>;
   };
-  vegetation: Record<'redMangrove' | 'coconut' | 'casuarina', Sourced<number>>;
+  vegetation: Record<SpeciesId, Sourced<number>>;
   ancon: AnconEra;
 }
 
@@ -55,7 +56,23 @@ const POST_DAM = { bankOffset: s(0, ['S26'], 'M'), flow: s(0.35, ['S15'], 'L', t
 
 // Mangrove fringe is ancient; DRNA Piñones forest confirms red mangrove on lagoon/channel fringes.
 const MANGROVE = s(1, ['S22', 'S34'], 'H');
-const veg = (coconut: Sourced<number>, casuarina: Sourced<number>) => ({ redMangrove: MANGROVE, coconut, casuarina });
+// Basin mangroves (black + white) make ~55 % of the Piñones forest; buttonwood on drier ground;
+// sea grape and beach morning glory on the Piñones dunes (research §5).
+const BASIN = s(1, ['S22', 'S34'], 'H');
+const BUTTONWOOD = s(1, ['S22'], 'H');
+const DUNE = s(1, ['S22'], 'H');
+// No site source names the grasses or reeds; open pasture and wet-edge reeds are general
+// coastal Puerto Rico (inferred, M).
+const GRASS = s(1, [], 'M', true);
+// Almendro: families picnicked "under some almond tree" on the bank (S1, 20th c.). It is an
+// introduced tree; fewer before the 1920s (inferred timing, L).
+const ALMOND_EARLY = (v: number) => s(v, ['S1'], 'L', true);
+const ALMOND = s(1, ['S1'], 'M');
+const veg = (coconut: Sourced<number>, casuarina: Sourced<number>, almendro: Sourced<number>) => ({
+  redMangrove: MANGROVE, coconut, casuarina, almendro,
+  blackMangrove: BASIN, whiteMangrove: BASIN, buttonwood: BUTTONWOOD, seaGrape: DUNE, morningGlory: DUNE,
+  grass: GRASS, reeds: GRASS,
+});
 // coconut: coast shifted from sugar to coconut collection (S23); groves mature through the 20th c. (inferred timing).
 // casuarina: gives Piñones its name; forest proclaimed 1918 (S22, S28); introduced, mass planting
 // early–mid 20th c. (S28, inferred timing). From 1959 onward, modern coastal photos (2026) at the
@@ -63,14 +80,14 @@ const veg = (coconut: Sourced<number>, casuarina: Sourced<number>) => ({ redMang
 // bank-vegetation photo); S19 ("2 Ancón de Loíza.jpg") is the spit/low-scrub photo and does not show
 // casuarina, so it is dropped from these era citations (inferred: true, confidence kept at M).
 const VEG = {
-  '1840': veg(s(0.35, ['S23'], 'L', true), s(0, ['S28'], 'L', true)),
-  '1900': veg(s(0.6, ['S23'], 'M', true), s(0.05, ['S28'], 'L', true)),
-  '1925': veg(s(0.9, ['S23'], 'L', true), s(0.55, ['S22', 'S28'], 'L', true)),
-  '1935': veg(s(1.0, ['S23'], 'L', true), s(0.8, ['S22', 'S28'], 'L', true)),
-  '1959': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
-  '1975': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
-  '1984': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
-  '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true)),
+  '1840': veg(s(0.35, ['S23'], 'L', true), s(0, ['S28'], 'L', true), ALMOND_EARLY(0.25)),
+  '1900': veg(s(0.6, ['S23'], 'M', true), s(0.05, ['S28'], 'L', true), ALMOND_EARLY(0.4)),
+  '1925': veg(s(0.9, ['S23'], 'L', true), s(0.55, ['S22', 'S28'], 'L', true), ALMOND),
+  '1935': veg(s(1.0, ['S23'], 'L', true), s(0.8, ['S22', 'S28'], 'L', true), ALMOND),
+  '1959': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true), ALMOND),
+  '1975': veg(s(1.0, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true), ALMOND),
+  '1984': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true), ALMOND),
+  '1986': veg(s(0.95, ['S23'], 'L', true), s(1.0, ['S22', 'S28', 'S19b'], 'M', true), ALMOND),
 } satisfies Record<EraId, ReturnType<typeof veg>>;
 
 // Clothing: research §7 is general Puerto Rican dress by period, [INFERRED] (L) — no ancón-specific source.

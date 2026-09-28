@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { PlantMaterials } from '../InstancedSpecies';
 import { foliageTexture, paintCasuarinaWisps, paintFrond, paintMangroveLeaves } from '../textures';
-import type { PlantPart, SpeciesId } from '../types';
+import type { PlantPart, WoodyId } from '../types';
 import { makePlantMaterials } from '../windMaterial';
 import { buildCasuarina } from './casuarina';
 import { buildMangrove } from './mangrove';
@@ -35,7 +35,7 @@ export interface SpeciesDef {
  * Species registry: generator, foliage painter and material settings per species. The palm
  * and mangrove values were tuned on screen in Tasks 7–8.
  */
-export const SPECIES: Record<SpeciesId, SpeciesDef> = {
+export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
   coconut: {
     build: buildPalm, paint: paintFrond,
     // Trunk multiplier: the pale grey vertex colours read near-white under a high sun.
@@ -56,8 +56,8 @@ export const SPECIES: Record<SpeciesId, SpeciesDef> = {
 };
 
 /** Paint the species' foliage texture and build its bark + foliage materials (browser-only). */
-export function makeSpeciesMaterials(id: SpeciesId): { materials: PlantMaterials; map: THREE.Texture } {
-  const def = SPECIES[id];
+export function makeSpeciesMaterials(id: WoodyId): { materials: PlantMaterials; map: THREE.Texture } {
+  const def = SPECIES[id]!;
   const map = foliageTexture(def.paint(), def.foliage.alphaTest, def.foliage.texture);
   const { color, roughness, translucency, alphaTest, vertexColors } = def.foliage;
   return {

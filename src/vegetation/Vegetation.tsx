@@ -15,7 +15,7 @@ import { KeyedCache, placementKey } from './placementCache';
 import { PLACEMENT_ORDER } from './rules';
 import { makeSpeciesMaterials, SPECIES } from './species';
 import { vegTiming } from './stats';
-import type { PlantInstance, PlantPart, SpeciesId } from './types';
+import type { PlantInstance, PlantPart, WoodyId } from './types';
 
 const G = geo as unknown as GeoBundle;
 const NEAR_SEED = 1840, FAR_SEED = 1841;
@@ -24,18 +24,18 @@ const FAR_OVERLAP = 40, FAR_DENSITY = 0.5, FAR_OCC_CELL = 4;
 
 interface SpeciesAssets { variants: PlantPart[][]; materials: PlantMaterials }
 /** Geometry (3 variants), painted foliage texture and materials per species: built once, kept for the app's life. */
-const assets = new Map<SpeciesId, SpeciesAssets>();
-function speciesAssets(id: SpeciesId): SpeciesAssets {
+const assets = new Map<WoodyId, SpeciesAssets>();
+function speciesAssets(id: WoodyId): SpeciesAssets {
   let a = assets.get(id);
   if (!a) {
-    a = { variants: [1, 2, 3].map((s) => SPECIES[id].build(s)), materials: makeSpeciesMaterials(id).materials };
+    a = { variants: [1, 2, 3].map((s) => SPECIES[id]!.build(s)), materials: makeSpeciesMaterials(id).materials };
     assets.set(id, a);
   }
   return a;
 }
 
 /** Placement sets for every (densities, bank offset, tier) seen this session (8 eras × 3 tiers at most). */
-const placements = new KeyedCache<Record<SpeciesId, PlantInstance[]>>(24);
+const placements = new KeyedCache<Record<WoodyId, PlantInstance[]>>(24);
 
 const masks = new WeakMap<WorldFields, VegMasks>();
 function masksFor(f: WorldFields): VegMasks {
@@ -67,7 +67,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
 }) {
   const { density, farCards, farRing } = q.veg;
   const dens = useMemo(() => {
-    const d = {} as Record<SpeciesId, number>;
+    const d = {} as Record<WoodyId, number>;
     for (const id of PLACEMENT_ORDER) d[id] = era.vegetation[id].value * density;
     return d;
   }, [era, density]);
@@ -79,15 +79,15 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
     if (pf !== near) for (const id of PLACEMENT_ORDER) nearSet[id] = reseat(nearSet[id], near);
 
-    let farSet: Record<SpeciesId, PlantInstance[]> | null = null;
+    let farSet: Record<WoodyId, PlantInstance[]> | null = null;
     if (farCards && farRing) {
       const g = near.grid, ext = g.cell * g.size, cx = g.minX + ext / 2, cz = g.minZ + ext / 2, half = ext / 2 - FAR_OVERLAP;
-      const farDens = {} as Record<SpeciesId, number>;
+      const farDens = {} as Record<WoodyId, number>;
       for (const id of PLACEMENT_ORDER) farDens[id] = dens[id] * FAR_DENSITY;
       farSet = placeAll(far, masksFor(far), farDens, FAR_SEED,
         { occCell: FAR_OCC_CELL, skip: (x, z) => Math.abs(x - cx) < half && Math.abs(z - cz) < half });
     }
-    const out = {} as Record<SpeciesId, PlantInstance[]>;
+    const out = {} as Record<WoodyId, PlantInstance[]>;
     vegTiming.counts = {};
     for (const id of PLACEMENT_ORDER) {
       out[id] = farSet ? nearSet[id].concat(farSet[id]) : nearSet[id];

@@ -3,7 +3,7 @@ import type { Grid } from '../terrain/raster';
 import type { VegMasks } from './masks';
 import { CellStream } from './rng';
 import { PLACEMENT_ORDER, RULES } from './rules';
-import type { PlantInstance, Site, SpeciesId } from './types';
+import type { PlantInstance, Site, SpeciesId, WoodyId } from './types';
 
 export class Occupancy {
   private cells: Uint8Array; private n: number;
@@ -84,6 +84,10 @@ export interface PlaceOpts {
   spacingMul?: number;
   /** Candidates for which this returns true are skipped before any site lookup. */
   skip?: (x: number, z: number) => boolean;
+  /** Only candidates whose final position lies in [minX, maxX) × [minZ, maxZ). Same result as filtering a whole-map run. */
+  bounds?: [number, number, number, number];
+  /** Read-only occupancy: candidates whose `radius` disc touches a marked cell are rejected (ground cover vs trunks). */
+  blocked?: Occupancy;
 }
 
 export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, opts: PlaceOpts): PlantInstance[] {
@@ -92,10 +96,14 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
   const salt = species.length * 7919 + species.charCodeAt(0), noiseSeed = opts.seed * 977 + salt;
   const { scale: cs, strength: cstr, size: csize } = rule.clump;
   const hab = habitat(f, m, species);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+  const b = opts.bounds;
+  const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
+  const j0 = b ? Math.max(0, Math.floor((b[1] - g.minZ) / sp) - 1) : 0, j1 = b ? Math.min(n - 1, Math.floor((b[3] - g.minZ) / sp) + 1) : n - 1;
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
     const r = _cand.reset(i, j, opts.seed * 131 + salt);
     const x = g.minX + (i + 0.5 + JITTER * (r.next() - 0.5)) * sp, z = g.minZ + (j + 0.5 + JITTER * (r.next() - 0.5)) * sp;
     const accept = r.next(), rot = (2 * r.next() - 1) * rule.rot, sc = r.next(), variant = Math.floor(r.next() * rule.variants);
+    if (b && (x < b[0] || x >= b[2] || z < b[1] || z >= b[3])) continue;
     const gi = Math.floor((x - g.minX) / g.cell), gj = Math.floor((z - g.minZ) / g.cell);
     if (gi < 0 || gj < 0 || gi >= g.size || gj >= g.size || !hab[gj * g.size + gi]) continue;
     if (opts.skip?.(x, z)) continue;
@@ -106,6 +114,7 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
     const cn = valueNoise(x, z, cs, noiseSeed);
     if (accept >= d * (1 - cstr + 2 * cstr * cn)) continue;
     if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
+    if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
     opts.occupancy?.mark(x, z, rule.radius);
     const scale = (rule.scale[0] + (rule.scale[1] - rule.scale[0]) * sc) * (1 + csize * (2 * cn - 1));
     out.push({ x, y: Math.max(s.height, -0.3), z, rot, scale, variant });
@@ -117,12 +126,13 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
  * Place every species in PLACEMENT_ORDER (larger plants first) with one shared occupancy grid,
  * so species never overlap. `occCell` is the occupancy resolution in metres.
  */
-export function placeAll(f: WorldFields, m: VegMasks, densities: Record<SpeciesId, number>, seed: number,
-  opts: { occCell?: number; spacingMul?: number; skip?: (x: number, z: number) => boolean } = {}) {
+export function placeAll(f: WorldFields, m: VegMasks, densities: Partial<Record<SpeciesId, number>>, seed: number,
+  opts: { occCell?: number; spacingMul?: number; skip?: (x: number, z: number) => boolean; trunks?: Occupancy } = {}) {
   const occ = new Occupancy(f.grid, opts.occCell ?? 1);
-  const out = {} as Record<SpeciesId, PlantInstance[]>;
+  const out = {} as Record<WoodyId, PlantInstance[]>;
   for (const id of PLACEMENT_ORDER) {
-    out[id] = placeSpecies(f, m, id, { density: densities[id], seed, occupancy: occ, spacingMul: opts.spacingMul, skip: opts.skip });
+    out[id] = placeSpecies(f, m, id, { density: densities[id] ?? 0, seed, occupancy: occ, spacingMul: opts.spacingMul, skip: opts.skip });
+    if (opts.trunks) for (const p of out[id]) opts.trunks.mark(p.x, p.z, Math.max(1, (RULES[id].trunk ?? 0.5) * p.scale));
   }
   return out;
 }

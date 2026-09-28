@@ -4,7 +4,7 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
 import { buildVegMasks, LANDING_CLEARING } from './masks';
-import { placeAll, placeSpecies } from './placement';
+import { Occupancy, placeAll, placeSpecies } from './placement';
 import { RULES } from './rules';
 
 const G = geo as unknown as GeoBundle;
@@ -72,5 +72,24 @@ describe('placement', () => {
   });
   test('instances sit on the terrain height', () => {
     for (const p of all.coconut.slice(0, 50)) expect(p.y).toBeGreaterThan(0);
+  });
+  test('bounds: tiles placed one by one equal the whole-map placement', () => {
+    // spacingMul 4 keeps the whole-map run fast; the tiling logic is the same.
+    const whole = placeSpecies(f, m, 'grass', { density: 1, seed: 5, spacingMul: 4 });
+    const g = f.grid, T = 320, ext = g.cell * g.size, tiles = [];
+    for (let z = g.minZ; z < g.minZ + ext; z += T) for (let x = g.minX; x < g.minX + ext; x += T)
+      tiles.push(...placeSpecies(f, m, 'grass', { density: 1, seed: 5, spacingMul: 4, bounds: [x, z, x + T, z + T] }));
+    const key = (p: { x: number; z: number }) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`;
+    expect(tiles.map(key).sort()).toEqual(whole.map(key).sort());
+  });
+  test('blocked: ground cover keeps off woody trunks', () => {
+    const trunks = new Occupancy(f.grid, 1);
+    const woody = placeAll(f, m, { redMangrove: 1, coconut: 1, casuarina: 1 }, 7, { trunks });
+    const grass = placeSpecies(f, m, 'grass', { density: 1, seed: 7, spacingMul: 2, blocked: trunks });
+    const palms = woody.coconut;
+    let min = Infinity;
+    for (const p of palms.slice(0, 200)) for (const q of grass) min = Math.min(min, Math.hypot(p.x - q.x, p.z - q.z));
+    // Marks and checks use ≥ 1 m discs on a 1 m grid, so the guaranteed gap is 1 − √½ ≈ 0.29 m.
+    expect(min).toBeGreaterThan(0.25);
   });
 });

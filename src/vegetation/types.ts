@@ -1,5 +1,7 @@
 import type * as THREE from 'three';
-export type SpeciesId = 'redMangrove' | 'coconut' | 'casuarina';
+export type WoodyId = 'redMangrove' | 'coconut' | 'casuarina' | 'blackMangrove' | 'whiteMangrove' | 'buttonwood' | 'almendro' | 'seaGrape';
+export type GroundId = 'grass' | 'reeds' | 'morningGlory';
+export type SpeciesId = WoodyId | GroundId;
 export interface PlantInstance { x: number; y: number; z: number; rot: number; scale: number; variant: number }
 export interface Site {
   water: number; depth: number; shore: number; seaDist: number; riverDist: number;

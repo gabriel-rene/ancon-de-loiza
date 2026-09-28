@@ -6,9 +6,7 @@ const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
   e.summary,
   e.river.bankOffset,
   e.river.flow,
-  e.vegetation.redMangrove,
-  e.vegetation.coconut,
-  e.vegetation.casuarina,
+  ...(Object.values(e.vegetation) as Sourced<unknown>[]),
   ...(Object.values(e.ancon) as Sourced<unknown>[]),
 ];
 
@@ -24,10 +22,17 @@ describe('eras', () => {
     }
   });
   test('vegetation densities are in [0, 1.5]', () => {
-    for (const e of ERAS) for (const v of [e.vegetation.redMangrove, e.vegetation.coconut, e.vegetation.casuarina]) {
+    for (const e of ERAS) for (const v of Object.values(e.vegetation)) {
       expect(v.value).toBeGreaterThanOrEqual(0);
       expect(v.value).toBeLessThanOrEqual(1.5);
     }
+  });
+  test('every species has an era density; almendro grows in from 1925 (research §5, S1)', () => {
+    const ids = ['redMangrove', 'coconut', 'casuarina', 'blackMangrove', 'whiteMangrove', 'buttonwood', 'almendro', 'seaGrape', 'grass', 'reeds', 'morningGlory'];
+    for (const e of ERAS) expect(Object.keys(e.vegetation).sort()).toEqual([...ids].sort());
+    expect(getEra('1840').vegetation.almendro.value).toBeLessThan(getEra('1925').vegetation.almendro.value);
+    expect(getEra('1925').vegetation.almendro.value).toBe(1);
+    for (const e of ERAS) for (const id of ['grass', 'reeds'] as const) expect(e.vegetation[id].inferred).toBe(true);
   });
   test('dates parse', () => {
     for (const e of ERAS) expect(Number.isNaN(Date.parse(e.date))).toBe(false);
