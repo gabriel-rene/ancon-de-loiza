@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { getEra, type EraId } from '../../src/data/eras';
 import { goldenHourAST } from '../../src/geo/sun';
 
+/** Output folder under tests/snapshots (SNAP_DIR=phase2c-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase2c'}`;
+
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
 const golden = (era: EraId, side: 'am' | 'pm' = 'pm') => goldenHourAST(getEra(era).date, 6, side);
@@ -21,6 +24,15 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   // Phase 2b: noon, where the new species, ground cover and the noon grade read best.
   { era: '1975', cam: 'bank', t: 12, c: 95, name: '1975-bank-noon' },
   { era: '1840', cam: 'bank', t: 12, c: 95, name: '1840-bank-noon' },
+  // Phase 2c: cane fields, farm blocks, palm age.
+  { era: '1900', cam: 'fields', t: 12, c: 95, name: '1900-fields-noon' },
+  { era: '1840', cam: 'fields', t: 12, c: 95, name: '1840-fields-noon' },
+  { era: '1925', cam: 'fields', t: 12, c: 95, name: '1925-fields-noon' },
+  { era: '1975', cam: 'fields', t: 12, c: 95, name: '1975-fields-noon' },
+  { era: '1900', cam: 'aerial', t: 12, c: 95, name: '1900-aerial-noon' },
+  { era: '1975', cam: 'aerial', t: 12, c: 95, name: '1975-aerial-noon' },
+  { era: '1900', cam: 'ride', t: golden('1900'), c: 95 },
+  { era: '1925', cam: 'bank', t: 12, c: 70, name: '1925-bank-noon' },
 ];
 
 for (const s of SHOTS) {
@@ -30,7 +42,7 @@ for (const s of SHOTS) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await page.goto(`?era=${s.era}&cam=${s.cam}&t=${s.t}&c=${s.c}&freeze=1&q=medium`);
     await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
-    await page.screenshot({ path: `tests/snapshots/phase2b/${s.name ?? `${s.era}-${s.cam}`}.png` });
+    await page.screenshot({ path: `${DIR}/${s.name ?? `${s.era}-${s.cam}`}.png` });
     expect(errors).toEqual([]);
   });
 }
@@ -41,7 +53,7 @@ test('default view: ride camera at golden hour, the ferry running', async ({ pag
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('?freeze=1&q=medium&debug=1');
   await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
-  await page.screenshot({ path: 'tests/snapshots/phase2b/default.png' });
+  await page.screenshot({ path: `${DIR}/default.png` });
   expect(await page.evaluate(() => window.__ANCON_ANCON__?.frames ?? 0)).toBeGreaterThan(0);   // the ferry's frame loop runs
   expect(errors).toEqual([]);
 });
