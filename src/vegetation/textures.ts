@@ -545,6 +545,156 @@ export function paintCasuarinaWisps(): HTMLCanvasElement {
   return c;
 }
 
+/* ---- Ground cover (Task 7): canvas bottom = clump base, since textures flip Y. ---- */
+
+/** One tapered blade from (x0, y0) bending toward (x1, y1); `w` = base width (px). */
+function blade(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, bend: number, w: number, fill: string | CanvasGradient) {
+  const mx = lerp(x0, x1, 0.5) + bend, my = lerp(y0, y1, 0.55);
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  g.beginPath();
+  g.moveTo(x0 - nx * w / 2, y0 - ny * w / 2);
+  g.quadraticCurveTo(mx - nx * w * 0.3, my - ny * w * 0.3, x1, y1);
+  g.quadraticCurveTo(mx + nx * w * 0.3, my + ny * w * 0.3, x0 + nx * w / 2, y0 + ny * w / 2);
+  g.closePath();
+  g.fillStyle = fill; g.fill();
+}
+
+/**
+ * Open-land grass tuft, 256×256 (≈ 0.75 m card), transparent: 40–60 tapered blades rising
+ * from the bottom edge and fanning out, olive to straw green (#6b7a34…#a09a55), darker at the
+ * base, a few dry straw tips.
+ */
+export function paintGrassBlades(): HTMLCanvasElement {
+  const S = 256;
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 5151);
+  const OLIVE = [107, 122, 52], STRAW = [160, 154, 85], DRY = [190, 170, 115], DARK = [62, 72, 30];
+  const n = 40 + Math.floor(rng() * 21);
+  for (let k = 0; k < n; k++) {
+    const x0 = S * (0.18 + 0.64 * rng()), y0 = S;
+    const spread = (x0 / S - 0.5) * 1.1 + (rng() - 0.5) * 0.5;       // outer blades lean outward
+    const len = S * lerp(0.45, 0.97, rng() ** 0.7);
+    const x1 = Math.min(S - 3, Math.max(3, x0 + spread * len * 0.6)), y1 = Math.max(3, y0 - len * lerp(0.8, 1, rng()));
+    const col = mix(OLIVE, STRAW, rng()).map((q) => q * (0.85 + 0.3 * rng()));
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, rgb(mix(col, DARK, 0.55)));
+    grad.addColorStop(0.45, rgb(col));
+    grad.addColorStop(1, rgb(rng() < 0.18 ? DRY : mix(col, STRAW, 0.3)));
+    blade(g, x0, y0, x1, y1, (rng() - 0.5) * 30, lerp(3.5, 7, rng()), grad);
+  }
+  return c;
+}
+
+/**
+ * Reeds and sedges at the wet river edge, 128×512 (≈ 0.45 × 1.6 m card), transparent: 12–20
+ * thin stems, a few arching leaf blades and 2–3 brown seed heads; green-brown.
+ */
+export function paintReedStems(): HTMLCanvasElement {
+  const W = 128, Hh = 512;
+  const c = canvas(W, Hh), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 5252);
+  const GREEN = [96, 112, 56], BROWN = [128, 110, 70], DARK = [58, 62, 34], HEAD = [104, 72, 44];
+  g.lineCap = 'round';
+  const n = 12 + Math.floor(rng() * 9), tips: [number, number][] = [];
+  for (let k = 0; k < n; k++) {
+    const x0 = W * (0.3 + 0.4 * rng()), len = Hh * lerp(0.55, 0.97, rng());
+    const x1 = Math.min(W - 4, Math.max(4, x0 + (x0 / W - 0.5) * 70 + (rng() - 0.5) * 30)), y1 = Hh - len;
+    const col = mix(GREEN, BROWN, rng() * 0.7).map((q) => q * (0.85 + 0.3 * rng()));
+    const grad = g.createLinearGradient(0, Hh, 0, y1);
+    grad.addColorStop(0, rgb(mix(col, DARK, 0.5))); grad.addColorStop(1, rgb(mix(col, BROWN, 0.35)));
+    g.strokeStyle = grad; g.lineWidth = lerp(2, 3.5, rng());
+    g.beginPath(); g.moveTo(x0, Hh); g.quadraticCurveTo(lerp(x0, x1, 0.3), lerp(Hh, y1, 0.6), x1, y1); g.stroke();
+    tips.push([x1, y1]);
+  }
+  // Arching leaf blades from the base, a few folding over.
+  const nb = 5 + Math.floor(rng() * 4);
+  for (let k = 0; k < nb; k++) {
+    const x0 = W * (0.35 + 0.3 * rng()), side = rng() < 0.5 ? -1 : 1;
+    const x1 = Math.min(W - 3, Math.max(3, x0 + side * W * lerp(0.25, 0.45, rng()))), y1 = Hh * lerp(0.25, 0.6, rng());
+    const col = mix(GREEN, BROWN, rng() * 0.5).map((q) => q * (0.85 + 0.3 * rng()));
+    const grad = g.createLinearGradient(x0, Hh, x1, y1);
+    grad.addColorStop(0, rgb(mix(col, DARK, 0.5))); grad.addColorStop(1, rgb(col));
+    blade(g, x0, Hh, x1, y1, -side * 18, lerp(5, 8, rng()), grad);
+  }
+  // Seed heads: 2–3 slender brown spikes on the tallest stems.
+  tips.sort((a, b) => a[1] - b[1]);
+  const nh = 2 + Math.floor(rng() * 2);
+  for (let k = 0; k < Math.min(nh, tips.length); k++) {
+    const [x, y] = tips[k], h = lerp(30, 50, rng());
+    g.fillStyle = rgb(HEAD.map((q) => q * (0.85 + 0.3 * rng())));
+    g.beginPath(); g.ellipse(x, y + h / 2, 3.5, h / 2, 0, 0, Math.PI * 2); g.fill();
+  }
+  return c;
+}
+
+/**
+ * Beach morning glory (Ipomoea pes-caprae) runner, 256×256 (≈ 0.8 m card lying on the sand),
+ * transparent: a trailing stem from the bottom centre (clump centre) to the top edge (runner
+ * tip) carrying 8–12 two-lobed "goat's foot" leaves (~#3f6b2a) on short petioles, and 1–2
+ * pink-purple funnel flowers (~#c05a9a) with a darker throat.
+ */
+export function paintVineLeaves(): HTMLCanvasElement {
+  const S = 256;
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 5353);
+  const LEAF = [63, 107, 42], PALE = [96, 136, 64], STEM = [120, 84, 70], FLOWER = [192, 90, 154], THROAT = [120, 40, 96];
+  // Stem: a gentle S from bottom centre to the top.
+  const x0 = S * 0.5, y0 = S - 2, x3 = S * (0.4 + 0.2 * rng()), y3 = 6;
+  const c1 = [S * (0.3 + 0.15 * rng()), S * 0.65], c2 = [S * (0.55 + 0.15 * rng()), S * 0.3];
+  const at = (t: number): [number, number] => {
+    const u = 1 - t;
+    return [u * u * u * x0 + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * x3,
+      u * u * u * y0 + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * y3];
+  };
+  g.strokeStyle = rgb(STEM); g.lineWidth = 3; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], x3, y3); g.stroke();
+  const n = 8 + Math.floor(rng() * 5);
+  const leaves: { x: number; y: number; a: number; R: number }[] = [];
+  for (let k = 0; k < n; k++) {
+    const t = (k + 0.3 + 0.4 * rng()) / n, [x, y] = at(t), side = k % 2 ? 1 : -1;
+    const a = -Math.PI / 2 + side * lerp(0.6, 1.2, rng());       // petiole angle (up = -y), alternating
+    const R = lerp(21, 29, rng()) * lerp(1.1, 0.8, t);             // smaller toward the tip
+    const pl = R * 0.6, lx = x + Math.cos(a) * pl, ly = y + Math.sin(a) * pl;
+    g.strokeStyle = rgb(STEM); g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(lx, ly); g.stroke();
+    leaves.push({ x: lx + Math.cos(a) * R, y: ly + Math.sin(a) * R, a, R });
+  }
+  for (const L of leaves) {
+    const col = mix(LEAF, PALE, rng() * 0.4).map((q) => q * (0.85 + 0.3 * rng()));
+    g.save(); g.translate(L.x, L.y); g.rotate(L.a + Math.PI / 2); // local -y = away from the petiole
+    const R = L.R;
+    // Two rounded lobes with a notch at the tip (goat's foot), petiole at +y.
+    g.beginPath();
+    g.moveTo(0, R);
+    g.bezierCurveTo(-R * 1.2, R * 0.7, -R * 1.25, -R * 0.9, -R * 0.35, -R * 0.95);
+    g.quadraticCurveTo(-R * 0.1, -R * 0.9, 0, -R * 0.55);
+    g.quadraticCurveTo(R * 0.1, -R * 0.9, R * 0.35, -R * 0.95);
+    g.bezierCurveTo(R * 1.25, -R * 0.9, R * 1.2, R * 0.7, 0, R);
+    g.closePath();
+    const grad = g.createRadialGradient(-R * 0.2, -R * 0.2, R * 0.1, 0, 0, R * 1.2);
+    grad.addColorStop(0, rgb(mix(col, [200, 210, 150], 0.25))); grad.addColorStop(1, rgb(col.map((q) => q * 0.75)));
+    g.fillStyle = grad; g.fill();
+    g.strokeStyle = rgba(mix(col, [210, 220, 170], 0.5), 0.7); g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(0, R); g.lineTo(0, -R * 0.55); g.stroke();
+    g.restore();
+  }
+  const nf = 1 + Math.floor(rng() * 2);
+  for (let k = 0; k < nf; k++) {
+    const [sx, sy] = at(lerp(0.3, 0.8, rng())), fx = sx + (rng() - 0.5) * 50, fy = sy + (rng() - 0.5) * 30, R = lerp(13, 17, rng());
+    g.fillStyle = rgb(FLOWER.map((q) => q * (0.9 + 0.2 * rng())));
+    g.beginPath();
+    for (let i = 0; i <= 50; i++) {
+      const a = (i / 50) * Math.PI * 2, r = R * (0.88 + 0.12 * Math.cos(a * 5));
+      if (i === 0) g.moveTo(fx + r * Math.cos(a), fy + r * Math.sin(a)); else g.lineTo(fx + r * Math.cos(a), fy + r * Math.sin(a));
+    }
+    g.fill();
+    const tg = g.createRadialGradient(fx, fy, 0, fx, fy, R * 0.55);
+    tg.addColorStop(0, rgb(THROAT)); tg.addColorStop(1, rgba(FLOWER, 0));
+    g.fillStyle = tg; g.beginPath(); g.arc(fx, fy, R * 0.55, 0, Math.PI * 2); g.fill();
+  }
+  return c;
+}
+
 /** Minimal ImageData shape (so the mip maths runs in node tests too). */
 export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
 

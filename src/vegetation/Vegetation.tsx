@@ -5,17 +5,19 @@ import type { GeoBundle } from '../data/geo/types';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { groundUniforms, NO_LITTER } from '../scene/groundUniforms';
-import { sampleField, WATER, type WorldFields } from '../terrain/fields';
+import type { WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
+import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
-import { placeAll } from './placement';
+import { Occupancy, placeAll } from './placement';
 import { KeyedCache, placementKey } from './placementCache';
-import { PLACEMENT_ORDER } from './rules';
+import { reseat } from './reseat';
+import { GROUND_ORDER, PLACEMENT_ORDER } from './rules';
 import { makeSpeciesMaterials, SPECIES } from './species';
 import { vegTiming } from './stats';
-import type { PlantInstance, PlantPart, WoodyId } from './types';
+import type { GroundId, PlantInstance, PlantPart, WoodyId } from './types';
 
 const G = geo as unknown as GeoBundle;
 const NEAR_SEED = 1840, FAR_SEED = 1841;
@@ -34,24 +36,18 @@ function speciesAssets(id: WoodyId): SpeciesAssets {
   return a;
 }
 
-/** Placement sets for every (densities, bank offset, tier) seen this session (8 eras × 3 tiers at most). */
-const placements = new KeyedCache<Record<WoodyId, PlantInstance[]>>(24);
+/**
+ * Placement sets for every (densities, bank offset, tier) seen this session (8 eras × 3 tiers at
+ * most), with the placement fields they ran on and the near trunk discs (ground cover avoids them).
+ */
+interface Placed { sets: Record<WoodyId, PlantInstance[]>; pf: WorldFields; trunks: Occupancy }
+const placements = new KeyedCache<Placed>(24);
 
 const masks = new WeakMap<WorldFields, VegMasks>();
 function masksFor(f: WorldFields): VegMasks {
   let m = masks.get(f);
   if (!m) { m = buildVegMasks(G, f); masks.set(f, m); }
   return m;
-}
-
-/** Re-seat instances on the rendered terrain when placement ran on a different grid. */
-function reseat(list: PlantInstance[], f: WorldFields): PlantInstance[] {
-  return list.map((p) => {
-    const g = f.grid, i = Math.floor((p.x - g.minX) / g.cell), j = Math.floor((p.z - g.minZ) / g.cell);
-    const inWater = i >= 0 && j >= 0 && i < g.size && j < g.size && f.water[j * g.size + i] !== WATER.LAND;
-    const h = sampleField(f, f.height, p.x, p.z);
-    return { ...p, y: inWater ? Math.max(h, -0.3) : h };
-  });
 }
 
 /**
@@ -73,10 +69,11 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   }, [era, density]);
   const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
   const key = placementKey(dens, bankOffset, tier);
-  const sets = useMemo(() => placements.get(key, () => {
+  const { sets, pf, trunks } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
-    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
+    const trunks = new Occupancy(pf.grid, 1);
+    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { trunks });
     if (pf !== near) for (const id of PLACEMENT_ORDER) nearSet[id] = reseat(nearSet[id], near);
 
     let farSet: Record<WoodyId, PlantInstance[]> | null = null;
@@ -94,8 +91,14 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       vegTiming.counts[id] = { near: nearSet[id].length, far: farSet?.[id].length ?? 0 };
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
-    return out;
+    return { sets: out, pf, trunks };
   }), [key, near, far]);
+
+  const groundDens = useMemo(() => {
+    const d = {} as Record<GroundId, number>;
+    for (const id of GROUND_ORDER) d[id] = era.vegetation[id].value * density;
+    return d;
+  }, [era, density]);
 
   // Needle litter under the near casuarinas, for the terrain material.
   useEffect(() => {
@@ -118,5 +121,6 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       return <InstancedSpecies key={id} name={id} variants={a.variants} materials={a.materials} instances={sets[id]}
         lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={farCards} />;
     })}
+    <GroundCover fields={pf} near={near} masks={masksFor(pf)} densities={groundDens} trunks={trunks} radius={q.veg.groundRadius} />
   </>;
 }

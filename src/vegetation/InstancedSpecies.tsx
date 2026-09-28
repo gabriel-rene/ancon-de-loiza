@@ -36,7 +36,7 @@ const LOD_MOVE2 = 8 * 8;   // m², horizontal
 const LOD_STILL2 = 0.5 * 0.5; // m²: below this the split cannot have changed, so skip the timed refresh
 
 /** Upload the first `count` matrices (reusing `range`; three clears the list after upload). */
-function commit(attr: THREE.InstancedBufferAttribute, count: number, range: { start: number; count: number }) {
+export function commit(attr: THREE.InstancedBufferAttribute, count: number, range: { start: number; count: number }) {
   if (count <= 0) return;
   attr.clearUpdateRanges();
   range.start = 0; range.count = count * 16;

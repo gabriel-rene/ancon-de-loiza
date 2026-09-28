@@ -62,8 +62,8 @@ export const cardUniforms = { uCardAO: { value: 0.3 } };
  * little self-shadowing toward the crown interior (low aFlex). `bentNormals` (impostor cards)
  * keeps the geometry's outward-bent normals on both faces instead of flipping back faces.
  */
-const foliageFragment = (bentNormals: boolean) => /* glsl */ `
-  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans; uniform vec2 uTint;${bentNormals ? ' uniform float uCardAO;' : ''}
+const foliageFragment = (bentNormals: boolean, fade: boolean, upNormals: boolean) => /* glsl */ `
+  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans; uniform vec2 uTint;${bentNormals ? ' uniform float uCardAO;' : ''}${fade ? ' uniform float uFadeR;' : ''}
   varying float vFlex;
   varying vec3 vPlantW;
   varying float vSeed;
@@ -80,7 +80,15 @@ const foliageFragment = (bentNormals: boolean) => /* glsl */ `
     float back = pow(max(dot(normalize(vPlantW - cameraPosition), uSunDir), 0.0), 3.0);
     float day = smoothstep(-0.02, 0.08, uSunDir.y);
     c.rgb *= mix(0.78, 1.0, vFlex) * (1.0 + uTrans * 0.25 * back * day);
+    ${fade ? `float fd = distance(vPlantW.xz, cameraPosition.xz);
+    float fk = 1.0 - smoothstep(uFadeR * 0.8, uFadeR, fd);
+    // 4×4 ordered dither: no sorting, no hard edge.
+    vec2 q = mod(floor(gl_FragCoord.xy), 4.0);
+    float bayer = (mod(q.x + 2.0 * q.y, 4.0) * 4.0 + mod(q.x * 3.0 + q.y, 4.0) + 0.5) / 16.0;
+    if (fk < bayer) discard;` : ''}
     csm_DiffuseColor = c;
+    ${upNormals ? `// Up-leaning ground-cover normals on both faces (a flipped back face would point into the ground).
+    csm_FragNormal = normalize(vNormal);` : ''}
     ${bentNormals ? `// The card's bent normals point sideways/up, i.e. edge-on to a viewer facing the card
     // (grazing Fresnel -> pale sky sheen). Lean them toward the viewer like a rounded crown.
     csm_FragNormal = normalize(normalize(vNormal) + normalize(vViewPosition));
@@ -99,6 +107,13 @@ export interface PlantMaterialOpts {
   bentNormals?: boolean;
   /** Per-instance colour jitter (hashed from instance position); value = ± brightness fraction, hue = ± yellow-green/blue-green shift fraction. */
   tint?: { value: number; hue: number };
+  /**
+   * Ground cover: dither-fade out over the last 20 % of `radius` (horizontal distance to the
+   * camera). The uniform object is shared, so changing its value retunes every material using it.
+   */
+  fade?: { radius: THREE.IUniform<number> };
+  /** Keep the geometry's normals on back faces too (ground clumps: normals are mostly +Y). */
+  upNormals?: boolean;
 }
 
 /** A wind-swayed MeshStandardMaterial plus the matching depth material for `customDepthMaterial`. */
@@ -108,11 +123,11 @@ export function makePlantMaterials(opts: PlantMaterialOpts): { material: THREE.M
   const material = new CustomShaderMaterial({
     baseMaterial: THREE.MeshStandardMaterial,
     vertexShader: WIND_VERTEX,
-    fragmentShader: foliage ? foliageFragment(!!opts.bentNormals) : undefined,
+    fragmentShader: foliage ? foliageFragment(!!opts.bentNormals, !!opts.fade, !!opts.upNormals) : undefined,
     uniforms: foliage
       ? { ...windUniforms, uSunDir: sunUniforms.uSunDir, uSunI: sunUniforms.uSunI, uTrans: { value: opts.translucency ?? 0 },
         uTint: { value: [opts.tint?.value ?? 0, opts.tint?.hue ?? 0] },
-        ...(opts.bentNormals ? cardUniforms : {}) }
+        ...(opts.bentNormals ? cardUniforms : {}), ...(opts.fade ? { uFadeR: opts.fade.radius } : {}) }
       : { ...windUniforms },
     color: opts.color,
     map: opts.map ?? null,
