@@ -11,7 +11,7 @@ export function Post({ sun, ao }: { sun: Sun; ao: boolean }) {
   const fog = useMemo(() => new HeightFogEffect(camera), [camera]);
   const grade = useMemo(() => new GradeEffect(), []);
   useEffect(() => fog.setAtmosphere(sun), [fog, sun]);
-  useEffect(() => grade.set(sun.atm.exposure, [1.06, 1.0, 0.9], 1.15), [grade, sun]);
+  useEffect(() => grade.set(sun.atm.exposure, sun.atm.balance, sun.atm.saturation), [grade, sun]);
   useEffect(() => () => { fog.dispose(); grade.dispose(); }, [fog, grade]);
   return (
     <EffectComposer multisampling={0}>

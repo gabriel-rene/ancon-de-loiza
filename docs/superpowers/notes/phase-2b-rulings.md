@@ -269,3 +269,89 @@ so looping it the same way would need its own re-tuning; out of scope for this r
 - `?era=1986&cam=mouth&t=7.2&c=0&freeze=1&q=medium`: re-shot to confirm nothing regressed — visibly
   unchanged from the round-2 shot (dense treeline, dominated by casuarina and the mangrove fringe,
   which R11 explicitly says is realistic and out of scope here).
+
+## Task 10 — noon colour
+
+### Controller ruling R2 (applied)
+
+Overrides the brief's golden-hour invariance check to use `atmosphereFor(3)` (there
+`high = smooth(3, 35, 3) = 0`) for exact equality with the pre-existing constant grade balance
+`[1.06, 1.0, 0.9]` and saturation `1.15`, plus a second, looser check at `atmosphereFor(6)`
+(within 0.02 per component) since 6° is not at the pure-golden end of the `high` ramp and the old
+code had no elevation-dependence to compare against exactly. Both checks are in
+`src/geo/atmosphere.test.ts`.
+
+### Fix
+
+- `fogDay`'s high-sun end changed from `[0.62, 0.74, 0.88]` (teal — G and B both well above R) to
+  `[0.74, 0.78, 0.86]` (R close to G, B only modestly above both — warm haze, not teal).
+- `fogAway`'s high-sun end changed from `[0.5, 0.62, 0.8]` to `[0.6, 0.66, 0.8]` (same idea, kept
+  cooler than `fogDay` since it's the away-from-sun sky haze).
+- Added `balance: RGB` and `saturation: number` to `Atmosphere`, both a function of `high`:
+  `balance` golden `[1.06, 1.0, 0.9]` → high-sun `[1.04, 1.0, 0.94]`; `saturation` golden `1.15` →
+  high-sun `1.05`. `Post.tsx`'s grade effect now reads `sun.atm.balance` / `sun.atm.saturation`
+  instead of the hardcoded golden-hour-only constants, so the grade itself de-warms and desaturates
+  slightly as the sun climbs, instead of applying the golden-hour warm/saturated grade at every
+  time of day (the second, larger source of the teal-reading noon look — the fog fix alone only
+  changes the pre-tonemap fog term, not the flat post-process push toward warm+saturated).
+
+### Hue measurements (`scripts/dev/hue.mjs`, `npm run dev` on :5173, linear-space means)
+
+`hue.mjs` decodes the PNG with `createImageBitmap`/`getImageData` in-page, converts sRGB→linear,
+and prints the mean linear RGB of the lower half (land+water) and upper third (sky).
+
+**Noon** — `?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium`:
+
+| | R | G | B | G/R | B/R |
+|---|---|---|---|---|---|
+| lower half, before | 0.2645 | 0.3972 | 0.2469 | 1.502 | 0.933 |
+| lower half, after | 0.2704 | 0.3944 | 0.2675 | 1.459 | 0.990 |
+| sky, before | 0.5102 | 0.6531 | 0.7477 | 1.280 | 1.465 |
+| sky, after | 0.5262 | 0.6524 | 0.7477 | 1.240 | 1.421 |
+
+The lower-half ratios stay dominated by green grass/foliage (G/R ≈ 1.46–1.50 either way — this is
+expected, real grass, not haze), but B moved from below R (0.933, i.e. not teal by the sky-haze
+definition but slightly cool) to essentially matching R (0.990) and both G/R and B/R (sky) dropped
+— less blue-green cast overall, consistent with the unit-test assertions on `fogColor` directly
+(`atmosphereFor(60).fogColor`: G/R 1.19→ still <1.1 required — see below — and B/R <1.25).
+
+Underlying `atmosphereFor(60).fogColor` (what actually changed): before `[0.62, 0.74, 0.88]`
+(G/R 1.19, B/R 1.42 — teal), after `[0.74, 0.78, 0.86]` (G/R 1.05, B/R 1.16 — warm/neutral, passes
+the new test's `< 1.1` / `< 1.25` thresholds).
+
+**Golden hour** — default query (no params):
+
+| | R | G | B |
+|---|---|---|---|
+| lower half, before | 0.2279 | 0.2069 | 0.1206 |
+| lower half, after | 0.2278 | 0.2069 | 0.1210 |
+| sky, before | 0.6882 | 0.6294 | 0.4688 |
+| sky, after | 0.6882 | 0.6294 | 0.4696 |
+
+All four channels are within 0.3% of their "before" value — well inside the brief's ±3% budget.
+The default query happens to land at an elevation close enough to the pure-golden end of the `high`
+ramp that `balance`/`saturation` are effectively unchanged there; `atmosphereFor(3)` and
+`atmosphereFor(6)` are checked exactly/approximately in the unit tests for the precise elevations.
+
+### Screenshot comparison
+
+`before-noon.png` (this task, HEAD before the change) is visually indistinguishable from the
+existing `tests/snapshots/phase2b-before/1975-bank-noon.png` baseline, confirming the "before"
+capture is representative. `after-noon.png` (same query, with the fix) shows: foliage greens
+unchanged in hue (still natural green, not shifted), sand/grass unchanged, water still reads blue,
+and the sky's blue is very slightly less saturated/less blue-white in the upper reaches — a subtle
+shift, matching the modest size of the `fogColor`/`balance` change (this is a grade correction, not
+a dramatic re-light). No regression toward warm/orange at noon.
+
+### Glossy-leaf sky sheen (sea grape roughness 0.5, almendro roughness 0.55)
+
+Checked at noon in `after-noon.png` and by inspection of the shader: the slight blue-teal sheen on
+these glossy flat leaves comes from the **sky/environment reflection** (`envIntensity`, the sky
+dome's own color ramp, `skyHaze`/`skyGain`) via each material's roughness-weighted specular
+response, not from `fogColor` or the post-process grade — neither of which this task touched for
+the environment map itself. **This fix does not remove that sheen**, and per the brief it was not
+meant to: `fogColor`/`fogAway`/`balance`/`saturation` govern the atmospheric haze and the
+post-tonemap grade, while the sky dome colour that materials reflect is driven by the Preetham sky
+uniforms (`turbidity`, `rayleigh`, `mie`, `mieG`), unchanged here. Retuning the sky-dome color ramp
+or the affected materials' roughness/env response is out of scope for this task (the brief says not
+to retune plant materials) and would need its own task if the sheen is judged to be a problem.
