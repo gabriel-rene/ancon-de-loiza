@@ -16,6 +16,6 @@ export class KeyedCache<T> {
   }
 }
 
-/** Placement results depend only on (densities, bank offset, tier) — spec §13. */
-export const placementKey = (dens: Record<WoodyId, number>, bankOffset: number, tier: string) =>
-  `${tier}|${bankOffset}|${PLACEMENT_ORDER.map((id) => dens[id].toFixed(4)).join(',')}`;
+/** Placement results depend only on (densities, bank offset, tier, farm blocks) — spec §13, 2c. */
+export const placementKey = (dens: Record<WoodyId, number>, bankOffset: number, tier: string, extra = '') =>
+  `${tier}|${bankOffset}|${PLACEMENT_ORDER.map((id) => dens[id].toFixed(4)).join(',')}${extra ? `|${extra}` : ''}`;

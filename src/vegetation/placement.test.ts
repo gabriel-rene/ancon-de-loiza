@@ -206,3 +206,12 @@ test('warmHabitat fills the habitat cache that placeSpecies reads (ground cover 
   expect(habitatMask(f2, m2, 'morningGlory', false)).toBeUndefined();
   expect(habitatMask(f2, m2, 'grass')).toBe(g); // cached: same array
 });
+
+test('placeAll: planted palms come first; no woody plant grows inside the blocks', () => {
+  const planted = [{ x: 10, y: 0, z: 10, rot: 0, scale: 1, variant: 0 }];
+  const inside = (x: number, z: number) => Math.abs(x) < 300 && Math.abs(z) < 300;
+  const d = { redMangrove: 1, coconut: 1, casuarina: 1, blackMangrove: 1, whiteMangrove: 1, buttonwood: 1, almendro: 1, seaGrape: 1 };
+  const out = placeAll(f, m, d, 7, { planted: { coconut: planted, inside } });
+  expect(out.coconut[0]).toBe(planted[0]);
+  for (const list of Object.values(out)) for (const p of list) if (p !== planted[0]) expect(inside(p.x, p.z)).toBe(false);
+});

@@ -12,6 +12,7 @@ import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { caneLayout, inCane, shownMask, type CaneLayout } from './landscape/caneFields';
 import { CaneFields } from './landscape/CaneFieldsMesh';
+import { findBlocks, insideBlocks, plantBlocks } from './landscape/plantation';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
 import { markTrunks, Occupancy, placeAll, warmHabitat } from './placement';
@@ -89,12 +90,15 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   const caneShown = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
   const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
 
-  const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}|c${caneShare}`;
-  const key = placementKey(dens, bankOffset, tier);
+  const survival = era.landscape.plantation.value;
+  const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
+  const key = placementKey(dens, bankOffset, tier, `p${survival}|c${caneShare}`);
   const { sets, pf, nearCount } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
-    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip: caneSkip });
+    const blocks = survival > 0 ? findBlocks(pf, masksFor(pf)) : [];
+    const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival), inside: insideBlocks(blocks) } : undefined;
+    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip: caneSkip, planted });
     // Ground cover places per tile inside the frame loop; build its habitat masks here instead
     // of three 512² passes in its first frame.
     warmHabitat(pf, masksFor(pf), GROUND_ORDER);

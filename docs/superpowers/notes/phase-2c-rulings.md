@@ -175,4 +175,42 @@ assumed a per-vertex-height top and would no longer mean anything once the top i
 The other four Task 5 tests (triangle counts, side normals, aFlex, empty-when-nothing-shown) were
 untouched and still pass.
 
+### Task 8 — farm blocks in the placement
+
+`placeAll` now takes `opts.planted: { coconut, inside }`: the planted palms are marked in the
+shared occupancy grid before any species runs (so nothing else can occupy their trunk discs), the
+combined skip is `inside(x,z) || opts.skip(x,z)` (blocks stay grass-only inside their rectangle,
+whatever species is being placed), and `out.coconut` is `planted.coconut.concat(placeSpecies(...))`
+so the planted palms are always first (matters for `nearCount`/trunk-disc code downstream, which
+assumes the first N of a list are the near set). `placementKey` gained an `extra` parameter so the
+cache key can vary with `p${survival}` independently of `tier` (tier is now only the grid/quality
+shape; `extra` carries `p${survival}|c${caneShare}`, both stop-gap knobs that affect placement
+without affecting density inputs).
+
+`Vegetation.tsx`: `findBlocks`/`plantBlocks`/`insideBlocks` run once per near placement build
+(inside the `placements.get` memo, gated by `survival > 0`), so a survival value of 0 (1840) skips
+finding blocks entirely and costs nothing extra. Blocks are found on `pf` (the placement fields,
+post bank-offset), matching the space the planted coordinates and `inside` predicate need to be
+in.
+
+Screenshot check (`npm run dev` + `scripts/dev/shot.mjs`, temporary `fields` camera pose edited to
+`{ pos: [265, 60, -295], target: [160, 0, -400] }` — 150 m out, 60 m up, looking at the block
+centred at (160, -400); reverted before committing, confirmed `git diff` was clean after revert):
+
+- **1840** (`?era=1840&cam=fields&...`): no rectangular block — only the wild coconut fringe along
+  the beach and scattered wild clumps inland. Correct (`plantation.value` is 0 that era).
+- **1900** (`?era=1900&cam=fields&...`): a clean 15×10 grid of short palms with fronds close to the
+  ground (age 0 → young), in straight rows, clearly distinct from the wild fringe.
+- **1925** (`?era=1925&cam=fields&...`): the same grid, now half-grown (taller trunks, fuller
+  fronds) — matches `palmAge.value = 0.5` for that era.
+- **1935** (`?era=1935&cam=fields&...`): full-height mature palms filling the block densely.
+- **1975** (`?era=1975&cam=fields&...`): same mature block with visible gaps scattered through the
+  rows — consistent with `plantation.value = 0.85` (≈ 15% of planted positions skipped).
+- **aerial** (`?era=1935&cam=aerial&...`, no camera edit): one of the six blocks is visible as a
+  small grid of palms near the bottom-right of the frame, confirming at least one block reads in
+  the standard preset too (not just the block-framing pose).
+
+No rows or grid artefacts showed up in the wild clumps outside the blocks in any shot, and no
+non-grass species appeared inside a block's rectangle.
+
 ## Deferred

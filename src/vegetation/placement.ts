@@ -150,14 +150,21 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
 
 /**
  * Place every species in PLACEMENT_ORDER (larger plants first) with one shared occupancy grid,
- * so species never overlap. `occCell` is the occupancy resolution in metres.
+ * so species never overlap. `occCell` is the occupancy resolution in metres. `planted` (phase 2c
+ * farm blocks): those palms are marked first and lead `out.coconut`; no woody species is placed
+ * where `inside` is true (the blocks' floor stays open, grass only).
  */
 export function placeAll(f: WorldFields, m: VegMasks, densities: Partial<Record<SpeciesId, number>>, seed: number,
-  opts: { occCell?: number; spacingMul?: number; skip?: (x: number, z: number) => boolean; trunks?: Occupancy } = {}) {
+  opts: { occCell?: number; spacingMul?: number; skip?: (x: number, z: number) => boolean; trunks?: Occupancy;
+    planted?: { coconut: PlantInstance[]; inside: (x: number, z: number) => boolean } } = {}) {
   const occ = new Occupancy(f.grid, opts.occCell ?? 1);
+  const p = opts.planted;
+  if (p) for (const q of p.coconut) occ.mark(q.x, q.z, RULES.coconut.radius);
+  const skip = p ? (x: number, z: number) => p.inside(x, z) || !!opts.skip?.(x, z) : opts.skip;
   const out = {} as Record<WoodyId, PlantInstance[]>;
   for (const id of PLACEMENT_ORDER) {
-    out[id] = placeSpecies(f, m, id, { density: densities[id] ?? 0, seed, occupancy: occ, spacingMul: opts.spacingMul, skip: opts.skip });
+    const list = placeSpecies(f, m, id, { density: densities[id] ?? 0, seed, occupancy: occ, spacingMul: opts.spacingMul, skip });
+    out[id] = p && id === 'coconut' ? p.coconut.concat(list) : list;
     if (opts.trunks) markTrunks(opts.trunks, id, out[id]);
   }
   return out;
