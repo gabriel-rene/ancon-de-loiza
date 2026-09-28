@@ -355,3 +355,115 @@ post-tonemap grade, while the sky dome colour that materials reflect is driven b
 uniforms (`turbidity`, `rayleigh`, `mie`, `mieG`), unchanged here. Retuning the sky-dome color ramp
 or the affected materials' roughness/env response is out of scope for this task (the brief says not
 to retune plant materials) and would need its own task if the sheen is judged to be a problem.
+
+(Round 2 note: round 2 *does* reduce `envIntensity` at high sun — see below — which lowers the
+overall strength of that sky-reflection sheen somewhat, since less environment light reaches every
+surface including the glossy leaves. It does not change the sky's *colour*, so the sheen is dimmer
+but not less blue. Still out of scope to retune further here.)
+
+## Task 10 round 2 — controller review R12 and R2-followup findings
+
+### R12 — real-scene bar replaced with per-region metrics
+
+Round 1's whole-lower-half average was dominated by legitimately green grass and couldn't
+distinguish "natural green" from "teal cast" (round-1 report already flagged this as a weak
+metric). `scripts/dev/hue.mjs` was rewritten to sample three fixed rectangles (1440×900 viewport,
+`?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium` framing) instead of halves/thirds:
+
+- `ground` `{x:950,y:621,w:317,h:162}` — clean pasture, clear of UI, poles and the boat.
+- `water` `{x:605,y:518,w:345,h:27}` — calm water, clear of the boat and mangrove reflections.
+- `horizonHaze` `{x:650,y:398,w:250,h:22}` — right at/just above the treeline. This rect matters:
+  an earlier attempt at `y:369-405` (higher in the sky) sampled mostly the raw Preetham sky colour,
+  not the fog term — `HeightFogEffect`'s sky-branch haze (`f = 1 - (1 - skyHaze·exp(-y·7))·(1 -
+  exp(-y·60))`) only approaches full strength as the view ray's altitude `y` (`dir.y`) approaches
+  0, i.e. right at the horizon; a few pixel-rows higher and the `exp(-y·60)` term collapses the
+  haze contribution to near zero, letting the bluer sky underneath dominate. Verified by scanning
+  the column at x=650–950: colour stays a pale blue-grey from y≈0 through y≈400, then goes
+  through a fog-dominated near-neutral band around y≈398–422, then treeline geometry breaks it up.
+
+Each region reports mean **linear** RGB (for the ratio thresholds) and an **sRGB** hue angle (the
+screenshot's own gamma-encoded pixels — this is the space a human eye / colour-picker reads hue
+in, and the one the targets below are stated in).
+
+### R12 targets and final numbers (noon: `?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium`)
+
+| region | target | round-1 (after task-10 commit) | round-2 (final) |
+|---|---|---|---|
+| ground hue | 75°–100° | 106.8° (fail — mint/teal side) | **94.0°** (pass) |
+| water B vs G (linear) | B ≥ G | 0.819 ≥ 0.762 (pass) | 0.816 ≥ 0.764 (pass) |
+| horizon haze R vs B (linear) | R ≥ 0.9·B | 0.711 vs 0.9·0.837=0.753 (fail) | **0.743 vs 0.9·0.809=0.728** (pass) |
+
+Golden hour (default query) and one dawn shot (`?era=1986&cam=mouth&t=7.2&c=0&freeze=1&q=medium`),
+compared against the true pre-task-10 baseline (`4dd1f8c`, via `git show`), per region, linear RGB:
+
+| | R | G | B |
+|---|---|---|---|
+| golden ground, before | 0.0597 | 0.0884 | 0.0757 |
+| golden ground, after | 0.0610 | 0.0894 | 0.0768 |
+| golden water, before | 0.2276 | 0.1892 | 0.1013 |
+| golden water, after | 0.2278 | 0.1892 | 0.1014 |
+| golden horizonHaze, before | 0.8302 | 0.6367 | 0.3089 |
+| golden horizonHaze, after | 0.8294 | 0.6363 | 0.3092 |
+| dawn ground, before | 0.0430 | 0.0441 | 0.0308 |
+| dawn ground, after | 0.0431 | 0.0441 | 0.0308 |
+| dawn water, before | 0.1096 | 0.1011 | 0.0568 |
+| dawn water, after | 0.1097 | 0.1012 | 0.0568 |
+| dawn horizonHaze, before | 0.4305 | 0.2998 | 0.1954 |
+| dawn horizonHaze, after | 0.4309 | 0.3000 | 0.1954 |
+
+Largest delta across all 18 numbers is ~2.2% (golden ground R); everything else is under 1.5%,
+most under 0.3% — well inside the ±3%-per-region budget. This is expected: every value changed in
+round 2 lives at the high-sun end of an elevation-dependent mix, and at golden/dawn elevations the
+`high` term is small (≈0.026 at elevation 6, ≈0 at elevation ≤3), so the golden/dawn end of every
+ramp is nearly untouched.
+
+### R12 — why round 1 still looked wrong, and what actually fixed it
+
+Round 1 only changed `fogColor`'s high-sun end and made `balance`/`saturation` elevation-dependent,
+but landed a *combination* that was still off:
+
+1. **`envIntensity` barely dropped at noon** (round 1: golden ≈1.10, noon 1.0 — an ~10% gap) so the
+   environment map (a genuinely, physically blue clear-sky dome) kept dumping nearly
+   golden-hour-strength blue ambient fill onto every surface, including grass. Green diffuse +
+   strong blue ambient fill reads as mint/cyan, and desaturates + flattens contrast — an
+   observation independent of `fogColor` (`fogColor` only feeds the height-fog post-process, not
+   the IBL ambient term wired through `scene.environmentIntensity` in `SkyAndLight.tsx`).
+2. **`saturation` dropped too far at noon** (round 1: 1.05, a bigger drop from golden's 1.15 than
+   necessary), compounding the washed-out look on top of (1).
+3. **`fogAway`'s high-sun end was still fairly cool** (round 1: `[0.6, 0.66, 0.8]`, R/B = 0.75) —
+   `fogAway` (not `fogColor`) is the dominant term for haze looking *away* from the sun, which is
+   most of what a wide horizon band shows at noon (the sun is high, so most of the visible horizon
+   isn't within the narrow forward cone that reads `fogColor`).
+
+Round-2 fix, all in `src/geo/atmosphere.ts`, all as new high-sun endpoints of existing elevation
+mixes (golden-hour endpoints untouched, so the round-1 golden-hour invariance tests still pass
+unmodified):
+
+- `envIntensity` high-sun end: `1.0` → `0.75` (bigger ambient-fill drop at noon).
+- `balance` high-sun end: `[1.04, 1.0, 0.94]` → `[1.09, 1.0, 0.91]` (a bit more direct warmth
+  carried into the grade at noon, rather than nearly neutral).
+- `saturation` high-sun end: `1.05` → `1.12` (keep most of the golden-hour richness; only fogColor
+  was teal, not "how colourful the image should be").
+- `fogDay` high-sun end (feeds `fogColor`): `[0.74, 0.78, 0.86]` → `[0.85, 0.84, 0.83]` (near-
+  neutral with a hint of warmth, up from a still slightly cool value; the round-1 unit test
+  thresholds — G/R < 1.1, B/R < 1.25 — still pass comfortably: 0.988 and 0.976).
+- `fogAway` high-sun end: `[0.6, 0.66, 0.8]` → `[0.78, 0.78, 0.8]` (the main lever for the
+  horizon-haze region, which is dominated by `fogAway` at noon).
+
+New unit tests added to `atmosphere.test.ts` for every one of these changed values (per instruction
+to test any atmosphere value changed): RED confirmed against the round-1 code
+(`git show d0c5ce3:src/geo/atmosphere.ts`), GREEN against round 2 — see the report for the exact
+failure output.
+
+### Screenshots
+
+- `/private/tmp/claude-501/.../scratchpad/round2-noon.png` — same noon query, round-2 fix. The
+  ground now reads a richer, more yellow-green olive tone with visible texture/variation instead of
+  the flat, pale, low-contrast mint of round 1's `after-noon.png`. The sky is still genuinely blue
+  (correct for a clear tropical noon), but the overall frame has noticeably more contrast and warmth
+  than round 1 while staying clearly distinct from the golden-hour look.
+- `round2-noon-ground.png` — cropped ground-only comparison against round 1's
+  `after-noon-ground.png`: round 1 is a flat sage/mint green; round 2 is a warmer, more varied olive
+  green, matching the "foliage greens: still natural green, not shifted" bar the task originally
+  asked for (round 1's own screenshot section had actually failed this by inspection, which is what
+  round 2 fixes).

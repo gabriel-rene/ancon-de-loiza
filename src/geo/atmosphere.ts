@@ -32,16 +32,16 @@ export function atmosphereFor(elevation: number): Atmosphere {
   const day = smooth(-4, 2, elevation);          // 0 night → 1 day
   const high = smooth(3, 35, elevation);         // 0 golden → 1 high sun
   const sunColor = mix([1.0, 0.56, 0.26], [1.0, 0.93, 0.84], high);
-  const fogDay = mix([1.15, 0.74, 0.38], [0.74, 0.78, 0.86], high);
+  const fogDay = mix([1.15, 0.74, 0.38], [0.85, 0.84, 0.83], high);
   const fogColor = mix([0.05, 0.06, 0.09], fogDay, day);
-  const fogAway = mix([0.04, 0.05, 0.09], mix([0.5, 0.52, 0.66], [0.6, 0.66, 0.8], high), day);
+  const fogAway = mix([0.04, 0.05, 0.09], mix([0.5, 0.52, 0.66], [0.78, 0.78, 0.8], high), day);
   return {
     sunColor,
     sunIntensity: elevation <= -2 ? 0 : lerp(0.0, 1.0, day) * lerp(3.8, 3.4, high),
     fogColor,
     fogAway,
     fogDensity: lerp(0.00042, 0.00016, high),
-    envIntensity: lerp(0.1, lerp(1.1, 1.0, high), day),
+    envIntensity: lerp(0.1, lerp(1.1, 0.75, high), day),
     turbidity: lerp(7, 4, high),
     rayleigh: lerp(2.2, 1.2, high),
     mie: lerp(0.008, 0.004, high),
@@ -51,7 +51,7 @@ export function atmosphereFor(elevation: number): Atmosphere {
     skyGain: lerp(0.45, 0.6, high),
     cloudCoverage: 0.3,
     exposure: lerp(0.9, 0.85, high),
-    balance: mix([1.06, 1.0, 0.9], [1.04, 1.0, 0.94], high),
-    saturation: lerp(1.15, 1.05, high),
+    balance: mix([1.06, 1.0, 0.9], [1.09, 1.0, 0.91], high),
+    saturation: lerp(1.15, 1.12, high),
   };
 }
