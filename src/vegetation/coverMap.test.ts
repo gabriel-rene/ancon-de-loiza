@@ -75,4 +75,11 @@ describe('coverMap', () => {
       expect(zero[k * 4 + 2]).toBe(0);
     }
   });
+
+  test('skip zeroes the cover weights where it returns true', () => {
+    const dens = { grass: 1, reeds: 1, morningGlory: 1 };
+    const a = coverMap(f, m, dens, 64), b = coverMap(f, m, dens, 64, () => true);
+    expect(a.some((v, i) => i % 4 !== 3 && v > 0)).toBe(true);
+    expect(b.every((v, i) => (i % 4 === 3 ? v === 255 : v === 0))).toBe(true);
+  });
 });

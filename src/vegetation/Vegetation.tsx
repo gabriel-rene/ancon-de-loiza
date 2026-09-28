@@ -10,6 +10,8 @@ import { placementFields } from '../terrain/placementFields';
 import { coverMap } from './coverMap';
 import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
+import { caneLayout, inCane, shownMask, type CaneLayout } from './landscape/caneFields';
+import { CaneFields } from './landscape/CaneFieldsMesh';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
 import { markTrunks, Occupancy, placeAll, warmHabitat } from './placement';
@@ -58,6 +60,10 @@ function masksFor(f: WorldFields): VegMasks {
   if (!m) { m = buildVegMasks(G, f); masks.set(f, m); }
   return m;
 }
+
+/** The cane layout depends only on the geo bundle: built once, on first use. */
+let cane: CaneLayout | null = null;
+const caneFor = () => (cane ??= caneLayout(G));
 
 /**
  * All vegetation for the current era and quality tier.
@@ -119,6 +125,10 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     return d;
   }, [era, density]);
 
+  const caneShare = era.landscape.cane.value;
+  const caneShown = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
+  const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
+
   // Needle litter under the near casuarinas, for the terrain material.
   useEffect(() => {
     const g = near.grid, ext = g.cell * g.size, size = 256;
@@ -137,7 +147,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   // Far ground-cover tint: matches the near clumps' habitat rule beyond their placement radius.
   useEffect(() => {
     const g = pf.grid, ext = g.cell * g.size, size = 256;
-    const data = coverMap(pf, masksFor(pf), groundDens, size);
+    const data = coverMap(pf, masksFor(pf), groundDens, size, caneSkip);
     const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
     tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -148,7 +158,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       if (groundUniforms.uCover.value === tex) groundUniforms.uCover.value = NO_COVER;
       tex.dispose();
     };
-  }, [pf, groundDens]);
+  }, [pf, groundDens, caneSkip]);
 
   return <>
     {PLACEMENT_ORDER.map((id) => {
@@ -157,6 +167,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
         lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={farCards}
         shadowHalf={q.shadowHalf} shadowMap={q.shadowMap} />;
     })}
-    <GroundCover fields={pf} near={near} masks={masksFor(pf)} densities={groundDens} trunks={trunks} radius={q.veg.groundRadius} />
+    {caneShown && <CaneFields layout={caneFor()} shown={caneShown} near={near} far={far} castShadow={q.shadowMap > 0} />}
+    <GroundCover fields={pf} near={near} masks={masksFor(pf)} densities={groundDens} trunks={trunks} radius={q.veg.groundRadius} skip={caneSkip} />
   </>;
 }

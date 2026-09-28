@@ -43,8 +43,9 @@ interface Slot { mesh: THREE.InstancedMesh; range: { start: number; count: numbe
  * re-seated on the rendered terrain (`near`) so it neither floats nor sinks on lower tiers.
  * Hidden in the water reflection.
  */
-export function GroundCover({ fields, near, masks, densities, trunks, radius }: {
+export function GroundCover({ fields, near, masks, densities, trunks, radius, skip }: {
   fields: WorldFields; near: WorldFields; masks: VegMasks; densities: Record<GroundId, number>; trunks: Occupancy; radius: number;
+  skip?: (x: number, z: number) => boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const fadeR = useRef<THREE.IUniform<number>>({ value: radius });
@@ -58,7 +59,7 @@ export function GroundCover({ fields, near, masks, densities, trunks, radius }: 
       const x0 = i * GROUND_TILE, z0 = j * GROUND_TILE, out = {} as GroundTile;
       for (const id of GROUND_ORDER) {
         const list = densities[id] > 0
-          ? placeSpecies(fields, masks, id, { density: densities[id], seed: SEED, blocked: trunks, bounds: [x0, z0, x0 + GROUND_TILE, z0 + GROUND_TILE] })
+          ? placeSpecies(fields, masks, id, { density: densities[id], seed: SEED, blocked: trunks, bounds: [x0, z0, x0 + GROUND_TILE, z0 + GROUND_TILE], skip })
           : [];
         out[id] = near !== fields ? reseat(list, near) : list;
       }
@@ -72,7 +73,7 @@ export function GroundCover({ fields, near, masks, densities, trunks, radius }: 
       return out;
     });
     return { c, packed };
-  }, [fields, near, masks, densities, trunks]);
+  }, [fields, near, masks, densities, trunks, skip]);
   const cacheRef = useRef(cache);
   useEffect(() => { cacheRef.current = cache; st.current.dirty = true; }, [cache]);
 
