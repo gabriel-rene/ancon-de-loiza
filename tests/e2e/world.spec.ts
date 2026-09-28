@@ -33,6 +33,8 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1975', cam: 'aerial', t: 12, c: 95, name: '1975-aerial-noon' },
   { era: '1900', cam: 'ride', t: golden('1900'), c: 95 },
   { era: '1925', cam: 'bank', t: 12, c: 70, name: '1925-bank-noon' },
+  { era: '1900', cam: 'farm', t: 12, c: 95, name: '1900-farm-noon' },           // young palms in 8 m rows
+  { era: '1935', cam: 'farm', t: 12, c: 95, name: '1935-farm-noon' },           // the same block, full-grown
 ];
 
 for (const s of SHOTS) {

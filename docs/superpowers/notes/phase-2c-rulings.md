@@ -213,4 +213,111 @@ centred at (160, -400); reverted before committing, confirmed `git diff` was cle
 No rows or grid artefacts showed up in the wild clumps outside the blocks in any shot, and no
 non-grass species appeared inside a block's rectangle.
 
+## After (Task 9)
+
+**Frame rate.** Same 9 queries, same command, against `npm run build && npm run preview`.
+
+| query | tier | fps | mean ms | p95 ms | Task 1 mean | same-session baseline mean | Δ vs same-session |
+|---|---|---|---|---|---|---|---|
+| `?era=1900&cam=ride&t=17.5&c=95&freeze=1&q=high` | high | 79.6 | 12.56 | 14.0 | 9.71 | 12.58 | −0.02 |
+| `?era=1900&cam=fields&t=12&freeze=1&q=high` | high | 91.3 | 10.95 | 12.7 | 8.39 | 11.02 | −0.07 |
+| `?era=1975&cam=aerial&t=12&freeze=1&q=high` | high | 82.8 | 12.08 | 13.7 | 9.21 | 12.09 | −0.01 |
+| `?era=1900&cam=ride&t=17.5&c=95&freeze=1&q=medium` | medium | 127.7 | 7.84 | 10.1 | 6.05 | 7.81 | +0.03 |
+| `?era=1900&cam=fields&t=12&freeze=1&q=medium` | medium | 146.1 | 6.85 | 9.2 | 5.42 | 7.03 | −0.18 |
+| `?era=1975&cam=aerial&t=12&freeze=1&q=medium` | medium | 126.6 | 7.90 | 9.8 | 6.04 | 7.89 | +0.01 |
+| `?era=1900&cam=ride&t=17.5&c=95&freeze=1&q=low` (dpr=1) | low | 395.7 | 2.53 | 4.4 | 1.93 | 2.51 | +0.02 |
+| `?era=1900&cam=fields&t=12&freeze=1&q=low` (dpr=1) | low | 441.5 | 2.27 | 4.5 | 1.82 | 2.26 | +0.01 |
+| `?era=1975&cam=aerial&t=12&freeze=1&q=low` (dpr=1) | low | 370.3 | 2.70 | 4.5 | 2.10 | 2.69 | +0.01 |
+
+Every number, 2c build and baseline alike, sits 1.5–3 ms above the Task 1 table. The machine
+was not in the Task 1 state: `photoanalysisd`/`photolibraryd` were running at ~80 % CPU each
+(Photos library analysis, which also uses the GPU), load average ~3–4. So the Task 1 table is
+not a usable reference today. Instead I built the Task 1 commit (`0006e08`, pre-2c) in a
+temporary worktree, served it on :4174, and ran it interleaved with the 2c build (base, 2c,
+base, 2c; two runs each; the table shows the mean of both). Against that same-session baseline
+the 2c build is within ±0.2 ms on every query and tier. The `fields` view is slightly *faster*
+with cane, because cane replaces grass clumps and shrubs on the grassland. **Limits pass**
+against the same-session baseline: high +≤0 ms (limit +0.5), no tier slower by more than 0.03 ms.
+The literal comparison with the Task 1 table fails (+2.6–2.9 ms on high), but the pre-2c commit
+fails it by the same amount, so the drift is machine state, not 2c. Re-measuring the Task 1
+table on an idle machine would confirm this. After the tint fix below, `fields` measured
+10.92 / 6.82 / 2.30 ms (high / medium / low), unchanged.
+
+**Art gate.** `tests/snapshots/phase2c/` against `phase2c-before/` (Playwright, swiftshader,
+q=medium). "Δ" is the share of pixels that changed by more than 20/255.
+
+- `1840-bank`, `1840-bank-noon`, `1840-ride`, `1935-ride`, `1959-bank-docked`, `1975-bank`,
+  `1975-ride`, `1984-ride`, `1986-bank`, `1986-mouth`: Δ 0.0 %. No cane, block or palm-age
+  change in frame. Nothing new wrong.
+- `1975-bank-noon`, `1984-aerial`, `default`: Δ ≤ 0.1 %. Wild coconuts re-seated around the
+  (off-screen) farm blocks. Nothing wrong.
+- `1975-fields-noon`: Δ 0.0 %. No cane in 1975. The grassland is unchanged.
+- `1900-fields-noon`: Δ 30 %. The grassland east of the river is now a patchwork of cane
+  blocks with 10 m lanes, and the road and track corridors stay clear. Before the tint fix,
+  every field was the same flat dark green (a uniform slab). After it, neighbouring fields
+  differ visibly in shade and hue. Still wrong: the 5 m staircase on diagonal edges, and dark
+  wall lines on far edges (Minor).
+- `1840-fields-noon`: Δ 6 %. About 60 % of the fields show, scattered through the plain,
+  nested inside the 1900 set. Same notes as 1900.
+- `1925-fields-noon`: Δ 2 %. About 30 % of the fields, a few blocks near the river. Same notes.
+- `1900-aerial-noon`: Δ 2.6 %. The cane patchwork shows at the far-left edge. The wild beach
+  palms are now young (low rosettes), and the tall 1840-style palms are gone from the shore,
+  as the spec asks. Nothing wrong.
+- `1975-aerial-noon`: Δ 0.2 %. A farm block reads near the bottom right, and the wild palms
+  shift slightly. Nothing wrong.
+- `1900-ride`: Δ 0.2 %. The tall far palms on the right horizon are now young and drop below
+  the tree line. Correct for 1900.
+- `1925-bank`, `1925-bank-noon`: Δ 0.3–0.4 %. Far palms on the right are half-grown and
+  shorter. Correct.
+- `1900-farm-noon` (new, no twin): a 15 × 10 grid of young palms, each a low rosette of fronds
+  with no trunk and no nuts. They do **not** read as scaled-down old palms. The rows stop at
+  the block edge, and the wild young palms beyond it are scattered, not in rows (no leak).
+  Still wrong: an LOD step across the middle of the block. Near rows are the 3D mesh (fresh
+  green, with shadows), and far rows are impostor cards (olive-yellow tufts, no shadow). A
+  crossed side-view card is a poor match for a low rosette seen from 60 m up (Minor, deferred).
+- `1935-farm-noon` (new): the same block, full-grown. Straight rows of tall palms and crowns
+  casting shadows. It reads as a planted grove, unlike the wild palms behind it, which are
+  irregular. Nothing wrong. The far cards are darker than the near meshes, the same LOD step
+  every species has.
+
+**Specific checks.**
+- *Tall downhill walls.* Measured on the real layout (all fields shown, high-tier fields): wall
+  heights above ground, taken at run ends, are mostly 3–5 m. 1,498 of 12,652 wall endpoints are
+  5–6.5 m, 304 are 6.5–8 m, and the worst is 7.8 m at (−1470, 1711). An ad-hoc shot there (camera
+  ~120 m off, 22 m up) shows a riverbank field ending in a straight green wall about twice cane
+  height, standing at the water's edge like a hedge. The 5 m staircase shows as regular lighter
+  vertical stripes, where the short cross-walls catch the sun. None of the tall walls is near
+  any preset camera: they are 1.5–3.6 km out, and at `fields` distance they don't read. But
+  users can orbit and zoom there (maxDistance 6000). A fix needs a design change: terraced tops
+  (several flat levels per field, with walls between them) or dropping steep bank cells from
+  the layout (which would then need a tier-independent height source). **Open, Important,
+  needs a ruling.**
+- *Flat uniform slabs.* Confirmed at `fields` distance: the texture detail is lost to mips, so
+  the only lever is the per-vertex tint. **Fixed** (focused, `caneMesh.ts` `caneTint` only): rank
+  amplitude 0.12 → 0.30, mottle 0.18 → 0.24, and hue shifts about doubled (mature fields
+  yellower, young ones bluer-green). Fields now read as a staggered-harvest patchwork. All 19
+  landscape unit tests pass unchanged, since no test pins the tint values.
+- *Lockstep sway.* Confirmed in code (`windMaterial.ts`): a non-instanced mesh has `ip = 0`,
+  so the phase is 0 for every cane vertex. Each field's whole top slides as one rigid plane,
+  by a few cm (`aFlex` 0.35). This is not visible at `fields` distance, and even in the close
+  ad-hoc shot it would be at most a few cm. **Minor, deferred.** The fix (phase from
+  `position.xz` when not instanced) belongs in the shared wind material, not in cane code.
+- *Young palms vs scaled-down old palms:* pass (see `1900-farm-noon`).
+- *Farm rows leaking into wild clumps:* none seen in `1900-farm-noon`, `1935-farm-noon` or the
+  aerials.
+- *Flat-grey patch over a casuarina cluster at q=low:* also present in
+  `?era=1975&cam=fields&t=12&freeze=1&q=low`, a view where 2c changes nothing (Δ 0.0 % vs
+  before). So it **predates 2c**. It is a low-tier far ground/woody rendering artefact, not a
+  2c issue.
+
 ## Deferred
+
+- (Task 9) Tall downhill cane walls on riverbank fields (worst 7.8 m). Listed above as an open
+  Important item that needs a design ruling.
+- (Task 9) Young-palm LOD step: near 3D rosettes versus olive card tufts beyond LOD0 (visible
+  in `1900-farm-noon`). This belongs to the impostor bake, not the palm geometry.
+- (Task 9) Cane sways in lockstep (non-instanced wind phase = 0). The fix belongs in
+  `windMaterial.ts`.
+- (Task 9) The 5 m staircase on diagonal field edges shows as lit vertical stripes on close
+  walls. The wall texture u restarts on every merged run.
+- (Task 9) Pre-2c: flat-grey patch over a casuarina cluster at q=low.

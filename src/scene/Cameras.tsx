@@ -20,6 +20,8 @@ export const CAMERA_POSES: Record<CameraPreset, { pos: [number, number, number];
   mouth: { pos: [mx - 180, 22, mz + 260], target: [mx, 0, mz] },
   // Dev view (phase 2c): over the west bank, looking south-west across the grassland (cane land).
   fields: { pos: [-500, 170, 250], target: [-1800, 0, 1500] },
+  // Dev preset: 150 m out, 60 m up, looking at the farm block centred at (160, -400).
+  farm: { pos: [265, 60, -295], target: [160, 0, -400] },
 };
 
 export function Cameras() {
