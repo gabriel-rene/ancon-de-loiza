@@ -126,4 +126,53 @@ test ("no two 4-neighbour cells belong to different fields") and the `tiny()` fi
 `caneMesh.test.ts` (its own hardcoded synthetic 4×4/10 m grid, independent of `CANE_CELL`) needed
 no changes and still pass.
 
+**Task 6, review round 3: per-vertex `heightAt` on the top plane opened T-junction gaps; flattened
+each field's top instead**
+
+Round 2's fix (halving `CANE_CELL`) genuinely fixed the crack lines that round 1's corner jitter
+had introduced, but a *different*, pre-existing artifact remained and only showed up on sloped
+ground near the river: thin, light, dashed lines running parallel to the merged top-quad rows,
+inside field interiors. Cause: `buildCaneGeometry`'s top loop called `heightAt(x, z)` once per
+vertex, i.e. once per *merged run's own two end corners* — but a field's row-j run and its row-
+(j+1) run don't generally span the same i-range (field shapes are irregular), so the two runs'
+shared z-line edge is built from two different pairs of sample points. Where the terrain isn't
+perfectly flat between those points (a linear top edge vs. genuinely curved terrain), the two
+runs' edges at that shared z-line disagree in Y — not a geometric T-junction (no jitter, so x/z
+still line up exactly), but a *height* mismatch that opens a sliver showing the grass terrain
+through. This existed since Task 5; round 1's neon-flat colour and mid-distance zoom shots simply
+made it easy to miss (a flat field reads as one solid colour regardless of a sub-metre seam), and
+it only reads clearly near real elevation change, e.g. the riverbank slope.
+
+Fixed by making each field's top geometrically flat: `buildCaneGeometry` now computes one Y per
+field — the mean of `heightAt` over that field's shown cell centres, plus the field's height — and
+every top vertex of that field uses it. Two edges of the same field can no longer disagree in Y
+(they're both the same constant), so no seam is possible by construction, regardless of terrain
+curvature. Wall tops use the same per-field flat Y (+ `CANE_FRINGE`) for the same reason (a wall
+segment's top must agree with the top plane it borders, and with any other wall of the same
+field). Wall *bottoms* still sample `heightAt` at each run's own two endpoints (real terrain, not
+flattened — the wall's whole point is to reach the ground), but `CANE_SINK` was raised `0.3 → 1.0`
+so a long wall's straight bottom edge can't float over a bump partway along its run before
+reaching its own next endpoint sample.
+
+`LANE_HALF` (round 2's new constant) was `4`; the controller's own review of round 2's field found
+~40% of lanes fell under the spec's 6 m floor. Raised to `5` (= `CANE_CELL`), which makes every
+lane exactly two 5 m cells (10 m) — inside the 6–10 m band, not just usually inside it.
+
+Real-layout numbers after both round-3 changes: **96 fields** (unchanged; `LANE_HALF` only moves
+where lanes fall, not how many macro fields the ~220 m pitch grid produces — still comfortably
+inside the 30–120 test range), **21,568 triangles** (8,916 top + 12,652 side) — very close to
+round 2's 21,818 (flattening tops and widening lanes slightly changes which raster cells merge
+into which runs, but doesn't change the underlying row/column structure that drives triangle
+count), **35.9%** of the 60,000 budget.
+
+`caneMesh.test.ts`'s two height-dependent tests were rewritten for the flat-top model: the top
+test now asserts every vertex of the field is at the same Y (computed independently in the test
+by averaging `ground(x)` over the fixture's own shown cell centres, mirroring the production
+formula, then comparing every vertex against that one value); the sides test now checks each
+vertex individually is either at its local `ground(x) − CANE_SINK` (bottom) or at the field's flat
+top `+ CANE_FRINGE` (top), rather than the old global lo/hi-of-the-whole-mesh check (which
+assumed a per-vertex-height top and would no longer mean anything once the top is field-constant).
+The other four Task 5 tests (triangle counts, side normals, aFlex, empty-when-nothing-shown) were
+untouched and still pass.
+
 ## Deferred

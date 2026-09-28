@@ -14,19 +14,30 @@ function tiny(): CaneLayout {
 }
 
 describe('buildCaneGeometry', () => {
-  const L = tiny(), ground = (x: number) => 0.01 * x;
+  const L = tiny(), ground = (x: number) => 0.01 * x; // linear (sloped), so a per-vertex sample would vary
   const { top, sides } = buildCaneGeometry(L, shownMask(L, 1), ground);
-  test('top: one merged quad per row run; y = ground + field height', () => {
+  // Mirrors the production mean: ground at every shown cell's centre, averaged, plus field height.
+  const cellCentres: [number, number][] = [];
+  for (let k = 0; k < L.field.length; k++) if (L.field[k] === 0) {
+    const i = k % L.grid.size, j = Math.floor(k / L.grid.size);
+    cellCentres.push([L.grid.minX + (i + 0.5) * L.grid.cell, L.grid.minZ + (j + 0.5) * L.grid.cell]);
+  }
+  const flatTop = cellCentres.reduce((s, [x]) => s + ground(x), 0) / cellCentres.length + L.fields[0].height;
+
+  test('top: one merged quad per row run; every vertex of a field is flat at its mean ground + field height', () => {
     expect(tris(top)).toBe(4);
     const p = top.getAttribute('position');
-    for (let i = 0; i < p.count; i++) expect(p.getY(i)).toBeCloseTo(ground(p.getX(i)) + 3, 5);
+    for (let i = 0; i < p.count; i++) expect(p.getY(i)).toBeCloseTo(flatTop, 5);
   });
-  test('sides: one quad per straight boundary run, from below ground to above the top', () => {
+  test('sides: one quad per straight boundary run; bottom follows local ground (− CANE_SINK), top is the field’s flat Y (+ CANE_FRINGE)', () => {
     expect(tris(sides)).toBe(8);
     const p = sides.getAttribute('position');
-    let lo = Infinity, hi = -Infinity;
-    for (let i = 0; i < p.count; i++) { lo = Math.min(lo, p.getY(i) - ground(p.getX(i))); hi = Math.max(hi, p.getY(i) - ground(p.getX(i))); }
-    expect(lo).toBeCloseTo(-CANE_SINK, 5); expect(hi).toBeCloseTo(3 + CANE_FRINGE, 5);
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), x = p.getX(i);
+      const atBottom = Math.abs(y - (ground(x) - CANE_SINK)) < 1e-5;
+      const atTop = Math.abs(y - (flatTop + CANE_FRINGE)) < 1e-5;
+      expect(atBottom || atTop, `y=${y} at x=${x} matched neither bottom nor top`).toBe(true);
+    }
   });
   test('side normals point out of the field', () => {
     const p = sides.getAttribute('position'), n = sides.getAttribute('normal');

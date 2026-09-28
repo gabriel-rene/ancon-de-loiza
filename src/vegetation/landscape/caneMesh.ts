@@ -3,7 +3,9 @@ import { hash3 } from '../rng';
 import type { CaneLayout } from './caneFields';
 
 export const CANE_FRINGE = 0.6;
-export const CANE_SINK = 0.3;
+/** Below the wall's own run-end ground samples (phase 2c review round 3: raised from 0.3 so a
+ * long wall's flat bottom edge never floats over a bump partway along its run). */
+export const CANE_SINK = 1.0;
 export const CANE_TOP_TILE = 4, CANE_SIDE_TILE = 2.5;
 
 /** Smooth value noise in [0, 1] on a `scale`-metre lattice (bilinear, deterministic in `seed`). */
@@ -33,20 +35,36 @@ function caneTint(rank: number, x: number, z: number): [number, number, number] 
 
 /**
  * Cane blocks for the shown cells of `layout` (spec 2c §3). Top: per grid row, each run of
- * consecutive cells of one field becomes one quad at ground + field height (the four corners
- * follow `heightAt`). Sides: each straight run of boundary edges (a shown cell next to a cell that
- * is not the same shown field) becomes one wall from CANE_SINK below the ground to CANE_FRINGE
- * above the top, facing out; the side texture's alpha-cut leaf tips make that top edge ragged.
- * Merged runs share their exact grid-corner positions (no per-vertex displacement), so the top and
- * every wall meeting it stay watertight; each vertex is coloured by `caneTint`. The raw 10 m-grid
- * staircase this leaves on field boundaries is broken up at the source instead, by cutting
- * `caneLayout` on a finer cell (`CANE_CELL`, phase 2c review round 2).
+ * consecutive cells of one field becomes one quad; every field's top is flat, at the mean of
+ * `heightAt` over that field's shown cell centres plus the field's height (phase 2c review round
+ * 3) — sampling `heightAt` per vertex instead let two merged runs meeting along a shared edge (a
+ * row's run and the next row's run, or a run and a wall) disagree on that edge's height wherever
+ * the terrain wasn't flat between their own sample points, opening thin T-junction gaps that
+ * showed the ground through. A field-constant Y makes that geometrically impossible: every top
+ * vertex of a field is exactly the same height, so any two of its edges are trivially collinear
+ * in Y. Sides: each straight run of boundary edges (a shown cell next to a cell that is not the
+ * same shown field) becomes one wall from CANE_SINK below the ground *at that run's own
+ * endpoints* to CANE_FRINGE above the field's flat top, facing out; the side texture's alpha-cut
+ * leaf tips make that top edge ragged. Merged runs share their exact grid-corner (x, z) — no
+ * per-vertex displacement — so the top and every wall meeting it stay watertight; each vertex is
+ * coloured by `caneTint`.
  */
 export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number, z: number) => number) {
   const { size: n, cell: c, minX, minZ } = layout.grid;
   const id = (i: number, j: number) => (i < 0 || j < 0 || i >= n || j >= n || !shown[j * n + i] ? -1 : layout.field[j * n + i]);
   const hOf = (f: number) => layout.fields[f].height;
   const rankOf = (f: number) => layout.fields[f].rank;
+
+  // One flat Y per field: mean ground height over its shown cells' centres, plus field height.
+  const nFields = layout.fields.length, sumY = new Float64Array(nFields), cnt = new Int32Array(nFields);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const f = id(i, j);
+    if (f < 0) continue;
+    sumY[f] += heightAt(minX + (i + 0.5) * c, minZ + (j + 0.5) * c);
+    cnt[f]++;
+  }
+  const flatY = new Float64Array(nFields);
+  for (let f = 0; f < nFields; f++) flatY[f] = (cnt[f] ? sumY[f] / cnt[f] : 0) + hOf(f);
 
   const tp: number[] = [], tn: number[] = [], tu: number[] = [], tf: number[] = [], tc: number[] = [], ti: number[] = [];
   for (let j = 0; j < n; j++) {
@@ -56,10 +74,10 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
       if (f < 0) { i++; continue; }
       let e = i + 1;
       while (e < n && id(e, j) === f) e++;
-      const xa = minX + i * c, xb = minX + e * c, za = minZ + j * c, zb = za + c, h = hOf(f), rank = rankOf(f), b = tp.length / 3;
+      const xa = minX + i * c, xb = minX + e * c, za = minZ + j * c, zb = za + c, y = flatY[f], rank = rankOf(f), b = tp.length / 3;
       for (const [x, z] of [[xa, za], [xb, za], [xa, zb], [xb, zb]]) {
         const col = caneTint(rank, x, z);
-        tp.push(x, heightAt(x, z) + h, z); tn.push(0, 1, 0); tu.push(x / CANE_TOP_TILE, z / CANE_TOP_TILE); tf.push(0.35);
+        tp.push(x, y, z); tn.push(0, 1, 0); tu.push(x / CANE_TOP_TILE, z / CANE_TOP_TILE); tf.push(0.35);
         tc.push(...col);
       }
       ti.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
@@ -68,12 +86,13 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
   }
 
   const sp: number[] = [], sn: number[] = [], su: number[] = [], sf: number[] = [], sc: number[] = [], si: number[] = [];
-  /** One wall from (xa, za) to (xb, zb) with outward normal (nx, nz), for field height h. */
-  const wall = (xa: number, za: number, xb: number, zb: number, nx: number, nz: number, h: number, rank: number) => {
+  /** One wall from (xa, za) to (xb, zb) with outward normal (nx, nz); top is the field's flat Y
+   * (+ CANE_FRINGE), bottom is this run's own ground sample at each endpoint (− CANE_SINK). */
+  const wall = (xa: number, za: number, xb: number, zb: number, nx: number, nz: number, flatTop: number, rank: number) => {
     const len = Math.hypot(xb - xa, zb - za), b = sp.length / 3;
     for (const [x, z, u] of [[xa, za, 0], [xb, zb, len / CANE_SIDE_TILE]] as const) {
       const g = heightAt(x, z), col = caneTint(rank, x, z);
-      sp.push(x, g - CANE_SINK, z, x, g + h + CANE_FRINGE, z);
+      sp.push(x, g - CANE_SINK, z, x, flatTop + CANE_FRINGE, z);
       sn.push(nx, 0, nz, nx, 0, nz); su.push(u, 0, u, 1); sf.push(0, 0.5);
       sc.push(...col, ...col);
     }
@@ -90,7 +109,7 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
       if (f < 0 || id(i, j + dj) === f) { i++; continue; }
       let e = i + 1;
       while (e < n && id(e, j) === f && id(e, j + dj) !== f) e++;
-      wall(minX + i * c, z, minX + e * c, z, 0, nz, hOf(f), rankOf(f));
+      wall(minX + i * c, z, minX + e * c, z, 0, nz, flatY[f], rankOf(f));
       i = e;
     }
   }
@@ -103,7 +122,7 @@ export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightA
       if (f < 0 || id(i + di, j) === f) { j++; continue; }
       let e = j + 1;
       while (e < n && id(i, e) === f && id(i + di, e) !== f) e++;
-      wall(x, minZ + j * c, x, minZ + e * c, nx, 0, hOf(f), rankOf(f));
+      wall(x, minZ + j * c, x, minZ + e * c, nx, 0, flatY[f], rankOf(f));
       j = e;
     }
   }
