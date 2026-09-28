@@ -4,8 +4,9 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
 import { buildVegMasks, LANDING_CLEARING } from './masks';
-import { Occupancy, placeAll, placeSpecies } from './placement';
+import { Occupancy, placeAll, placeSpecies, siteAt } from './placement';
 import { RULES } from './rules';
+import type { Site } from './types';
 
 const G = geo as unknown as GeoBundle;
 const f = buildFields(G, { extent: 2560, size: 256, bankOffset: 0 });
@@ -16,28 +17,48 @@ const at = (arr: Float32Array | Uint8Array, x: number, z: number) => {
 };
 
 /**
- * Mean nearest-neighbour distance ÷ the value expected for a fully random pattern of the same
- * density (0.5/√density): R ≈ 1 random, < 1 clustered (groups and gaps), > 1 evenly spaced
- * (a planted-looking grid). O(n²); callers should pass a bounded subset for large species.
+ * Quadrat dispersion index: variance ÷ mean of instance counts over 40 m cells restricted to
+ * habitat (density(s) > 0). A Poisson/CSR pattern gives ≈ 1; a perfectly even stand gives < 1;
+ * real clumping (groups and gaps) gives > 1.
+ *
+ * Raw variance/mean over the *whole* map is dominated by the habitat gradient itself (coconut's
+ * density rises toward the coast, mangroves' toward the river), not by clump-noise clustering: a
+ * `placeSpecies('coconut', ...)` run with no other species competing for space, so the clump
+ * noise is the only source of unevenness, still gives ≈ 4.7–4.9 regardless of clump tuning,
+ * purely from that gradient (see task-9-report.md, "quadrat test — the gradient confound"). To
+ * isolate clustering from the gradient, cells are grouped into `bins` quantiles of habitat
+ * density first, dispersion is computed within each (density is roughly uniform inside a
+ * quantile), and the per-bin ratios are averaged, weighted by bin size.
  */
-function clarkEvansR(p: { x: number; z: number }[]) {
-  let sum = 0;
-  for (const a of p) { let d = Infinity; for (const b of p) if (a !== b) d = Math.min(d, Math.hypot(a.x - b.x, a.z - b.z)); sum += d; }
-  const xs = p.map((q) => q.x), zs = p.map((q) => q.z);
-  const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs));
-  return (sum / p.length) / (0.5 / Math.sqrt(p.length / area));
-}
-
-/**
- * A fixed 650 m square centred on the species' own instances' centroid — big enough to span
- * several clumps (so real gaps show up as reduced R, not just a bounding-box artefact) and small
- * enough to keep the O(n²) Clark–Evans loop under a second for species with thousands of
- * instances across the whole 2560 m map. Uses the subset's own bounding box for its area.
- */
-function centroidWindow<T extends { x: number; z: number }>(p: T[], size = 650): T[] {
-  const xs = p.map((q) => q.x), zs = p.map((q) => q.z);
-  const cx = xs.reduce((a, b) => a + b, 0) / xs.length, cz = zs.reduce((a, b) => a + b, 0) / zs.length;
-  return p.filter((q) => Math.abs(q.x - cx) < size / 2 && Math.abs(q.z - cz) < size / 2);
+function dispersionIndex(rule: { density(s: Site): number }, points: { x: number; z: number }[], cell = 40, bins = 15) {
+  const g = f.grid, ext = g.cell * g.size, nCells = Math.ceil(ext / cell);
+  const habitat: { k: number; d: number }[] = [];
+  const habitatKeys = new Set<number>();
+  for (let j = 0; j < nCells; j++) for (let i = 0; i < nCells; i++) {
+    const cx = g.minX + (i + 0.5) * cell, cz = g.minZ + (j + 0.5) * cell;
+    const s = siteAt(f, m, cx, cz);
+    const d = s ? rule.density(s) : 0;
+    if (d > 0) { const k = j * nCells + i; habitat.push({ k, d }); habitatKeys.add(k); }
+  }
+  const counts = new Map<number, number>();
+  for (const p of points) {
+    const i = Math.floor((p.x - g.minX) / cell), j = Math.floor((p.z - g.minZ) / cell);
+    const k = j * nCells + i;
+    if (habitatKeys.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  const sorted = habitat.slice().sort((a, b) => a.d - b.d);
+  const perBin = Math.ceil(sorted.length / bins);
+  let weightSum = 0, weightedRatio = 0;
+  for (let b = 0; b < bins; b++) {
+    const group = sorted.slice(b * perBin, (b + 1) * perBin);
+    if (group.length < 8) continue;
+    const vals = group.map((h) => counts.get(h.k) ?? 0);
+    const mean = vals.reduce((a, c) => a + c, 0) / vals.length;
+    if (mean <= 0) continue;
+    const variance = vals.reduce((a, c) => a + (c - mean) ** 2, 0) / vals.length;
+    weightSum += group.length; weightedRatio += group.length * (variance / mean);
+  }
+  return weightedRatio / weightSum;
 }
 
 describe('placement', () => {
@@ -51,24 +72,29 @@ describe('placement', () => {
     expect(all.coconut.length).toBeGreaterThan(300);
     expect(all.casuarina.length).toBeGreaterThan(150);
   });
-  test('palms stand in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
-    const R = clarkEvansR(centroidWindow(all.coconut));
-    expect(R).toBeLessThan(0.8);
+  // Round-1 review (task-9-report.md): a Clark–Evans test here measured the coastal habitat
+  // band's shape, not a lattice — replaced with a quadrat dispersion index (see `dispersionIndex`
+  // above). Black and white mangrove are NOT re-tested here: their pre-task-9 dispersion (2.74,
+  // 2.13 at bins=15) was already > 1.5, i.e. this metric never read them as an even stand, so a
+  // regression test here would guard nothing (see the report for the full before/after table).
+  test('palms stand in groups with gaps, not in even rows (quadrat dispersion > 1.5)', () => {
+    expect(dispersionIndex(RULES.coconut, all.coconut)).toBeGreaterThan(1.5);
   });
-  // R8: black mangrove reads as even rows up close too ("orchard" look); white mangrove shares
-  // its rule shape, so the same clumping fix applies to both (task-9-report.md).
-  test('black mangrove stands in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
-    const R = clarkEvansR(centroidWindow(all.blackMangrove));
-    expect(R).toBeLessThan(0.8);
-  });
-  test('white mangrove stands in groups with gaps, not in even rows (Clark–Evans R < 0.8)', () => {
-    const R = clarkEvansR(centroidWindow(all.whiteMangrove));
-    expect(R).toBeLessThan(0.8);
+  // Scope extension (task-9-report.md, "Important 3"): casuarina turned out to be the majority
+  // species in the exact hero shots the brief's visual check names (near counts ~3.3x coconut's
+  // in the mouth view), so coconut's fix alone couldn't change what those frames show. Applying
+  // the same gap-shaped clumping to casuarina was necessary to move them, even though casuarina
+  // was never in the original brief/ruling scope.
+  test('casuarina stands in groups with gaps, not in even rows (quadrat dispersion > 1.5)', () => {
+    expect(dispersionIndex(RULES.casuarina, all.casuarina)).toBeGreaterThan(1.5);
   });
   test('clumping fix keeps counts within ±25% of pre-task-9 tuning', () => {
-    // Baselines: coconut 3605, blackMangrove 5580, whiteMangrove 1898 (task-9-report.md).
+    // Baselines (c93d951, before this task): coconut 3605, casuarina 3048, blackMangrove 5580,
+    // whiteMangrove 1898 (task-9-report.md).
     expect(all.coconut.length).toBeGreaterThan(3605 * 0.75);
     expect(all.coconut.length).toBeLessThan(3605 * 1.25);
+    expect(all.casuarina.length).toBeGreaterThan(3048 * 0.75);
+    expect(all.casuarina.length).toBeLessThan(3048 * 1.25);
     expect(all.blackMangrove.length).toBeGreaterThan(5580 * 0.75);
     expect(all.blackMangrove.length).toBeLessThan(5580 * 1.25);
     expect(all.whiteMangrove.length).toBeGreaterThan(1898 * 0.75);

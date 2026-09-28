@@ -93,8 +93,9 @@ export interface PlaceOpts {
 export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, opts: PlaceOpts): PlantInstance[] {
   const rule = RULES[species], g = f.grid, sp = rule.spacing * (opts.spacingMul ?? 1), extent = g.cell * g.size;
   const n = Math.floor(extent / sp), out: PlantInstance[] = [];
-  const salt = species.length * 7919 + species.charCodeAt(0), noiseSeed = opts.seed * 977 + salt;
-  const { scale: cs, strength: cstr, size: csize, octave } = rule.clump;
+  const salt = species.length * 7919 + species.charCodeAt(0);
+  const { scale: cs, strength: cstr, size: csize, octave, gap, phase } = rule.clump;
+  const noiseSeed = opts.seed * 977 + salt + (phase ?? 0);
   const hab = habitat(f, m, species);
   const b = opts.bounds;
   const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
@@ -113,7 +114,17 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
     if (d <= 0) continue;
     let cn = valueNoise(x, z, cs, noiseSeed);
     if (octave) cn = Math.min(1, Math.max(0, cn * (0.6 + 0.8 * valueNoise(x, z, cs / 3, noiseSeed + 17))));
-    if (accept >= d * (1 - cstr + 2 * cstr * cn)) continue;
+    let mult: number;
+    if (gap !== undefined) {
+      // Threshold-shaped: real zero-acceptance gaps below the cut, dense groves above it. `strength`
+      // sets the transition's sharpness (higher = narrower, more binary gap-vs-grove edge).
+      const w = Math.max(0.03, 0.5 * (1 - cstr) + 0.05);
+      const t = Math.min(1, Math.max(0, (cn - (gap - w)) / (2 * w)));
+      mult = t * t * (3 - 2 * t);
+    } else {
+      mult = 1 - cstr + 2 * cstr * cn;
+    }
+    if (accept >= d * mult) continue;
     if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
     if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
     opts.occupancy?.mark(x, z, rule.radius);

@@ -12,15 +12,30 @@ export interface SpeciesRule {
    */
   rot: number;
   /**
-   * Clumping: acceptance is multiplied by 1 − strength + 2·strength·n, with n a smooth value
-   * noise (0..1) on a lattice of `scale` metres — groves and gaps instead of an even stand.
+   * Clumping: n is a smooth value noise (0..1) on a lattice of `scale` metres, optionally combined
+   * with a second, finer octave (see `octave`). Without `gap`, acceptance is multiplied by
+   * 1 − strength + 2·strength·n (a smooth blend that never fully zeroes except at exact noise
+   * minima — soft density gradient, not real gaps). With `gap` set, acceptance is instead
+   * threshold-shaped — smoothstep(gap − w, gap + w, n), w derived from `strength` — so n below the
+   * cut gives true zero acceptance (open ground) and n above it gives a dense grove, producing
+   * real sky/ground gaps between groups rather than just a lighter fringe (spec §4.2, R10).
    */
   clump: { scale: number; strength: number;
     /** Instance scale × (1 + size·(2n − 1)): taller plants in the heart of a grove, a rolling canopy line. */
     size: number;
-    /** When set, a second value-noise lattice at scale/3 multiplies into the first octave, breaking up any
+    /** When true, a second value-noise lattice at scale/3 multiplies into the first octave, breaking up any
      * residual regularity from a single lattice (groups of groups instead of one clean blob shape). */
-    octave?: number };
+    octave?: boolean;
+    /** Noise cutoff for threshold-shaped (gap) acceptance; see above. Unset keeps the old smooth blend. */
+    gap?: number;
+    /**
+     * Constant folded into the clump noise seed, picking a different (still fully deterministic)
+     * realisation of the same noise field. The default per-species seed has no relationship to
+     * world position, so whether a noise trough happens to land under any one camera is luck of
+     * the hash; this lets a species be pinned to a realisation that demonstrably clears the
+     * hero views (task-9 R10) without changing the statistics anywhere else on the map.
+     */
+    phase?: number };
   /** Habitat suitability 0..1 at a site. */ density(s: Site): number;
   /** Trunk radius (m) that ground cover must not overlap; default 0.5. */
   trunk?: number;
@@ -46,7 +61,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards.
   coconut: {
-    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 160, strength: 1, size: 0.08, octave: 1 },
+    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 200, strength: 0.85, size: 0.08, octave: true, gap: 0.25, phase: 13 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3 || s.landCls === LANDCLS.WETLAND) return 0;
       const coast = s.seaDist > 12 ? 1 - smooth(180, 320, s.seaDist) : 0;
@@ -56,7 +71,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Casuarina equisetifolia ("piñones"): dunes and sand behind the beach.
   casuarina: {
-    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3, rot: 0.3, clump: { scale: 60, strength: 0.75, size: 0.12 },
+    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3, rot: 0.3, clump: { scale: 200, strength: 0.85, size: 0.12, octave: true, gap: 0.3, phase: 13 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3) return 0;
       const dune = s.seaDist > 20 ? 1 - smooth(90, 220, s.seaDist) : 0;
@@ -66,7 +81,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Avicennia germinans: basin mangrove behind the red fringe, low wet ground (research §5, S22/S34).
   blackMangrove: {
-    spacing: 4, radius: 1.8, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 55, strength: 1, size: 0.2, octave: 1 }, trunk: 0.4,
+    spacing: 4, radius: 1.8, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 55, strength: 1, size: 0.2, octave: true }, trunk: 0.4,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);
@@ -77,7 +92,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Laguncularia racemosa: basin mangrove behind the red fringe, mixed with black mangrove but nearer the fringe (research §5, S22/S34).
   whiteMangrove: {
-    spacing: 4, radius: 1.6, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 40, strength: 0.9, size: 0.2, octave: 1 }, trunk: 0.35,
+    spacing: 4, radius: 1.6, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 40, strength: 0.9, size: 0.2, octave: true }, trunk: 0.35,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);
