@@ -574,3 +574,115 @@ triangles than the baseline in every pass on every tier; the new species' on-scr
 alpha-tested foliage overdraw in the 4096² shadow map (hiding all vegetation shadows still saves
 ≈ 1 ms) are what is left. Closing the last 0.01–0.05 ms would take a visible trade: e.g. lod0
 220 → 200 m on high, a coarser shadow for distant foliage, or a lower far-ring card density.
+
+## Task 12 — gate
+
+### E2E
+
+`tests/e2e/world.spec.ts` now writes `tests/snapshots/phase2b/` and adds `1975-bank-noon` and `1840-bank-noon`
+(t=12). `npm run e2e`: 18 passed, no console errors (world shots, default view, picker, panel, `@slow` leak probe).
+
+### Perf A/B (R6/R13)
+
+Same session, interleaved, `scripts/dev/perf.mjs` 10 s, 2 runs per build; `vite preview` builds of the baseline
+`9403740` (temporary worktree, :4174) and HEAD `14f2351` (:4173). Mean frame ms (fps):
+
+| query | dpr | base 9403740 (runs) | HEAD (runs) | HEAD − base | gate |
+|---|---|---|---|---|---|
+| `?cam=ride&q=high` | 1.75 | 8.97 / 8.99 (111.4 / 111.3) | 9.17 / 9.19 (109.1 / 108.8) | +0.20 ms | pass (at the limit) |
+| `?cam=bank&q=high` | 1.75 | 8.22 / 8.23 (121.6 / 121.5) | 8.41 / 8.41 (118.9 / 118.8) | +0.19 ms | pass |
+| `?cam=ride&q=medium` | 1.5 | 5.51 / 5.51 (181.4 / 181.4) | 5.55 / 5.55 (180.0 / 180.2) | +0.04 ms | pass |
+| `?cam=ride&q=low` | 1 | 2.03 / 2.03 (493.2 / 493.8) | 2.01 / 2.02 (497.6 / 494.5) | +2.6 fps | pass |
+| `?cam=bank&q=low` | 1 | 1.68 / 1.67 (596.3 / 599.9) | 1.60 / 1.68 (625.8 / 594.0) | +11.8 fps | pass |
+
+No tuning (every tier passes). Cold start (`?q=high&debug=1`, default ride view, `window.__ANCON_VEG__`, two fresh
+loads): placement 788 / 789 ms + impostor bake 127 / 128 ms ≈ 0.92 s (< 2 s). Low: 283 ms + 129 ms.
+
+**Worst case, camera inside a dense grass field.** Spot found by scanning `RULES.grass.density` over the 512 fields
+(mean density 0.99 within 25 m, 50+ m from the river): the `mouth` preset temporarily set to pos (−70, 3.7, −100),
+target (−130, 2.2, −160), built into scratch `dist` folders for both commits (reverted, not committed);
+`?cam=mouth&t=12`, era 1975. 3023 grass clumps drawn on high, 277 on low.
+
+| tier | dpr | base (runs) | HEAD (runs) | HEAD − base |
+|---|---|---|---|---|
+| high | 1.75 | 6.96 / 6.96 (143.8 / 143.7) | 7.24 / 7.25 (138.1 / 137.9) | +0.29 ms |
+| low | 1 | 1.63 / 1.63 (613.5 / 611.8) | 1.65 / 1.66 (605.3 / 603.6) | +0.025 ms (−8 fps) |
+
+The dense-grass worst case is over the 0.2 ms bar on high (+0.29 ms at ~138 fps); it is not one of the five gate
+queries, so nothing was tuned. If it matters, ground `spacing` for grass (1.6 m) or high's `groundRadius` (60 m) is
+the first knob per the brief's order.
+
+### Before / after (`tests/snapshots/phase2b-before/` → `tests/snapshots/phase2b/after-*.png`, `npm run dev`, `shot.mjs`)
+
+- `1935-ride-golden` — the even row of foreground palms is gone from this stretch (grove coverage mode leaves it
+  without coconuts); the far shore is now a layered treeline of separate crowns with sky between them instead of a
+  flat strip; a tall tiered almendro stands out against the sky on the left bank; reflections are soft-edged.
+- `1975-bank-noon` — noon water is neutral blue instead of teal; the near mangroves have internal light and shade and
+  a lighter almendro/white-mangrove canopy at the left edge; the far shore is layered with lighter back-row canopies;
+  no palm rows in frame; one grass clump on the near bank; the reflected fringe is soft.
+- `1840-bank-noon` — same changes as the 1975 noon shot (rowboat era); the far treeline shows varied crowns and
+  canopy tones instead of one dark band.
+- `1984-mouth-dawn` — still pre-dawn black (R3); palm silhouettes now stand in uneven groups rather than a flat band.
+  Not diagnostic, hence the 7th pair.
+- `1975-aerial-noon` — the planted palm grid on the coast is replaced by uneven groups with gaps; a sea-grape and
+  buttonwood edge shows along the beach, and the sand carries faint green vine tint; the channel's mangrove band is
+  textured and broken rather than a thin flat line.
+- `1975-bank-noon-high` — the blocky, pixel-stepped reflected fringe is now a smooth ramp; far-shore almendros read as
+  thin trunks with flat floating plates at this distance.
+- `1986-mouth-morning` (new pair, t=7.2, before from a `9403740` dev server) — reflections of both points are smooth
+  instead of stepped; palms stand in irregular groups; the near-right mangrove has layered, lit canopy.
+
+### Carried checks
+
+- **Grass field, high and low** — see the worst-case table above. Visually (scratchpad `grass-high.png`,
+  `grass-low.png`): high is a full, uneven field of clumps between buttonwood-like shrubs; low shows sparse clumps
+  within 25 m and bare tinted ground beyond.
+- **Low tier with ground cover inside 25 m** — `grass-low.png`: clumps sit on the ground, the fade band at ~20–25 m
+  is visible as a screen-door stipple on individual clumps at dpr 1.
+- **In motion, ground-cover fade ring** (40-frame slow orbit in the grass field, high and low): clumps fade in over
+  several frames as the ring passes; no single-frame pops seen. On low the stipple of fading clumps is noticeable
+  up close; on high the fade band is far enough that it reads as thinning.
+- **In motion, reflection smoothing** (40-frame slow orbit, `?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium`, HEAD vs
+  baseline): the baseline's stair-stepped blocks crawl as the camera moves; HEAD's reflected edge stays a soft ramp.
+  Small sky holes in the reflected canopy still change shape frame to frame, softly. No new shimmer.
+- **Fast camera turn (> 12°/frame): plants missing for one frame — found.** Ride view
+  (`?era=1935&cam=ride&c=95&freeze=1&q=medium`), mouse drag of 70 px per step: measured 22–27° per rendered frame
+  (image shift of the horizon band). Rendered frames come in pairs with the same camera pose; in every pair on HEAD
+  the first frame is missing vegetation in the leading third of the view (4–27 k changed px, all in the right third;
+  e.g. the far shore beyond the frame's right third is open water in the first frame and trees in the second). The
+  same run on the `9403740` build: 0–1.8 k px, scattered, no leading-edge pattern. Repeated twice on HEAD with
+  identical numbers. Likely cause: the split `useFrame` in `src/vegetation/InstancedSpecies.tsx` (priority 0) runs
+  before the ride camera is moved for that frame (`<Vegetation>` mounts before `<Ancon>` in `World.tsx`, and the
+  ride rig sets the camera from `onVesselPose` in Ancon's `useFrame`), so the wedge test sees the previous pose; the
+  12° margin hides this for slower turns. The bank (CameraControls) run could not be judged this way: damped
+  controls never give two frames with the same pose. Not fixed here (review item for the controller).
+- **Beach close-up** (`mouth` preset temporarily at (392, 2.9, −488) → (360, 0.6, −522), not committed; scratchpad
+  `beach-high.png`, `beach-low.png`): morning-glory runners with pink flowers lie on the sand in patches between
+  sea-grape shrubs, with faint green tint on the sand around them. On low they read as separate V-shaped sprigs
+  rather than mats.
+- **Almendros near the landings** — visible in default views: a tall tiered almendro is the most prominent
+  silhouette on the left bank of `1935-ride-golden`, and several stand on the far (west-landing) shore of
+  `1975-bank-noon(-high)`. Confirmed by re-shooting both with almendro density set to 0 (temporary, reverted): those
+  trees are the only large differences. No retune. At distance they read as thin poles carrying flat plates.
+
+### Tuning
+
+None.
+
+## Deferred
+
+- Task 2: minor (deferred): SPECIES is Partial<Record<WoodyId,…>> with `!` at call sites; files outside brief touched (type fallout only)
+- Task 3: minor (deferred): tint effect subtle at bank distance (mostly far cards) — recheck close-up in Task 4
+- Task 4: minor (deferred): buildCanopy copied from mangrove.ts (~54 lines, plan-mandated copy)
+- Task 4: minor (deferred): basin trees in fairly regular rows at distance (placement spacing); black mangrove a bit pale at noon
+- Task 5: minor (deferred): glossy sea-grape cards (roughness 0.5) show slight bluish sky sheen at grazing angles
+- Task 6: minor (deferred): almendros sparse near east landing, not visible in default views — tune density at T12 art gate if the picnic story needs them seen
+- Task 6: minor (deferred): glossy flat plates (almendro, sea grape) take a slight blue-teal sky cast at midday — recheck after Task 10 noon fix
+- Task 6: minor (deferred): almendro up to ~500 cards/tree — watch in R7 draw-cost task
+- Task 7: minor (deferred): unused depth material built for ground clumps; one-frame pop-in for tiles past the 6/frame limit (per brief)
+- Task 9: minor (deferred): placement.test count bounds hard-coded to old tuning counts; coconut clump scale 160 may leave ~100 m bare coast stretches (check aerial)
+- Task 9: minor (deferred): coconut clump.strength vestigial under coverage mode (make optional); casuarina dispersion borderline at cell 30 (1.41)
+- Task 10: minor (deferred): glossy leaf sky sheen comes from env reflection, not fog/grade — not fixed by T10
+- Task 10: minor (deferred): noon full frame still fairly flat/low-contrast (grade fix, not a re-light); haze passes by ~2 %; hue.mjs rects fixed to one framing
+- Task 11: minor (deferred): smoothing applies on every tier (high ~1.5 px softer); relies on ClampToEdge default; shimmer in motion unchecked
+- Task 11b: minor (deferred): frustumRays forEach allocates per frame ×8 species; camera rays recomputed per species; empty shadow meshes stay visible in main/reflection lists; test gaps (mirrored rays, lightBox axes); partitionLod3 now unused

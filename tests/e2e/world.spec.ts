@@ -18,6 +18,9 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1959', cam: 'bank', t: golden('1959'), c: 5, name: '1959-bank-docked' }, // loading, ropes sagging into the water
   { era: '1984', cam: 'ride', t: golden('1984'), c: 95 },                        // steel pontoon, the anconera hauling
   { era: '1986', cam: 'bank', t: golden('1986'), c: 0 },                         // moored and idle
+  // Phase 2b: noon, where the new species, ground cover and the noon grade read best.
+  { era: '1975', cam: 'bank', t: 12, c: 95, name: '1975-bank-noon' },
+  { era: '1840', cam: 'bank', t: 12, c: 95, name: '1840-bank-noon' },
 ];
 
 for (const s of SHOTS) {
@@ -27,7 +30,7 @@ for (const s of SHOTS) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await page.goto(`?era=${s.era}&cam=${s.cam}&t=${s.t}&c=${s.c}&freeze=1&q=medium`);
     await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
-    await page.screenshot({ path: `tests/snapshots/phase3/${s.name ?? `${s.era}-${s.cam}`}.png` });
+    await page.screenshot({ path: `tests/snapshots/phase2b/${s.name ?? `${s.era}-${s.cam}`}.png` });
     expect(errors).toEqual([]);
   });
 }
@@ -38,7 +41,7 @@ test('default view: ride camera at golden hour, the ferry running', async ({ pag
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('?freeze=1&q=medium&debug=1');
   await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
-  await page.screenshot({ path: 'tests/snapshots/phase3/default.png' });
+  await page.screenshot({ path: 'tests/snapshots/phase2b/default.png' });
   expect(await page.evaluate(() => window.__ANCON_ANCON__?.frames ?? 0)).toBeGreaterThan(0);   // the ferry's frame loop runs
   expect(errors).toEqual([]);
 });
