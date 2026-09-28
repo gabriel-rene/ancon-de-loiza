@@ -645,17 +645,35 @@ the first knob per the brief's order.
 - **In motion, reflection smoothing** (40-frame slow orbit, `?era=1975&cam=bank&t=12&c=95&freeze=1&q=medium`, HEAD vs
   baseline): the baseline's stair-stepped blocks crawl as the camera moves; HEAD's reflected edge stays a soft ramp.
   Small sky holes in the reflected canopy still change shape frame to frame, softly. No new shimmer.
-- **Fast camera turn (> 12°/frame): plants missing for one frame — found.** Ride view
-  (`?era=1935&cam=ride&c=95&freeze=1&q=medium`), mouse drag of 70 px per step: measured 22–27° per rendered frame
-  (image shift of the horizon band). Rendered frames come in pairs with the same camera pose; in every pair on HEAD
-  the first frame is missing vegetation in the leading third of the view (4–27 k changed px, all in the right third;
-  e.g. the far shore beyond the frame's right third is open water in the first frame and trees in the second). The
-  same run on the `9403740` build: 0–1.8 k px, scattered, no leading-edge pattern. Repeated twice on HEAD with
-  identical numbers. Likely cause: the split `useFrame` in `src/vegetation/InstancedSpecies.tsx` (priority 0) runs
-  before the ride camera is moved for that frame (`<Vegetation>` mounts before `<Ancon>` in `World.tsx`, and the
-  ride rig sets the camera from `onVesselPose` in Ancon's `useFrame`), so the wedge test sees the previous pose; the
-  12° margin hides this for slower turns. The bank (CameraControls) run could not be judged this way: damped
-  controls never give two frames with the same pose. Not fixed here (review item for the controller).
+- **Fast camera turn (> 12°/frame): one-frame leading-edge hole — found at the gate, fixed in the final wave.**
+  At the gate (HEAD `14f2351`), ride view (`?era=1935&cam=ride&c=95&freeze=1&q=medium`), mouse drag of 70 px per
+  step: 22–27° per rendered frame (image shift of the horizon band). Rendered frames come in pairs with the same
+  camera pose; in every pair the first frame was missing vegetation in the leading third of the view (4–27 k changed
+  px, all in the right third); the `9403740` build showed 0–1.8 k px, scattered. Cause: `<Vegetation>` mounts before
+  `<Ancon>` in `World.tsx` and both `useFrame`s ran at priority 0, so the view wedge (`InstancedSpecies`), ground
+  cover and the shadow focus (`SkyAndLight`) read the previous frame's ride camera (the ride rig sets it from
+  `onVesselPose` inside Ancon's `useFrame`); the 12° margin hid slower turns.
+  **Fix:** Ancon's `useFrame` runs at `ANCON_FRAME_PRIORITY = -1` (`src/ancon/Ancon.tsx`; guard test
+  `src/ancon/framePriority.test.ts`: must stay < 0, and a positive value would take over rendering in R3F). drei's
+  `CameraControls` is also at −1 but mounts later (`<Cameras>`), so it now runs after the rig; the rig reads the
+  controls' end values (`getPosition(…, true)`), so drag input is not delayed, and `setLookAt(…, false)` +
+  `update(0)` leaves nothing for the later `update(delta)` to move.
+  **Re-check (final wave, `vite preview` builds of `eb03196` and the fix, same session).** Method (scratchpad, not in
+  the repo): a Playwright script opens the ride query above at 1440×900, dpr 1, waits for `__ANCON_READY__` + 3 s,
+  holds the left button and moves the mouse 70 px every 16 ms for 14 steps while an in-page `requestAnimationFrame`
+  loop copies the canvas into a 2D canvas each frame (30 frames); a Python diff counts pixels whose max channel
+  difference exceeds 30 between consecutive frames, split into left/middle/right thirds; the turn rate comes from
+  the best horizontal cross-correlation shift of rows 200–420 (hfov 63.1° at fov 42). Measured 22–26° per rendered
+  frame (one outlier estimate at 17°, one at 28°). Results:
+  - `eb03196`: in all 14 same-pose pairs the first frame differs from the second by 4.4–27 k px, ≥ 97 % of them in
+    the right (leading) third — the gate defect reproduced.
+  - Fix: 0 changed px in all 14 same-pose pairs, run twice with identical numbers. Each fix first-of-pair frame is
+    pixel-identical (0 px over 30) to the settled second frame of the `eb03196` pair at the same pose, so the first
+    frame now shows the full vegetation.
+  - Cameras still behave: ride drag orbits the view (above); with the crossing running (`?era=1935&cam=ride&c=40`,
+    no drag) the lower-band frame-to-frame change is the same on both builds (mean abs difference: fix 0.52–0.67, `eb03196` 0.53–0.66), so the
+    camera does not lag or jitter against the hull; bank (drag) and aerial (slow orbit) respond to the mouse with no
+    console errors; `npx playwright test` 18/18.
 - **Beach close-up** (`mouth` preset temporarily at (392, 2.9, −488) → (360, 0.6, −522), not committed; scratchpad
   `beach-high.png`, `beach-low.png`): morning-glory runners with pink flowers lie on the sand in patches between
   sea-grape shrubs, with faint green tint on the sand around them. On low they read as separate V-shaped sprigs

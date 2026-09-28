@@ -21,6 +21,15 @@ import { buildVessel } from './vessels';
 import { clearWakeUniforms, updateWakeUniforms } from './wakeUniforms';
 
 /**
+ * Ancon's useFrame priority. Negative so it runs before every priority-0 frame callback: the ride
+ * camera is moved from this callback (via onVesselPose), and vegetation culling, ground cover and
+ * the shadow focus (all priority 0, some mounted earlier) must see this frame's camera, not last
+ * frame's — otherwise a fast turn shows a one-frame hole at the leading edge. Must stay < 0:
+ * a positive priority would take over rendering in R3F.
+ */
+export const ANCON_FRAME_PRIORITY = -1;
+
+/**
  * The ferry for the current era. One useFrame drives everything, in order: crossing clock →
  * vessel pose (shared, see useVesselPose) → hull + apron transforms → ropes → crew → wake →
  * timing → pose listeners (the ride camera). Nothing else computes the live pose.
@@ -68,7 +77,7 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     updateWakeUniforms(pose, ctx);
     anconTiming.add(performance.now() - t0);
     emitVesselPose(ctx);
-  });
+  }, ANCON_FRAME_PRIORITY);
 
   return (
     <>
