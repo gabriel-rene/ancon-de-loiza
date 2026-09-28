@@ -4,8 +4,8 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
 import { buildVegMasks, LANDING_CLEARING } from './masks';
-import { habitatMask, Occupancy, placeAll, placeSpecies, siteAt, warmHabitat } from './placement';
-import { RULES } from './rules';
+import { habitatMask, markTrunks, Occupancy, placeAll, placeSpecies, siteAt, warmHabitat } from './placement';
+import { PLACEMENT_ORDER, RULES } from './rules';
 import type { Site } from './types';
 
 const G = geo as unknown as GeoBundle;
@@ -176,6 +176,22 @@ describe('placement', () => {
     for (const p of palms.slice(0, 200)) for (const q of grass) min = Math.min(min, Math.hypot(p.x - q.x, p.z - q.z));
     // Marks and checks use ≥ 1 m discs on a 1 m grid, so the guaranteed gap is 1 − √½ ≈ 0.29 m.
     expect(min).toBeGreaterThan(0.25);
+  });
+  test('trunks rebuilt from the placed near instances (markTrunks) block ground cover exactly as the placement run did', () => {
+    const dens = { redMangrove: 1, coconut: 1, casuarina: 1 };
+    const live = new Occupancy(f.grid, 1);
+    const woody = placeAll(f, m, dens, 7, { trunks: live });
+    const rebuilt = new Occupancy(f.grid, 1);
+    // As Vegetation does: near instances first, far ones after, only the first `n` marked.
+    const far = { x: 0, y: 0, z: 0, rot: 0, scale: 50, variant: 0 };
+    for (const id of PLACEMENT_ORDER) markTrunks(rebuilt, id, [...woody[id], far], woody[id].length);
+    const key = (p: { x: number; z: number }) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`;
+    for (const id of ['grass', 'reeds', 'morningGlory'] as const) {
+      const a = placeSpecies(f, m, id, { density: 1, seed: 7, blocked: live }).map(key);
+      const b = placeSpecies(f, m, id, { density: 1, seed: 7, blocked: rebuilt }).map(key);
+      expect(b).toEqual(a);
+      if (id === 'grass') expect(a.length).toBeGreaterThan(100);
+    }
   });
 });
 

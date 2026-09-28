@@ -79,10 +79,10 @@ const _cp: [number, number, number] = [0, 0, 0], _cd: [number, number, number] =
 /** Corner-ray directions of `camera`'s frustum (world), into `out` (12 floats). */
 function frustumRays(camera: THREE.Camera, out: Float32Array) {
   const p = camera.matrixWorld.elements;
-  CORNERS.forEach(([x, y], i) => {
-    _v.set(x, y, 0.5).applyMatrix4(camera.projectionMatrixInverse).applyMatrix4(camera.matrixWorld);
+  for (let i = 0; i < CORNERS.length; i++) {
+    _v.set(CORNERS[i][0], CORNERS[i][1], 0.5).applyMatrix4(camera.projectionMatrixInverse).applyMatrix4(camera.matrixWorld);
     out[i * 3] = _v.x - p[12]; out[i * 3 + 1] = _v.y - p[13]; out[i * 3 + 2] = _v.z - p[14];
-  });
+  }
   return out;
 }
 

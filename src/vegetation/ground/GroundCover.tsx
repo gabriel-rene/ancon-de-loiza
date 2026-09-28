@@ -13,7 +13,7 @@ import { buildGrassClump, buildReedClump, buildVineClump } from '../species/grou
 import { vegTiming } from '../stats';
 import { foliageTexture, paintGrassBlades, paintReedStems, paintVineLeaves } from '../textures';
 import type { GroundId } from '../types';
-import { makePlantMaterials } from '../windMaterial';
+import { makePlantMaterial } from '../windMaterial';
 import { GROUND_TILE, TileCache, tilesInRadius, type GroundTile } from './tiles';
 
 const CAP = 2500;          // instances per mesh (one mesh per species × variant); reachable peak ≈ 1.9k
@@ -90,11 +90,12 @@ export function GroundCover({ fields, near, masks, densities, trunks, radius }: 
     for (const id of GROUND_ORDER) {
       const def = CLUMPS[id];
       const map = foliageTexture(def.paint(), 0.5, def.tex);
-      const { material, depth } = makePlantMaterials({
+      // No depth material: ground clumps never cast shadows.
+      const material = makePlantMaterial({
         part: 'foliage', map, color: 0xffffff, roughness: 0.9, alphaTest: 0.5, translucency: 1.5, vertexColors: true,
         fade: { radius: fadeR.current }, upNormals: true,
       });
-      owned.tex.push(map); owned.mats.push(material, depth);
+      owned.tex.push(map); owned.mats.push(material);
       out[id] = Array.from({ length: VARIANTS }, (_, v) => {
         const geo = def.build(v + 1);
         owned.geo.push(geo);

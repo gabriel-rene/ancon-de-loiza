@@ -11,24 +11,6 @@ export function partitionLod(xs: Float32Array, zs: Float32Array, cx: number, cz:
 }
 
 /**
- * Three-way split for the main view + water reflection: `near` gets the instances within `dR`
- * at its front ([0, n0)) and those in (dR, d0] at its back ([len − n1, len)); `far` gets the
- * rest at its front. Returns [n0, n1, nFar] (written into `out` when given — no allocation).
- * dR ≤ 0 puts nothing in the first group.
- */
-export function partitionLod3<T extends Uint32Array | [number, number, number] = [number, number, number]>(xs: Float32Array, zs: Float32Array,
-  cx: number, cz: number, dR: number, d0: number, near: Uint32Array, far: Uint32Array, out?: T): T {
-  let a = 0, b = 0, f = 0; const r2 = dR > 0 ? dR * dR : -1, d2 = d0 * d0, last = near.length - 1;
-  for (let i = 0; i < xs.length; i++) {
-    const dx = xs[i] - cx, dz = zs[i] - cz, q = dx * dx + dz * dz;
-    if (q <= r2) near[a++] = i; else if (q <= d2) near[last - b++] = i; else far[f++] = i;
-  }
-  const o = out ?? ([0, 0, 0] as unknown as T);
-  o[0] = a; o[1] = b; o[2] = f;
-  return o;
-}
-
-/**
  * Column-major 4×4 matrices (16 floats per instance, three.js layout): translation (x, y, z),
  * rotation `rot` about +Y, uniform `scale`.
  */
@@ -106,9 +88,10 @@ export function wedgeCovers(outer: Wedge, inner: Wedge): boolean {
 }
 
 /**
- * `partitionLod3` with view culling (`w` null = none; `rs` = per-instance cull radius): only
- * instances whose disc touches the wedge are kept — `near` gets those within `dR` at its front
- * ([0, nA)) and those in (dR, d0] at its back ([len − nB, len)); `far` gets those beyond d0.
+ * Three-way split for the main view + water reflection, with view culling (`w` null = none;
+ * `rs` = per-instance cull radius): only instances whose disc touches the wedge are kept —
+ * `near` gets those within `dR` at its front ([0, nA)) and those in (dR, d0] at its back
+ * ([len − nB, len)); `far` gets those beyond d0.
  * Returns [nA, nB, nFar] (written into `out` — no allocation).
  */
 export function partitionView<T extends Uint32Array | number[]>(xs: Float32Array, zs: Float32Array, rs: Float32Array,

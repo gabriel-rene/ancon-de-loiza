@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { composeInstanceMatrices, gatherMatrices, partitionLod, partitionLod3 } from './lod';
+import { composeInstanceMatrices, gatherMatrices, partitionLod } from './lod';
 import * as THREE from 'three';
 
 test('splits by horizontal distance to the camera', () => {
@@ -44,31 +44,11 @@ test('gatherMatrices packs the selected 16-float blocks in order', () => {
   expect(dst[32]).toBe(0);
 });
 
-test('three-way split: reflection-near at the front, the rest of LOD0 at the back, far cards', () => {
-  const xs = new Float32Array([0, 30, 100, 300, 45, 200]), zs = new Float32Array(6);
-  const near = new Uint32Array(6), far = new Uint32Array(6);
-  const [n0, n1, nf] = partitionLod3(xs, zs, 0, 0, 50, 220, near, far);
-  expect([n0, n1, nf]).toEqual([3, 2, 1]);
-  expect(Array.from(near.slice(0, n0))).toEqual([0, 1, 4]);
-  expect(Array.from(near.slice(6 - n1)).sort()).toEqual([2, 5]);
-  expect(Array.from(far.slice(0, nf))).toEqual([3]);
-});
-
-test('three-way split with dR = 0 sends nothing to the reflection-mesh group; gather offsets', () => {
-  const xs = new Float32Array([0, 30, 300]), zs = new Float32Array(3);
-  const near = new Uint32Array(3), far = new Uint32Array(3);
-  expect(partitionLod3(xs, zs, 0, 0, 0, 220, near, far)).toEqual([0, 2, 1]);
+test('gatherMatrices honours index and destination offsets', () => {
   const src = new Float32Array(48).map((_, i) => i);
   const dst = new Float32Array(48);
   gatherMatrices(src, new Uint32Array([9, 2, 0]), 2, dst, 1, 1); // idx[1..3) → slots 1..3
   expect(dst[16]).toBe(32); expect(dst[32]).toBe(0); expect(dst[0]).toBe(0);
-});
-
-test('three-way split writes into a reused out array', () => {
-  const xs = new Float32Array([0, 30, 100, 300]), zs = new Float32Array(4);
-  const near = new Uint32Array(4), far = new Uint32Array(4), out = new Uint32Array(3);
-  expect(partitionLod3(xs, zs, 0, 0, 50, 220, near, far, out)).toBe(out);
-  expect(Array.from(out)).toEqual([2, 1, 1]);
 });
 
 import { inWedge, newWedge, partitionView, viewWedge, wedgeCovers } from './lod';
@@ -134,7 +114,7 @@ test('partitionView: in-view near rings and far; out-of-view instances dropped',
   expect(near[0]).toBe(0);
   expect(near[5]).toBe(1);                       // in-view dR..d0 ring at the back of `near`
   expect(far[0]).toBe(3);
-  // No wedge: nothing is culled (same split as partitionLod3).
+  // No wedge: nothing is culled.
   expect(Array.from(partitionView(xs, zs, rs, 0, 0, 50, 220, null, near, far, new Uint32Array(3)))).toEqual([3, 1, 2]);
 });
 

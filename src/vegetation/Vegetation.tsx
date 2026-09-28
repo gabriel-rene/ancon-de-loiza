@@ -12,7 +12,7 @@ import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
-import { Occupancy, placeAll, warmHabitat } from './placement';
+import { markTrunks, Occupancy, placeAll, warmHabitat } from './placement';
 import { KeyedCache, placementKey } from './placementCache';
 import { reseat } from './reseat';
 import { GROUND_ORDER, PLACEMENT_ORDER } from './rules';
@@ -39,9 +39,11 @@ function speciesAssets(id: WoodyId): SpeciesAssets {
 
 /**
  * Placement sets for every (densities, bank offset, tier) seen this session (8 eras × 3 tiers at
- * most), with the placement fields they ran on and the near trunk discs (ground cover avoids them).
+ * most), with the placement fields they ran on and how many of each set's instances (the first
+ * ones) are near-field. The near trunk discs are not cached (a 1 m grid over the whole map is
+ * ~6.5 MB): only the current set's are built, from those near instances.
  */
-interface Placed { sets: Record<WoodyId, PlantInstance[]>; pf: WorldFields; trunks: Occupancy }
+interface Placed { sets: Record<WoodyId, PlantInstance[]>; pf: WorldFields; nearCount: Record<WoodyId, number> }
 const placements = new KeyedCache<Placed>(24);
 
 const masks = new WeakMap<WorldFields, VegMasks>();
@@ -70,11 +72,10 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   }, [era, density]);
   const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
   const key = placementKey(dens, bankOffset, tier);
-  const { sets, pf, trunks } = useMemo(() => placements.get(key, (): Placed => {
+  const { sets, pf, nearCount } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
-    const trunks = new Occupancy(pf.grid, 1);
-    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { trunks });
+    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
     // Ground cover places per tile inside the frame loop; build its habitat masks here instead
     // of three 512² passes in its first frame.
     warmHabitat(pf, masksFor(pf), GROUND_ORDER);
@@ -88,15 +89,23 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       farSet = placeAll(far, masksFor(far), farDens, FAR_SEED,
         { occCell: FAR_OCC_CELL, skip: (x, z) => Math.abs(x - cx) < half && Math.abs(z - cz) < half });
     }
-    const out = {} as Record<WoodyId, PlantInstance[]>;
+    const out = {} as Record<WoodyId, PlantInstance[]>, nearCount = {} as Record<WoodyId, number>;
     vegTiming.counts = {};
     for (const id of PLACEMENT_ORDER) {
       out[id] = farSet ? nearSet[id].concat(farSet[id]) : nearSet[id];
+      nearCount[id] = nearSet[id].length;
       vegTiming.counts[id] = { near: nearSet[id].length, far: farSet?.[id].length ?? 0 };
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
-    return { sets: out, pf, trunks };
+    return { sets: out, pf, nearCount };
   }), [key, near, far]);
+
+  // Near trunk discs for ground cover (reseat only moves y, so x/z/scale match the placement run).
+  const trunks = useMemo(() => {
+    const t = new Occupancy(pf.grid, 1);
+    for (const id of PLACEMENT_ORDER) markTrunks(t, id, sets[id], nearCount[id]);
+    return t;
+  }, [pf, sets, nearCount]);
 
   const groundDens = useMemo(() => {
     const d = {} as Record<GroundId, number>;

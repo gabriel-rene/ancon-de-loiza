@@ -118,9 +118,23 @@ export interface PlantMaterialOpts {
 
 /** A wind-swayed MeshStandardMaterial plus the matching depth material for `customDepthMaterial`. */
 export function makePlantMaterials(opts: PlantMaterialOpts): { material: THREE.Material; depth: THREE.Material } {
+  const material = makePlantMaterial(opts);
+  const depth = new CustomShaderMaterial({
+    baseMaterial: THREE.MeshDepthMaterial,
+    vertexShader: WIND_VERTEX,
+    uniforms: { ...windUniforms },
+    depthPacking: THREE.RGBADepthPacking,
+    map: opts.map ?? null,
+    alphaTest: opts.alphaTest ?? 0,
+  });
+  return { material, depth };
+}
+
+/** The wind-swayed MeshStandardMaterial alone (for meshes that never cast shadows). */
+export function makePlantMaterial(opts: PlantMaterialOpts): THREE.Material {
   const foliage = opts.part === 'foliage';
   const alphaTest = opts.alphaTest ?? 0;
-  const material = new CustomShaderMaterial({
+  return new CustomShaderMaterial({
     baseMaterial: THREE.MeshStandardMaterial,
     vertexShader: WIND_VERTEX,
     fragmentShader: foliage ? foliageFragment(!!opts.bentNormals, !!opts.fade, !!opts.upNormals) : undefined,
@@ -137,13 +151,4 @@ export function makePlantMaterials(opts: PlantMaterialOpts): { material: THREE.M
     vertexColors: !!opts.vertexColors,
     side: foliage ? THREE.DoubleSide : THREE.FrontSide,
   });
-  const depth = new CustomShaderMaterial({
-    baseMaterial: THREE.MeshDepthMaterial,
-    vertexShader: WIND_VERTEX,
-    uniforms: { ...windUniforms },
-    depthPacking: THREE.RGBADepthPacking,
-    map: opts.map ?? null,
-    alphaTest,
-  });
-  return { material, depth };
 }

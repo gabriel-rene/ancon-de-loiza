@@ -158,7 +158,13 @@ export function placeAll(f: WorldFields, m: VegMasks, densities: Partial<Record<
   const out = {} as Record<WoodyId, PlantInstance[]>;
   for (const id of PLACEMENT_ORDER) {
     out[id] = placeSpecies(f, m, id, { density: densities[id] ?? 0, seed, occupancy: occ, spacingMul: opts.spacingMul, skip: opts.skip });
-    if (opts.trunks) for (const p of out[id]) opts.trunks.mark(p.x, p.z, Math.max(1, (RULES[id].trunk ?? 0.5) * p.scale));
+    if (opts.trunks) markTrunks(opts.trunks, id, out[id]);
   }
   return out;
+}
+
+/** Mark the trunk discs of the first `n` of `list` (woody species `id`) in `trunks` (ground cover keeps off them). */
+export function markTrunks(trunks: Occupancy, id: WoodyId, list: readonly PlantInstance[], n = list.length) {
+  const t = RULES[id].trunk ?? 0.5;
+  for (let i = 0; i < n; i++) trunks.mark(list[i].x, list[i].z, Math.max(1, t * list[i].scale));
 }
