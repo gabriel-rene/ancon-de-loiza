@@ -16,6 +16,7 @@ import { markTrunks, Occupancy, placeAll, warmHabitat } from './placement';
 import { KeyedCache, placementKey } from './placementCache';
 import { reseat } from './reseat';
 import { GROUND_ORDER, PLACEMENT_ORDER } from './rules';
+import { buildPalm } from './species/palm';
 import { makeSpeciesMaterials, SPECIES } from './species';
 import { vegTiming } from './stats';
 import type { GroundId, PlantInstance, PlantPart, WoodyId } from './types';
@@ -26,15 +27,20 @@ const NEAR_SEED = 1840, FAR_SEED = 1841;
 const FAR_OVERLAP = 40, FAR_DENSITY = 0.5, FAR_OCC_CELL = 4;
 
 interface SpeciesAssets { variants: PlantPart[][]; materials: PlantMaterials }
-/** Geometry (3 variants), painted foliage texture and materials per species: built once, kept for the app's life. */
-const assets = new Map<WoodyId, SpeciesAssets>();
-function speciesAssets(id: WoodyId): SpeciesAssets {
-  let a = assets.get(id);
-  if (!a) {
-    a = { variants: [1, 2, 3].map((s) => SPECIES[id].build(s)), materials: makeSpeciesMaterials(id).materials };
-    assets.set(id, a);
+/** Painted foliage texture and materials per species: built once, kept for the app's life. */
+const materials = new Map<WoodyId, PlantMaterials>();
+/** Geometry (3 variants) per species and palm age (only coconut depends on age): built once. */
+const geometry = new Map<string, PlantPart[][]>();
+function speciesAssets(id: WoodyId, palmAge: number): SpeciesAssets {
+  let m = materials.get(id);
+  if (!m) { m = makeSpeciesMaterials(id).materials; materials.set(id, m); }
+  const age = id === 'coconut' ? Math.round(palmAge * 2) / 2 : 1, key = `${id}|${age}`;
+  let v = geometry.get(key);
+  if (!v) {
+    v = [1, 2, 3].map((s) => (id === 'coconut' ? buildPalm(s, age) : SPECIES[id].build(s)));
+    geometry.set(key, v);
   }
-  return a;
+  return { variants: v, materials: m };
 }
 
 /**
@@ -146,7 +152,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
 
   return <>
     {PLACEMENT_ORDER.map((id) => {
-      const a = speciesAssets(id);
+      const a = speciesAssets(id, era.landscape.palmAge.value);
       return <InstancedSpecies key={id} name={id} variants={a.variants} materials={a.materials} instances={sets[id]}
         lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={farCards}
         shadowHalf={q.shadowHalf} shadowMap={q.shadowMap} />;

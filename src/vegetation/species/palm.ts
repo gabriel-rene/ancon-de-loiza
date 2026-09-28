@@ -129,10 +129,10 @@ function buildNuts(rng: Rng, top: THREE.Vector3): THREE.BufferGeometry[] {
  * whose halves hang down (inverted V) with extra droop at the leaflet tips and a slight twist
  * toward the frond tip. UV: u across (0 left tip … 1 right tip), v along the rachis.
  */
-function buildFrond(rng: Rng, base: THREE.Vector3, az: number, age: number, crownC: THREE.Vector3) {
+function buildFrond(rng: Rng, base: THREE.Vector3, az: number, age: number, crownC: THREE.Vector3, lenMul = 1) {
   const elev = lerp(62, -38, Math.pow(age, 0.85)) * DEG + (rng() - 0.5) * 12 * DEG;
   // New fronds are shorter and still narrow (leaflets not fully spread).
-  const L = (4 + 1.8 * rng()) * lerp(0.5, 1, smooth(0, 0.25, age));
+  const L = (4 + 1.8 * rng()) * lerp(0.5, 1, smooth(0, 0.25, age)) * lenMul;
   const spread = lerp(0.35, 1, smooth(0, 0.25, age));
   const sag = L * (0.14 + 0.44 * age);
   const D = new THREE.Vector3(Math.cos(az), 0, Math.sin(az));
@@ -193,13 +193,16 @@ function buildFrond(rng: Rng, base: THREE.Vector3, az: number, age: number, crow
 
 /**
  * Build one coconut palm (base at the origin, trunk along +Y). Deterministic in `seed`.
+ * `age` (0 young … 1 full grown, phase 2c): a young palm has a short trunk (0.8–1.5 m), no nuts
+ * and fronds at 75 % length rising from near the ground — not a scaled-down old palm.
  * Parts: `bark` (trunk + nuts, vertex colours) and `foliage` (merged fronds, mapped with
  * `paintFrond()`).
  */
-export function buildPalm(seed: number): PlantPart[] {
-  const rng = cellRng(seed, 0, 911);
-  const H = 12 + 7 * rng();
-  const lean = 12 * DEG * rng();
+export function buildPalm(seed: number, age = 1): PlantPart[] {
+  const rng = cellRng(seed, 0, 911), young = cellRng(seed, 1, 911);
+  const Hfull = 12 + 7 * rng();
+  const H = age >= 1 ? Hfull : lerp(0.8 + 0.7 * young(), Hfull, age * age);
+  const lean = 12 * DEG * rng() * Math.min(1, age * 1.5);
   const az = (rng() - 0.5) * 0.9 * Math.PI;                  // biased toward −Z (the sea)
   const dir = new THREE.Vector3(Math.sin(az), 0, -Math.cos(az));
   const side = new THREE.Vector3(Math.cos(az), 0, Math.sin(az));
@@ -215,19 +218,21 @@ export function buildPalm(seed: number): PlantPart[] {
   const trunk = buildTrunk(rng, H, curve, 0.9 + 0.2 * rng());
   const top = curve.getPointAt(1);
   const nuts = buildNuts(rng, top);
+  const keptNuts = age >= 0.5 ? nuts : [];
+  if (!keptNuts.length) nuts.forEach((g) => g.dispose());
 
   const fronds: THREE.BufferGeometry[] = [];
   const az0 = rng() * Math.PI * 2;
   for (let f = 0; f < FRONDS; f++) {
-    const age = f / (FRONDS - 1);
+    const fa = f / (FRONDS - 1);
     const a = az0 + f * 137.5 * DEG + (rng() - 0.5) * 0.15;
-    const base = top.clone().add(new THREE.Vector3(Math.cos(a) * 0.12, 0.25 - 0.55 * age, Math.sin(a) * 0.12));
-    fronds.push(buildFrond(rng, base, a, age, top));
+    const base = top.clone().add(new THREE.Vector3(Math.cos(a) * 0.12, 0.25 - 0.55 * fa, Math.sin(a) * 0.12));
+    fronds.push(buildFrond(rng, base, a, fa, top, lerp(0.75, 1, age)));
   }
 
-  const bark = mergeGeometries([trunk, ...nuts])!;
+  const bark = mergeGeometries([trunk, ...keptNuts])!;
   const foliage = mergeGeometries(fronds)!;
-  [trunk, ...nuts, ...fronds].forEach((g) => g.dispose());
+  [trunk, ...keptNuts, ...fronds].forEach((g) => g.dispose());
   bark.computeBoundingBox(); bark.computeBoundingSphere();
   foliage.computeBoundingBox(); foliage.computeBoundingSphere();
   return [{ name: 'bark', geometry: bark }, { name: 'foliage', geometry: foliage }];
