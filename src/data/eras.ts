@@ -56,16 +56,18 @@ const POST_DAM = { bankOffset: s(0, ['S26'], 'M'), flow: s(0.35, ['S15'], 'L', t
 
 // Mangrove fringe is ancient; DRNA Piñones forest confirms red mangrove on lagoon/channel fringes.
 const MANGROVE = s(1, ['S22', 'S34'], 'H');
-// Basin mangroves (black + white) make ~55 % of the Piñones forest; buttonwood on drier ground;
-// sea grape and beach morning glory on the Piñones dunes (research §5).
-const BASIN = s(1, ['S22', 'S34'], 'H');
+// Mangrove is ~70 % of the Piñones flora overall, and black and white mangrove are the dominant
+// species of its basin mangrove (S22); buttonwood on drier ground; sea grape and beach morning
+// glory on the Piñones dunes (research §5).
+const BASIN = s(1, ['S22'], 'H');
 const BUTTONWOOD = s(1, ['S22'], 'H');
 const DUNE = s(1, ['S22'], 'H');
 // No site source names the grasses or reeds; open pasture and wet-edge reeds are general
-// coastal Puerto Rico (inferred, M).
-const GRASS = s(1, [], 'M', true);
-// Almendro: families picnicked "under some almond tree" on the bank (S1, 20th c.). It is an
-// introduced tree; fewer before the 1920s (inferred timing, L).
+// coastal Puerto Rico (inferred, L).
+const GRASS = s(1, [], 'L', true);
+// Almendro: families picnicked "under some almond tree" on the bank (S1, 20th c.). The S1 quote
+// itself is confirmed; ALMOND's M is for the coverage amount. It is an introduced tree; fewer
+// before the 1920s (inferred timing, L).
 const ALMOND_EARLY = (v: number) => s(v, ['S1'], 'L', true);
 const ALMOND = s(1, ['S1'], 'M');
 const veg = (coconut: Sourced<number>, casuarina: Sourced<number>, almendro: Sourced<number>) => ({
