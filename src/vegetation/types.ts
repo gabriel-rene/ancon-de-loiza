@@ -10,4 +10,8 @@ export interface Site {
   clear: number;
 }
 /** One drawable part of a plant (e.g. bark, foliage). Geometry carries an `aFlex` (0 base … 1 tip) attribute. */
-export interface PlantPart { name: 'bark' | 'foliage'; geometry: THREE.BufferGeometry }
+export interface PlantPart {
+  name: 'bark' | 'foliage'; geometry: THREE.BufferGeometry;
+  /** false: never drawn into the shadow map (small detail whose shadow is below a shadow texel, e.g. pneumatophores). */
+  shadow?: false;
+}

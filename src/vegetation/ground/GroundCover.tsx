@@ -16,7 +16,7 @@ import type { GroundId } from '../types';
 import { makePlantMaterials } from '../windMaterial';
 import { GROUND_TILE, TileCache, tilesInRadius, type GroundTile } from './tiles';
 
-const CAP = 6000;          // instances per mesh (one mesh per species × variant)
+const CAP = 2500;          // instances per mesh (one mesh per species × variant); reachable peak ≈ 1.9k
 const VARIANTS = 3;
 const SEED = 1840;
 const PER_FRAME = 6;       // uncached tiles placed per frame at most (the rest next frame)

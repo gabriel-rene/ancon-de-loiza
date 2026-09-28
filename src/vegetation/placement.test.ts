@@ -4,7 +4,7 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, WATER } from '../terrain/fields';
 import { buildVegMasks, LANDING_CLEARING } from './masks';
-import { Occupancy, placeAll, placeSpecies, siteAt } from './placement';
+import { habitatMask, Occupancy, placeAll, placeSpecies, siteAt, warmHabitat } from './placement';
 import { RULES } from './rules';
 import type { Site } from './types';
 
@@ -177,4 +177,16 @@ describe('placement', () => {
     // Marks and checks use ≥ 1 m discs on a 1 m grid, so the guaranteed gap is 1 − √½ ≈ 0.29 m.
     expect(min).toBeGreaterThan(0.25);
   });
+});
+
+test('warmHabitat fills the habitat cache that placeSpecies reads (ground cover warms it off the frame loop)', () => {
+  const f2 = buildFields(G, { extent: 2560, size: 128, bankOffset: 0 }), m2 = buildVegMasks(G, f2);
+  expect(habitatMask(f2, m2, 'grass', false)).toBeUndefined();
+  warmHabitat(f2, m2, ['grass', 'reeds']);
+  const g = habitatMask(f2, m2, 'grass', false)!;
+  expect(g).toBeInstanceOf(Uint8Array);
+  expect(g.length).toBe(128 * 128);
+  expect(habitatMask(f2, m2, 'reeds', false)).toBeDefined();
+  expect(habitatMask(f2, m2, 'morningGlory', false)).toBeUndefined();
+  expect(habitatMask(f2, m2, 'grass')).toBe(g); // cached: same array
 });

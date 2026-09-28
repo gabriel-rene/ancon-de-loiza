@@ -54,13 +54,16 @@ const JITTER = 1.3;
  * (only the thin habitat bands pay for a full site sample). Cached per (fields, masks, species).
  */
 const habitatCache = new WeakMap<WorldFields, WeakMap<VegMasks, Partial<Record<SpeciesId, Uint8Array>>>>();
-function habitat(f: WorldFields, m: VegMasks, species: SpeciesId): Uint8Array {
+/** The cached habitat mask; with `build` false, only what is already cached (undefined if none). */
+export function habitatMask(f: WorldFields, m: VegMasks, species: SpeciesId, build?: true): Uint8Array;
+export function habitatMask(f: WorldFields, m: VegMasks, species: SpeciesId, build: false): Uint8Array | undefined;
+export function habitatMask(f: WorldFields, m: VegMasks, species: SpeciesId, build = true): Uint8Array | undefined {
   let byMask = habitatCache.get(f);
   if (!byMask) { byMask = new WeakMap(); habitatCache.set(f, byMask); }
   let bySp = byMask.get(m);
   if (!bySp) { bySp = {}; byMask.set(m, bySp); }
   const hit = bySp[species];
-  if (hit) return hit;
+  if (hit || !build) return hit;
   const g = f.grid, n = g.size, rule = RULES[species], ok = new Uint8Array(n * n), out = new Uint8Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const s = siteAt(f, m, g.minX + (i + 0.5) * g.cell, g.minZ + (j + 0.5) * g.cell);
@@ -76,6 +79,11 @@ function habitat(f: WorldFields, m: VegMasks, species: SpeciesId): Uint8Array {
   }
   bySp[species] = out;
   return out;
+}
+
+/** Build the habitat masks of `species` now (e.g. ground cover's, outside the frame loop). */
+export function warmHabitat(f: WorldFields, m: VegMasks, species: readonly SpeciesId[]) {
+  for (const s of species) habitatMask(f, m, s);
 }
 
 export interface PlaceOpts {
@@ -96,7 +104,7 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
   const salt = species.length * 7919 + species.charCodeAt(0);
   const { scale: cs, strength: cstr, size: csize, octave, gap, coverage } = rule.clump;
   const noiseSeed = opts.seed * 977 + salt;
-  const hab = habitat(f, m, species);
+  const hab = habitatMask(f, m, species);
   const b = opts.bounds;
   const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
   const j0 = b ? Math.max(0, Math.floor((b[1] - g.minZ) / sp) - 1) : 0, j1 = b ? Math.min(n - 1, Math.floor((b[3] - g.minZ) / sp) + 1) : n - 1;

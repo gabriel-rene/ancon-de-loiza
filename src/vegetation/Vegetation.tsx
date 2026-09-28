@@ -12,7 +12,7 @@ import { GroundCover } from './ground/GroundCover';
 import { InstancedSpecies, type PlantMaterials } from './InstancedSpecies';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
-import { Occupancy, placeAll } from './placement';
+import { Occupancy, placeAll, warmHabitat } from './placement';
 import { KeyedCache, placementKey } from './placementCache';
 import { reseat } from './reseat';
 import { GROUND_ORDER, PLACEMENT_ORDER } from './rules';
@@ -75,6 +75,9 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     const pf = placementFields(bankOffset, near);
     const trunks = new Occupancy(pf.grid, 1);
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { trunks });
+    // Ground cover places per tile inside the frame loop; build its habitat masks here instead
+    // of three 512² passes in its first frame.
+    warmHabitat(pf, masksFor(pf), GROUND_ORDER);
     if (pf !== near) for (const id of PLACEMENT_ORDER) nearSet[id] = reseat(nearSet[id], near);
 
     let farSet: Record<WoodyId, PlantInstance[]> | null = null;
@@ -136,7 +139,8 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     {PLACEMENT_ORDER.map((id) => {
       const a = speciesAssets(id);
       return <InstancedSpecies key={id} name={id} variants={a.variants} materials={a.materials} instances={sets[id]}
-        lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={farCards} />;
+        lod0={q.veg.lod0} reflLod0={q.veg.reflLod0} castShadow={q.shadowMap > 0} farCards={farCards}
+        shadowHalf={q.shadowHalf} shadowMap={q.shadowMap} />;
     })}
     <GroundCover fields={pf} near={near} masks={masksFor(pf)} densities={groundDens} trunks={trunks} radius={q.veg.groundRadius} />
   </>;

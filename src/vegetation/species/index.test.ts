@@ -4,7 +4,9 @@ import { SPECIES } from './index';
 test('registry covers every species with a generator, painter and material settings', () => {
   expect(Object.keys(SPECIES).sort()).toEqual(['almendro', 'blackMangrove', 'buttonwood', 'casuarina', 'coconut', 'redMangrove', 'seaGrape', 'whiteMangrove']);
   for (const def of Object.values(SPECIES)) {
-    expect(def.build(1).map((p) => p.name).sort()).toEqual(['bark', 'foliage']);
+    const parts = def.build(1);
+    expect(parts.filter((p) => p.shadow !== false).map((p) => p.name).sort()).toEqual(['bark', 'foliage']);
+    expect(parts.every((p) => p.name === 'bark' || p.name === 'foliage')).toBe(true);
     expect(typeof def.paint).toBe('function');
     expect(def.bark.vertexColors).toBe(true);
     expect(def.foliage.alphaTest).toBeGreaterThan(0); expect(def.foliage.texture).toBeTruthy();

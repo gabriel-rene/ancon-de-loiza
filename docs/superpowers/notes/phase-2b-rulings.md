@@ -499,3 +499,78 @@ y 478–545): medium 3.89 → 2.62, high 5.76 → 3.92.
 **Perf** (same session, HEAD build on :4174 vs fix on :4173, interleaved, 3 runs each,
 `perf.mjs … 10 1.5`, mean ms): ride medium 6.57 → 6.45, bank medium 6.00 → 5.83. No cost beyond
 noise (run-to-run spread ≈ 0.3 ms); 3 extra texture taps per water fragment are negligible here.
+
+## Task 11b — draw-call budget
+
+Same-session A/B, `scripts/dev/perf.mjs` (10 s), 2 interleaved runs per build, `npm run preview`
+builds of baseline 9403740 (`base`), 35304bd before this task (`head0`) and this task (`final`).
+Mean frame ms (fps):
+
+| query | dpr | base | head0 | final | final − base |
+|---|---|---|---|---|---|
+| `?cam=ride&q=high` | 1.75 | 8.97 (111.5) | 10.21 (97.9) | 9.18 (109.0) | +0.21 ms |
+| `?cam=bank&q=high` | 1.75 | 8.23 (121.5) | 9.34 (107.2) | 8.43 (118.7) | +0.20 ms |
+| `?cam=ride&q=medium` | 1.5 | 5.51 (181.3) | 6.16 (162.2) | 5.55 (180.1) | +0.04 ms |
+| `?cam=ride&q=low` | 1 | 2.01 (497.6) | 2.10 (475.4) | 2.01 (496.0) | −1.6 fps (0.00 ms) |
+| `?cam=bank&q=low` | 1 | 1.67 (599.8) | 1.76 (568.2) | 1.65 (606.5) | +6.7 fps |
+
+An earlier (slower) session of the same three builds: ride high 11.56 / 13.79 / 12.04 ms; a
+third build-to-build spread of ±0.15 ms on ride high between sessions.
+
+Draw calls / triangles per frame (one frame, counted at the GL level per framebuffer; shadow
+map, main view, water reflection; the ~25 post-processing quads are in the totals only):
+
+| query | build | total calls | shadow | main | reflection |
+|---|---|---|---|---|---|
+| ride high | base | 152 / 8.90 M | 28 / 3.19 M | 52 / 4.36 M | 46 / 1.35 M |
+| ride high | head0 | 256 / 12.09 M | 52 / 3.51 M | 97 / 5.94 M | 81 / 2.64 M |
+| ride high | final | 231 / 6.28 M | 52 / 2.58 M | 94 / 2.50 M | 59 / 1.20 M |
+| bank high | head0 → final | 254 → 248 / 11.48 → 6.06 M | 3.22 → 2.48 M | 5.66 → 2.35 M | 2.60 → 1.23 M |
+| ride medium | head0 → final | 226 → 198 / 4.85 → 1.96 M | 1.04 → 0.87 M | 2.41 → 0.57 M | 1.40 → 0.52 M |
+| ride low | head0 → final | 158 → 130 / 0.88 → 0.50 M | — | 0.60 → 0.26 M | 0.28 → 0.24 M |
+
+**Draw calls were not the cost.** In-page A/B on head0 (ride high): injecting 72 extra
+one-instance vegetation draws (192 more calls per frame across the three passes) cost 0.0 ms;
+hiding all vegetation saved 3.3 ms, of which LOD0 bark 1.6, LOD0 foliage 1.1, cards 0.9 and the
+shadow pass 1.0 (overlapping). The cost was geometry drawn *outside the view*: every LOD0 mesh
+within 220 m and every card to the horizon was drawn in the main view and the reflection,
+including the ~⅔ behind or beside the camera (`frustumCulled = false` on whole-species
+instanced meshes). So step 2.1 (merge the 3 variants into one mesh per part / card atlas) was
+not built: it only saves calls, which measure as free here.
+
+Kept (each A/B'd against base in the same session):
+
+1. **Per-instance view culling** (vs head0: −1.5 ms ride high, −1.35 bank high, −1.1 medium): at each LOD
+   split the camera frustum is projected to a horizontal wedge (corner rays, +12° margin; the
+   water reflection's mirrored camera projects to the same wedge), and only instances whose
+   crown disc (+1 m sway, +8 m for the move allowed between splits) touches it are gathered.
+   A turn out of the wedge redoes the split at once. Split cost ≈ 1.3 ms for all 8 species
+   (ride: ~0.6 splits/s → 0.007 ms/frame).
+2. **Shadow casters from the sun's shadow box**, not the view: separate shadow-pass meshes per
+   casting part (count 0 outside the shadow pass via `onBeforeShadow`/`onAfterShadow`), over
+   the LOD0 instances whose bounding sphere reaches into the shadow camera's box (+10 m slack;
+   redone when the box drifts 10 m or the sun turns 1°). Out-of-view trees still shade the view;
+   trees nowhere near the shadow map no longer draw into it (shadow 3.51 → 2.58 M tris, ≈ −0.1 ms).
+3. **Pneumatophores cast no shadow** (step 2.2): split into their own `bark` part with
+   `shadow: false` (≈ 1.4 cm pencil roots under a ≈ 7 cm shadow texel on high); ≈ −0.05 ms.
+
+Tried and dropped: view margin 6° instead of 12° (no measurable gain); 2 m instead of 8 m
+move inflation (no gain, more splits). Step 2.3 (skip reflection per species) not done: after
+culling, hiding vegetation from the reflection entirely measured 0.0 ± 0.3 ms.
+
+Step 3: ground-cover habitat masks are warmed in the placement memo (`warmHabitat`), and
+GroundCover `CAP` is 2500.
+
+Visual check: `?era=1975&cam=bank&t=12&c=95&freeze=1&q=high`, `?era=1935&cam=ride&t=17.5&c=40&freeze=1&q=high`,
+`?era=1986&cam=mouth&t=7.2&c=0&freeze=1&q=medium`, `?era=1975&cam=aerial&t=12&c=0&freeze=1&q=high`,
+`?era=1975&cam=bank&t=12&c=95&freeze=1&q=low` before/after: per-pixel max-channel difference at
+the run-to-run noise floor (mean 0.26–0.52 of 255; one pixel > 3 in two shots, none > 8). A
+screenshot taken the frame after a fast mouse turn shows plants to both frame edges.
+
+**Gate:** medium and bank low pass; bank high passes at the limit (+0.20 ms); ride high is
++0.21 ms (0.01 over) and ride low −1.6 fps (0.00 ms at ~500 fps; the −1 fps rule is below the
+measurement's resolution there). What remains is fragment work, not geometry: final draws fewer
+triangles than the baseline in every pass on every tier; the new species' on-screen pixels and
+alpha-tested foliage overdraw in the 4096² shadow map (hiding all vegetation shadows still saves
+≈ 1 ms) are what is left. Closing the last 0.01–0.05 ms would take a visible trade: e.g. lod0
+220 → 200 m on high, a coarser shadow for distant foliage, or a lower far-ring card density.

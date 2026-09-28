@@ -244,18 +244,25 @@ function pneumatophores(rng: Rng) {
   return out;
 }
 
-function finish(bark: THREE.BufferGeometry[], canopy: THREE.BufferGeometry): PlantPart[] {
-  const barkG = mergeGeometries(bark)!;
-  bark.forEach((g) => g.dispose());
-  barkG.computeBoundingBox(); barkG.computeBoundingSphere();
+function merged(parts: THREE.BufferGeometry[]) {
+  const g = mergeGeometries(parts)!;
+  parts.forEach((p) => p.dispose());
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  return g;
+}
+
+/** `roots`: small detail drawn without a shadow (pencil roots ~1.5 cm wide, under a 7 cm shadow texel on high). */
+function finish(bark: THREE.BufferGeometry[], canopy: THREE.BufferGeometry, roots?: THREE.BufferGeometry[]): PlantPart[] {
   canopy.computeBoundingBox(); canopy.computeBoundingSphere();
-  return [{ name: 'bark', geometry: barkG }, { name: 'foliage', geometry: canopy }];
+  const out: PlantPart[] = [{ name: 'bark', geometry: merged(bark) }, { name: 'foliage', geometry: canopy }];
+  if (roots) out.push({ name: 'bark', geometry: merged(roots), shadow: false });
+  return out;
 }
 
 /**
  * Black mangrove (base at the origin, up = +Y), deterministic in `seed`. Parts: `bark` (trunk,
- * leaders, branches and the pneumatophore disc; vertex colours) and `foliage` (leaf cards for
- * `paintBlackMangroveLeaves()`, per-card grey tint). Open crown of 2–3 offset lobes.
+ * leaders and branches; vertex colours), `foliage` (leaf cards for `paintBlackMangroveLeaves()`,
+ * per-card grey tint) and a second, shadowless `bark` part: the pneumatophore disc. Open crown of 2–3 offset lobes.
  */
 export function buildBlackMangrove(seed: number): PlantPart[] {
   const rng = cellRng(seed, 0, 2711);
@@ -275,8 +282,7 @@ export function buildBlackMangrove(seed: number): PlantPart[] {
     },
     canopy: (r) => ({ n: 90 + Math.floor(r() * 11), size: [0.9, 1.3], accent: lin(0xc4ccbc), accentP: 0.3, accentAmt: 0.35 }),
   });
-  bark.push(...pneumatophores(rng));
-  return finish(bark, canopy);
+  return finish(bark, canopy, pneumatophores(rng));
 }
 
 /**

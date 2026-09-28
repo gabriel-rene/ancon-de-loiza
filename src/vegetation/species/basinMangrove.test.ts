@@ -14,7 +14,7 @@ describe.each(CASES)('%s', (_name, build, hMin, hMax) => {
   test('bark + foliage, aFlex in [0,1], attributes, plausible height, triangle budget', () => {
     for (const seed of [1, 2, 3, 4, 5, 6]) {
       const parts = build(seed);
-      expect(parts.map((p) => p.name).sort()).toEqual(['bark', 'foliage']);
+      expect([...new Set(parts.map((p) => p.name))].sort()).toEqual(['bark', 'foliage']);
       for (const p of parts) {
         const f = p.geometry.getAttribute('aFlex').array as Float32Array;
         expect(Math.min(...f)).toBeGreaterThanOrEqual(0); expect(Math.max(...f)).toBeLessThanOrEqual(1);
@@ -47,9 +47,11 @@ describe.each(CASES)('%s', (_name, build, hMin, hMax) => {
   });
 });
 
-test('black mangrove has a disc of pneumatophores 1–3 m around the trunk', () => {
+test('black mangrove has a disc of pneumatophores 1–3 m around the trunk, as a part that casts no shadow', () => {
   for (const seed of [1, 2, 3, 4, 5, 6]) {
-    const bark = buildBlackMangrove(seed).find((p) => p.name === 'bark')!.geometry;
+    const parts = buildBlackMangrove(seed);
+    expect(parts.filter((p) => p.shadow === false).length).toBe(1);
+    const bark = parts.find((p) => p.name === 'bark' && p.shadow === false)!.geometry;
     const pos = bark.getAttribute('position') as THREE.BufferAttribute;
     let n = 0;
     for (let i = 0; i < pos.count; i++) {
