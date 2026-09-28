@@ -22,4 +22,8 @@ All numbers from `node scripts/dev/perf.mjs "<query>" 10 2` (`10 1` for the low 
 
 ## Rulings
 
+**Task 5: Cane geometry triangle count**
+
+Real-layout cane mesh: 10,650 triangles (4,266 top + 6,384 sides) for all 96 fields shown. This is 17.8% of the 60,000-triangle budget.
+
 ## Deferred

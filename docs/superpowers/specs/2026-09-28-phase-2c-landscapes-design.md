@@ -47,7 +47,7 @@ Sources: cane on the Iturregui estates and the cane-worker traffic ([S1], resear
 
 ## 4. Performance
 
-- Cane: 1 draw call plus its shadow; ≤ 60 000 triangles for all fields.
+- Cane: 2 draw calls (top, sides) plus their shadows; ≤ 60 000 triangles for all fields.
 - Farm blocks: ≤ ~1 500 extra palms, drawn through the existing coconut pipeline.
 - Frame time on `high` must not rise more than 0.5 ms; no tier may drop below the 2b numbers. Measure before and after with the existing performance scripts and record the numbers in `docs/superpowers/notes/phase-2c-rulings.md`.
 
