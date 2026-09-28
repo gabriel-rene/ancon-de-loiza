@@ -29,8 +29,10 @@ const CANE_MOTTLE_SCALE = 55, CANE_COLOR_SEED = 4210;
 function caneTint(rank: number, x: number, z: number): [number, number, number] {
   const mottle = fieldNoise(x, z, CANE_MOTTLE_SCALE, CANE_COLOR_SEED) - 0.5; // -0.5 .. 0.5
   const rk = rank - 0.5; // -0.5 .. 0.5
-  const val = 1 + 0.12 * rk + 0.18 * mottle;
-  return [val * (1 + 0.08 * rk - 0.07 * mottle), val * (1 + 0.02 * rk + 0.02 * mottle), val * (1 - 0.16 * rk - 0.11 * mottle)];
+  // Phase 2c art gate: amplitudes raised (rank 0.12 → 0.3, mottle 0.18 → 0.24, hue shifts ~2×)
+  // — the old values left every field the same flat green at the fields-camera's distance.
+  const val = 1 + 0.3 * rk + 0.24 * mottle;
+  return [val * (1 + 0.18 * rk - 0.1 * mottle), val * (1 + 0.04 * rk + 0.03 * mottle), val * (1 - 0.32 * rk - 0.16 * mottle)];
 }
 
 /**
