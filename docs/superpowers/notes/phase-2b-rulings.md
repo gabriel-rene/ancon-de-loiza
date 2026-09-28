@@ -170,3 +170,102 @@ served on :5173 in place of the working tree, then removed (`git worktree remove
   as continuous, unbroken tree cover in the before shot. The foreground pasture (coconut, away from
   casuarina's coastal band) already showed good clumping before this task's changes and is
   materially unchanged — that area was never the problem.
+
+## Round 3 — grove coverage mode (R11)
+
+- **Correction to round 2's visual-check note**: round 2 said the foreground pasture "already
+  showed good clumping before this task's changes and is materially unchanged — that area was
+  never the problem." That was wrong — it's exactly what R11 identifies as the real defect (an
+  even, one-grid-spacing scatter), just not visually obvious in the round-2 screenshots at that
+  resolution/distance. See the before/after comparison below; it's dramatic once the pasture is
+  actually the thing being looked at.
+- R11 (controller): the dense coastal forest lines (mouth left bank, aerial coast strip) reading as
+  continuous is realistic for Piñones — dropped as a target. The real defect is coconut's
+  low-density habitat (the `bank`/`town` density terms): with a low d, both the old smooth blend
+  and the round-2 `gap` threshold multiply d by a clump factor, so acceptance stays a low,
+  *roughly uniform* rate everywhere — clumping can only redistribute *where* that thin, even
+  scatter falls, never turn it into real, dense little groves. Ruling: implement a coverage mode
+  where density controls grove *coverage* (what fraction of the map is grove), not acceptance rate
+  inside one.
+- Removed `clump.phase` (round-2 review's own follow-up: "overfits to one camera and one seed;
+  its benefit is not visible"). Re-tuned coconut from scratch without it.
+
+### Coverage mode
+
+New `clump.coverage: { k, groveDensity }` (`rules.ts`), used in `placement.ts` in place of the
+`gap`/smooth-blend branches when set: a site is inside a grove when `n > 1 − min(1, d·k)` (n = the
+clump noise, d = the site's habitat density) — so the *fraction of habitat that is grove* scales
+with `k·d`, not the acceptance rate. Inside a grove, acceptance is a flat
+`min(1, coverage.groveDensity)`, independent of d; outside, it's 0. This is the only one of the
+three modes where a low d still produces dense clusters with real open ground between them.
+
+Applied to **coconut only** (as instructed); casuarina keeps its round-2 `gap`-threshold setting
+(coverage mode wasn't clearly better for it, and it wasn't asked for).
+
+### Tuning
+
+`coconut.clump`: `{ scale: 70, strength: 0.85, size: 0.08, octave: true, coverage: { k: 1.3,
+groveDensity: 0.8 } }` (`strength` is now only vestigial for coconut — coverage mode doesn't read
+it — but the field is required by `SpeciesRule`, so it's left at a sane value).
+
+Found by sweeping `scale ∈ {40,60,70,90}`, `k ∈ {0.4..1.5}`, `groveDensity ∈ {0.75..1}` against
+four constraints simultaneously: count within ±25 % of 3605 at **both** seed 7 and seed 1840 (the
+app's `NEAR_SEED`), the existing `density scales counts roughly linearly` test (halving density
+must still roughly halve the count — coverage mode's count-vs-density relationship isn't as linear
+as the old multiplicative modes, since it's an area-fraction relationship, not a direct
+probability), and the quadrat dispersion index clearing 1.5 at cell sizes 30, 40 and 50 m. First
+few candidates (e.g. `k=1.3, groveDensity=0.8` at `scale=60`) passed counts and dispersion but gave
+`half/full ≈ 0.348`, just under the existing test's `> 0.35` floor; `scale=70` at the same
+`k`/`groveDensity` gives `0.357` with counts still in range.
+
+| check | value |
+|---|---|
+| count, seed 7 | 3485 (−3.3 %) |
+| count, seed 1840 | 3670 (+1.8 %) |
+| half/full density ratio | 0.357 (existing test requires 0.35–0.65) |
+| dispersion, cell 30 (bins 20) | 2.30 |
+| dispersion, cell 40 (bins 20) | 3.08 |
+| dispersion, cell 50 (bins 20) | 4.30 |
+
+(Counts above are from the final `placement.test.ts` run, not the sweep script; the sweep script
+reported very slightly different numbers for the same nominal parameters because it computed
+`density scales counts roughly linearly` via `placeSpecies` with `seed: 3`, a third RNG phase, not
+seed 7/1840 — kept here for the reader tracing the exact commands, not because seed 3 is a
+requirement.)
+
+### Dispersion test made robust across cell sizes
+
+At the original `bins = 15`, the pre-task-9 (`c93d951`) dispersion index crossed back *above* 1.5
+at `cell = 50` (1.581) even though `cell = 30` (1.094) and `cell = 40` (1.436) stayed under it —
+bigger quadrats accumulate more of the habitat gradient's own variance, so the "even stand → ≈ 1"
+approximation degrades as cells grow relative to the gradient's length scale. Increased to
+`bins = 20`, which pulls every cell size's pre-task-9 value back under 1.5 (30: 1.081, 40: 1.394,
+50: 1.458) while the post-fix values stay far above it at all three (2.30 / 3.08 / 4.30). The
+`palms stand in groups...` test in `placement.test.ts` now loops `cell ∈ [30, 40, 50]`. RED
+confirmed for all three by reverting to `c93d951` and rerunning (fails at `cell = 30`:
+`expected 1.0805... to be greater than 1.5`, before even reaching 40 or 50).
+
+Casuarina's single test (`cell = 40, bins = 15`) is unchanged from round 2 and was not converted to
+a loop — it wasn't asked for, and casuarina's `cell = 30` value at `bins = 20` (1.41) is under 1.5,
+so looping it the same way would need its own re-tuning; out of scope for this round.
+
+### Two stale comments fixed
+
+- `placement.test.ts:28` (now ~27): cited `task-9-report.md, "quadrat test — the gradient
+  confound"`, a section heading that was never actually written under that name. Now points at
+  this rulings-note section instead.
+- `placement.test.ts:75` (now ~75): said "Round-1 review" for a finding (the Clark–Evans
+  bounding-box artefact) that was actually raised in round 2's review. Corrected to "Round-2
+  review".
+
+### Visual check (`npm run dev`, `scripts/dev/shot.mjs`, `q=medium`)
+
+- `?era=1975&cam=aerial&t=12&c=95&freeze=1&q=medium` vs `before-c93d951-aerial.png`: this is the
+  target the round-3 review named. Before: the foreground pasture is filled with a dense, roughly
+  even scatter of individual palms at close to one grid spacing — the "orchard" look. After:
+  most of the pasture is open ground, with several distinct clusters of close-together palms
+  (including one dense grove bottom-right) and clear gaps between them. This is the clearest
+  before/after difference of any shot taken across all three rounds of this task.
+- `?era=1986&cam=mouth&t=7.2&c=0&freeze=1&q=medium`: re-shot to confirm nothing regressed — visibly
+  unchanged from the round-2 shot (dense treeline, dominated by casuarina and the mangrove fringe,
+  which R11 explicitly says is realistic and out of scope here).

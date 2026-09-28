@@ -13,12 +13,22 @@ export interface SpeciesRule {
   rot: number;
   /**
    * Clumping: n is a smooth value noise (0..1) on a lattice of `scale` metres, optionally combined
-   * with a second, finer octave (see `octave`). Without `gap`, acceptance is multiplied by
-   * 1 − strength + 2·strength·n (a smooth blend that never fully zeroes except at exact noise
-   * minima — soft density gradient, not real gaps). With `gap` set, acceptance is instead
-   * threshold-shaped — smoothstep(gap − w, gap + w, n), w derived from `strength` — so n below the
-   * cut gives true zero acceptance (open ground) and n above it gives a dense grove, producing
-   * real sky/ground gaps between groups rather than just a lighter fringe (spec §4.2, R10).
+   * with a second, finer octave (see `octave`). Three acceptance modes, in priority order:
+   *
+   * - `coverage` set: grove COVERAGE mode (task-9 R11). A site is inside a grove when
+   *   n > 1 − d·k (d = the site's habitat density, k = `coverage.k`) — so the *fraction of the
+   *   map that is grove* scales with d, not the density inside a grove. Inside a grove, acceptance
+   *   is a flat `min(1, coverage.groveDensity)`, independent of d; outside, acceptance is 0. This
+   *   is the only mode where low-density habitat (a `bank`/`town` term far under 1) still produces
+   *   dense little clusters with real open ground between them, rather than a uniformly thinned
+   *   scatter at roughly one grid spacing (the old modes multiply d by a clump factor, and a low d
+   *   stays a low, roughly-even acceptance probability everywhere — clumping can't turn 0.2
+   *   acceptance into a dense grove, only redistribute where that thin scatter falls).
+   * - `gap` set (no `coverage`): threshold-shaped — smoothstep(gap − w, gap + w, n), w derived
+   *   from `strength` — acceptance is `d × that`, so n below the cut gives true zero acceptance
+   *   and n above it gives a dense grove, but the *coverage* still tracks d directly, not d·k.
+   * - neither set: the original smooth blend, acceptance `d × (1 − strength + 2·strength·n)` —
+   *   never fully zero except at exact noise minima (soft density gradient, not real gaps).
    */
   clump: { scale: number; strength: number;
     /** Instance scale × (1 + size·(2n − 1)): taller plants in the heart of a grove, a rolling canopy line. */
@@ -28,14 +38,8 @@ export interface SpeciesRule {
     octave?: boolean;
     /** Noise cutoff for threshold-shaped (gap) acceptance; see above. Unset keeps the old smooth blend. */
     gap?: number;
-    /**
-     * Constant folded into the clump noise seed, picking a different (still fully deterministic)
-     * realisation of the same noise field. The default per-species seed has no relationship to
-     * world position, so whether a noise trough happens to land under any one camera is luck of
-     * the hash; this lets a species be pinned to a realisation that demonstrably clears the
-     * hero views (task-9 R10) without changing the statistics anywhere else on the map.
-     */
-    phase?: number };
+    /** Grove-coverage mode; see above. Takes priority over `gap` and the smooth blend when set. */
+    coverage?: { k: number; groveDensity: number } };
   /** Habitat suitability 0..1 at a site. */ density(s: Site): number;
   /** Trunk radius (m) that ground cover must not overlap; default 0.5. */
   trunk?: number;
@@ -61,7 +65,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards.
   coconut: {
-    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 200, strength: 0.85, size: 0.08, octave: true, gap: 0.25, phase: 13 },
+    spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 70, strength: 0.85, size: 0.08, octave: true, coverage: { k: 1.3, groveDensity: 0.8 } },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3 || s.landCls === LANDCLS.WETLAND) return 0;
       const coast = s.seaDist > 12 ? 1 - smooth(180, 320, s.seaDist) : 0;
@@ -71,7 +75,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
   // Casuarina equisetifolia ("piñones"): dunes and sand behind the beach.
   casuarina: {
-    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3, rot: 0.3, clump: { scale: 200, strength: 0.85, size: 0.12, octave: true, gap: 0.3, phase: 13 },
+    spacing: 7, radius: 3, scale: [0.75, 1.3], variants: 3, rot: 0.3, clump: { scale: 200, strength: 0.85, size: 0.12, octave: true, gap: 0.3 },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3) return 0;
       const dune = s.seaDist > 20 ? 1 - smooth(90, 220, s.seaDist) : 0;

@@ -25,10 +25,11 @@ const at = (arr: Float32Array | Uint8Array, x: number, z: number) => {
  * density rises toward the coast, mangroves' toward the river), not by clump-noise clustering: a
  * `placeSpecies('coconut', ...)` run with no other species competing for space, so the clump
  * noise is the only source of unevenness, still gives ≈ 4.7–4.9 regardless of clump tuning,
- * purely from that gradient (see task-9-report.md, "quadrat test — the gradient confound"). To
- * isolate clustering from the gradient, cells are grouped into `bins` quantiles of habitat
- * density first, dispersion is computed within each (density is roughly uniform inside a
- * quantile), and the per-bin ratios are averaged, weighted by bin size.
+ * purely from that gradient (see docs/superpowers/notes/phase-2b-rulings.md, "Task 9 —
+ * clustering", for the full derivation). To isolate clustering from the gradient, cells are
+ * grouped into `bins` quantiles of habitat density first, dispersion is computed within each
+ * (density is roughly uniform inside a quantile), and the per-bin ratios are averaged, weighted
+ * by bin size.
  */
 function dispersionIndex(rule: { density(s: Site): number }, points: { x: number; z: number }[], cell = 40, bins = 15) {
   const g = f.grid, ext = g.cell * g.size, nCells = Math.ceil(ext / cell);
@@ -72,13 +73,23 @@ describe('placement', () => {
     expect(all.coconut.length).toBeGreaterThan(300);
     expect(all.casuarina.length).toBeGreaterThan(150);
   });
-  // Round-1 review (task-9-report.md): a Clark–Evans test here measured the coastal habitat
+  // Round-2 review (task-9-report.md): a Clark–Evans test here measured the coastal habitat
   // band's shape, not a lattice — replaced with a quadrat dispersion index (see `dispersionIndex`
   // above). Black and white mangrove are NOT re-tested here: their pre-task-9 dispersion (2.74,
-  // 2.13 at bins=15) was already > 1.5, i.e. this metric never read them as an even stand, so a
-  // regression test here would guard nothing (see the report for the full before/after table).
+  // 2.13 at bins=15, cell=40) was already > 1.5, i.e. this metric never read them as an even
+  // stand, so a regression test here would guard nothing (see the report for the full
+  // before/after table).
+  //
+  // Round-3 review (R11): coconut's low-density habitat (the `bank`/`town` terms) still read as
+  // an even scatter — a smooth or gap-threshold multiplier on a low d stays a low, roughly-even
+  // acceptance rate everywhere, so clumping could only redistribute *where* that thin scatter
+  // fell, not turn it into real groves. Coconut now uses grove-coverage mode (`clump.coverage`,
+  // see rules.ts): the fraction of the map that's grove scales with d, not the acceptance rate
+  // inside a grove. Looped over three cell sizes (bins=20, wider than the default 15, needed to
+  // keep the pre-task-9 value under 1.5 at cell=50 too — see the rulings note) so the test isn't
+  // fitted to one arbitrary cell size.
   test('palms stand in groups with gaps, not in even rows (quadrat dispersion > 1.5)', () => {
-    expect(dispersionIndex(RULES.coconut, all.coconut)).toBeGreaterThan(1.5);
+    for (const cell of [30, 40, 50]) expect(dispersionIndex(RULES.coconut, all.coconut, cell, 20)).toBeGreaterThan(1.5);
   });
   // Scope extension (task-9-report.md, "Important 3"): casuarina turned out to be the majority
   // species in the exact hero shots the brief's visual check names (near counts ~3.3x coconut's

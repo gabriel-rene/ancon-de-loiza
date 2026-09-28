@@ -94,8 +94,8 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
   const rule = RULES[species], g = f.grid, sp = rule.spacing * (opts.spacingMul ?? 1), extent = g.cell * g.size;
   const n = Math.floor(extent / sp), out: PlantInstance[] = [];
   const salt = species.length * 7919 + species.charCodeAt(0);
-  const { scale: cs, strength: cstr, size: csize, octave, gap, phase } = rule.clump;
-  const noiseSeed = opts.seed * 977 + salt + (phase ?? 0);
+  const { scale: cs, strength: cstr, size: csize, octave, gap, coverage } = rule.clump;
+  const noiseSeed = opts.seed * 977 + salt;
   const hab = habitat(f, m, species);
   const b = opts.bounds;
   const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
@@ -114,17 +114,23 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
     if (d <= 0) continue;
     let cn = valueNoise(x, z, cs, noiseSeed);
     if (octave) cn = Math.min(1, Math.max(0, cn * (0.6 + 0.8 * valueNoise(x, z, cs / 3, noiseSeed + 17))));
-    let mult: number;
-    if (gap !== undefined) {
+    let acceptProb: number;
+    if (coverage) {
+      // Grove coverage: the *area fraction* that is grove scales with d (task-9 R11), not the
+      // acceptance rate inside it — so low-density habitat still produces dense little clusters
+      // with real open ground between them, instead of a uniformly thinned scatter.
+      const cutoff = 1 - Math.min(1, d * coverage.k);
+      acceptProb = cn > cutoff ? Math.min(1, coverage.groveDensity) : 0;
+    } else if (gap !== undefined) {
       // Threshold-shaped: real zero-acceptance gaps below the cut, dense groves above it. `strength`
       // sets the transition's sharpness (higher = narrower, more binary gap-vs-grove edge).
       const w = Math.max(0.03, 0.5 * (1 - cstr) + 0.05);
       const t = Math.min(1, Math.max(0, (cn - (gap - w)) / (2 * w)));
-      mult = t * t * (3 - 2 * t);
+      acceptProb = d * (t * t * (3 - 2 * t));
     } else {
-      mult = 1 - cstr + 2 * cstr * cn;
+      acceptProb = d * (1 - cstr + 2 * cstr * cn);
     }
-    if (accept >= d * mult) continue;
+    if (accept >= acceptProb) continue;
     if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
     if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
     opts.occupancy?.mark(x, z, rule.radius);
