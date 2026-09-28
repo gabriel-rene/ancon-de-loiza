@@ -84,13 +84,15 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
     },
   },
   // Conocarpus erectus: drier ground behind the mangroves (research §5, S22).
+  // Irregular thickets with open gaps, not even rows: a finer candidate grid at lower acceptance
+  // (reads as random, not a lattice), full-strength clumping over ~50 m and wide size variation.
   buttonwood: {
-    spacing: 5, radius: 1.5, scale: [0.75, 1.25], variants: 3, rot: Math.PI, clump: { scale: 35, strength: 0.6, size: 0.15 }, trunk: 0.3,
+    spacing: 4, radius: 1.5, scale: [0.6, 1.35], variants: 3, rot: Math.PI, clump: { scale: 50, strength: 1, size: 0.3 }, trunk: 0.3,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 4 || s.seaDist < 40) return 0;
       const band = smooth(25, 45, s.riverDist) * (1 - smooth(120, 200, s.riverDist));
       const dry = smooth(0.6, 1.2, s.height) * (s.landCls === LANDCLS.WETLAND ? 0.3 : 1);
-      return 0.5 * band * dry * (1 - s.town);
+      return 0.25 * band * dry * (1 - s.town);
     },
   },
   // Terminalia catappa: river banks near the landings and town yards (S1).
