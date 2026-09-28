@@ -68,8 +68,8 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);
       const behind = smooth(6, 12, s.riverDist) * (1 - smooth(45, 80, s.riverDist));
-      const wet = s.landCls === LANDCLS.WETLAND ? 0.85 : 0;
-      return Math.min(1, Math.max(0.7 * behind, wet) * low) * (1 - s.town);
+      const wet = s.landCls === LANDCLS.WETLAND ? 0.7 : 0;
+      return Math.min(1, Math.max(0.56 * behind, wet) * low) * (1 - s.town);
     },
   },
   // Laguncularia racemosa: mixed with black mangrove, nearer the fringe.
@@ -79,8 +79,8 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.seaDist < 60) return 0;
       const low = 1 - smooth(1.4, 2.6, s.height);
       const near = smooth(4, 9, s.riverDist) * (1 - smooth(25, 50, s.riverDist));
-      const wet = s.landCls === LANDCLS.WETLAND ? 0.5 : 0;
-      return Math.min(1, Math.max(0.6 * near, wet) * low) * (1 - s.town);
+      const wet = s.landCls === LANDCLS.WETLAND ? 0.4 : 0;
+      return Math.min(1, Math.max(0.5 * near, wet) * low) * (1 - s.town);
     },
   },
   // Conocarpus erectus: drier ground behind the mangroves.
@@ -142,6 +142,6 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
 };
 /** Woody species with a registry entry, larger plants first (they claim space first). Species tasks append here. */
-export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'coconut', 'redMangrove'];
+export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'coconut', 'blackMangrove', 'whiteMangrove', 'redMangrove'];
 /** Ground cover, placed per tile around the camera (see ground/tiles.ts). */
 export const GROUND_ORDER: GroundId[] = ['reeds', 'morningGlory', 'grass'];

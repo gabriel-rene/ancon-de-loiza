@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { SPECIES } from './index';
 
 test('registry covers every species with a generator, painter and material settings', () => {
-  expect(Object.keys(SPECIES).sort()).toEqual(['casuarina', 'coconut', 'redMangrove']);
+  expect(Object.keys(SPECIES).sort()).toEqual(['blackMangrove', 'casuarina', 'coconut', 'redMangrove', 'whiteMangrove']);
   for (const def of Object.values(SPECIES)) {
     expect(def.build(1).map((p) => p.name).sort()).toEqual(['bark', 'foliage']);
     expect(typeof def.paint).toBe('function');

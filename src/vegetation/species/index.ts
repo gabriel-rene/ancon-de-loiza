@@ -1,8 +1,11 @@
 import type * as THREE from 'three';
 import type { PlantMaterials } from '../InstancedSpecies';
-import { foliageTexture, paintCasuarinaWisps, paintFrond, paintMangroveLeaves } from '../textures';
+import {
+  foliageTexture, paintBlackMangroveLeaves, paintCasuarinaWisps, paintFrond, paintMangroveLeaves, paintWhiteMangroveLeaves,
+} from '../textures';
 import type { PlantPart, WoodyId } from '../types';
 import { makePlantMaterials } from '../windMaterial';
+import { buildBlackMangrove, buildWhiteMangrove } from './basinMangrove';
 import { buildCasuarina } from './casuarina';
 import { buildMangrove } from './mangrove';
 import { buildPalm } from './palm';
@@ -54,6 +57,18 @@ export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
     build: buildCasuarina, paint: paintCasuarinaWisps,
     bark: { color: 0xffffff, roughness: 0.95, vertexColors: true },
     foliage: { color: 0xffffff, roughness: 0.85, translucency: 2.5, alphaTest: 0.5, vertexColors: true, texture: 'casuarinaWisps', tint: { value: 0.12, hue: 0.06 } },
+  },
+  // Basin mangroves behind the red fringe: matte grey-green black mangrove, glossier, more
+  // translucent yellow-green white mangrove.
+  blackMangrove: {
+    build: buildBlackMangrove, paint: paintBlackMangroveLeaves,
+    bark: { color: 0xffffff, roughness: 0.92, vertexColors: true },
+    foliage: { color: 0xffffff, roughness: 0.7, translucency: 1.0, alphaTest: 0.5, vertexColors: true, texture: 'blackMangroveLeaves', tint: { value: 0.14, hue: 0.06 } },
+  },
+  whiteMangrove: {
+    build: buildWhiteMangrove, paint: paintWhiteMangroveLeaves,
+    bark: { color: 0xffffff, roughness: 0.85, vertexColors: true },
+    foliage: { color: 0xffffff, roughness: 0.55, translucency: 1.6, alphaTest: 0.5, vertexColors: true, texture: 'whiteMangroveLeaves', tint: { value: 0.14, hue: 0.1 } },
   },
 };
 

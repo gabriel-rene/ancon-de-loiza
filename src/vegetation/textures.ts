@@ -162,6 +162,133 @@ export function paintMangroveLeaves(): HTMLCanvasElement {
   return c;
 }
 
+interface TwigLeafStyle {
+  seed: number;
+  twigs: number;
+  /** Leaf pairs per shoot [min, max), spread over the outer `span` metres of it. */
+  pairs: [number, number]; span: number;
+  /** Leaf length (m) and width / length. */
+  len: [number, number]; aspect: [number, number];
+  /** Blade shape: 0 = narrow elliptic, acute tip; 1 = oval with a rounded, notched tip. */
+  round: number;
+  top: number[]; deep: number[]; under: number[];
+  /** Probability a leaf shows its underside. */
+  underP: number;
+  twig: number[]; petiole: number[]; rib: number[];
+  /** Pale notch at the tip (white mangrove); null for none. */
+  notch: number[] | null;
+}
+
+/**
+ * Shared basin-mangrove leaf card, 512×512 (≈ 1.2 m across), transparent: `twigs` twigs rise
+ * from the lower half toward tips inside the card, each with 1–2 side shoots; every shoot carries
+ * opposite leaf pairs crowded toward its end, shrinking toward the tip, and a terminal leaf.
+ * Every other pair is foreshortened (decussate pairs seen in projection).
+ */
+function paintTwigLeaves(st: TwigLeafStyle): HTMLCanvasElement {
+  const S = 512, px = S / 1.2;
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, st.seed);
+  const leaf = (x: number, y: number, ang: number, len: number, wid: number, under: boolean) => {
+    g.save();
+    g.translate(x, y); g.rotate(ang);
+    const pet = len * 0.14, L = len - pet, hw = wid / 2, r = st.round;
+    g.strokeStyle = rgb(st.petiole); g.lineWidth = Math.max(1, wid * 0.1);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(pet, 0); g.stroke();
+    const path = () => {
+      g.beginPath(); g.moveTo(pet, 0);
+      // Narrow elliptic (r = 0) → broad oval with a blunt, rounded tip (r = 1).
+      g.bezierCurveTo(pet + L * lerp(0.1, 0.02, r), -hw * lerp(1.05, 1.25, r), pet + L * lerp(0.72, 0.95, r), -hw * lerp(1.0, 1.05, r), pet + L, 0);
+      g.bezierCurveTo(pet + L * lerp(0.72, 0.95, r), hw * lerp(1.0, 1.05, r), pet + L * lerp(0.1, 0.02, r), hw * lerp(1.05, 1.25, r), pet, 0);
+      g.closePath();
+    };
+    const v = 0.85 + 0.3 * rng();
+    const base = (under ? st.under : mix(st.top, st.deep, rng())).map((q) => q * v);
+    path(); g.fillStyle = rgb(base); g.fill();
+    g.save(); path(); g.clip();
+    // Soft light/shade across the blade (curved surface).
+    const off = (rng() < 0.5 ? -1 : 1) * hw * 0.4;
+    const grad = g.createLinearGradient(0, off - hw * 0.5, 0, off + hw * 0.5);
+    const hi = mix(base, [235, 240, 220], under ? 0.25 : 0.18);
+    grad.addColorStop(0, rgba(hi, 0)); grad.addColorStop(0.5, rgba(hi, 0.35 + 0.2 * rng())); grad.addColorStop(1, rgba(hi, 0));
+    g.fillStyle = grad; g.fillRect(pet, off - hw * 0.5, L, hw);
+    if (st.notch) {
+      // Pale notch at the rounded tip (Laguncularia's paired glands / emarginate apex).
+      g.fillStyle = rgba(st.notch, 0.85);
+      g.beginPath(); g.ellipse(pet + L * 0.97, 0, L * 0.08, hw * 0.28, 0, 0, Math.PI * 2); g.fill();
+    }
+    path(); g.strokeStyle = rgb(base.map((q) => q * 0.65)); g.lineWidth = 1; g.stroke();
+    g.restore();
+    g.strokeStyle = rgb(mix(base, st.rib, 0.5)); g.lineWidth = Math.max(0.8, wid * 0.06);
+    g.beginPath(); g.moveTo(pet, 0); g.lineTo(pet + L * 0.9, 0); g.stroke();
+    g.restore();
+  };
+  // One leafy shoot from (bx, by) toward (tx, ty): opposite pairs over its outer part, shrinking
+  // toward the tip, plus a terminal leaf.
+  const shoot = (bx: number, by: number, tx: number, ty: number, width: number) => {
+    const ang = Math.atan2(ty - by, tx - bx), len = Math.hypot(tx - bx, ty - by);
+    g.strokeStyle = rgb(st.twig); g.lineWidth = width;
+    g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo((bx + tx) / 2 + (rng() - 0.5) * 20, (by + ty) / 2, tx, ty); g.stroke();
+    const pairs = st.pairs[0] + Math.floor(rng() * (st.pairs[1] - st.pairs[0]));
+    const span = Math.min(len * 0.85, st.span * px);
+    for (let pI = 0; pI < pairs; pI++) {
+      const f = pI / Math.max(1, pairs - 1);
+      const d = span * (1 - f);
+      const x = tx - Math.cos(ang) * d, y = ty - Math.sin(ang) * d;
+      const edgeOn = pI % 2 === 1;
+      const L = lerp(st.len[0], st.len[1], rng()) * px * lerp(1, 0.6, f * f) * (edgeOn ? 0.85 : 1);
+      const wid = L * lerp(st.aspect[0], st.aspect[1], rng()) * (edgeOn ? 0.6 : 1);
+      const spread = lerp(1.15, 0.45, f) + (rng() - 0.5) * 0.4;
+      for (const side of [-1, 1]) leaf(x, y, ang + side * spread + (rng() - 0.5) * 0.35, L, wid, rng() < st.underP);
+    }
+    const tl = lerp(st.len[0], st.len[1], 0.4) * px * 0.7;
+    leaf(tx, ty, ang + (rng() - 0.5) * 0.3, tl, tl * st.aspect[0], false);
+  };
+  for (let k = 0; k < st.twigs; k++) {
+    // Tips stratified over a 4 × 3 grid (upper ~70% of the card) so the card fills evenly.
+    const cell = (k * 7) % 12;
+    const tx = S * (0.14 + 0.72 * ((cell % 4) + 0.2 + 0.6 * rng()) / 4), ty = S * (0.06 + 0.64 * (Math.floor(cell / 4) + 0.15 + 0.7 * rng()) / 3);
+    const bx = lerp(tx, S * (0.25 + 0.5 * rng()), 0.5), by = Math.min(S - 4, ty + S * (0.22 + 0.22 * rng()));
+    // Side shoots first (the main shoot's leaves overlap their bases).
+    const nSide = 1 + Math.floor(rng() * 2);
+    for (let j = 0; j < nSide; j++) {
+      const t = 0.35 + 0.3 * rng();
+      const sx = lerp(bx, tx, t), sy = lerp(by, ty, t);
+      const a = Math.atan2(ty - by, tx - bx) + (j % 2 ? 1 : -1) * (0.45 + 0.4 * rng());
+      const l = Math.hypot(tx - bx, ty - by) * (0.45 + 0.2 * rng());
+      shoot(sx, sy, sx + Math.cos(a) * l, sy + Math.sin(a) * l, 2);
+    }
+    shoot(bx, by, tx, ty, 3);
+  }
+  return c;
+}
+
+/**
+ * Black-mangrove leaf card, 512×512 (≈ 1.2 m): opposite, narrow elliptic leaves 5–10 cm long,
+ * dark grey-green (~#3a4a33) above; about a third show their pale silvery-grey salt-crusted
+ * undersides (~#9aa393), which is what makes the crown read grey from a distance.
+ */
+export function paintBlackMangroveLeaves(): HTMLCanvasElement {
+  return paintTwigLeaves({
+    seed: 6161, twigs: 11, pairs: [8, 11], span: 0.2, len: [0.06, 0.1], aspect: [0.28, 0.36], round: 0,
+    top: [58, 74, 51], deep: [40, 54, 36], under: [154, 163, 147], underP: 0.34,
+    twig: [88, 78, 66], petiole: [96, 92, 70], rib: [150, 160, 130], notch: null,
+  });
+}
+
+/**
+ * White-mangrove leaf card, 512×512 (≈ 1.2 m): opposite, oval leaves with rounded tips
+ * (5–10 cm), light yellow-green (~#7f9a45) with a paler notch at the tip and reddish petioles;
+ * a few show the slightly paler underside.
+ */
+export function paintWhiteMangroveLeaves(): HTMLCanvasElement {
+  return paintTwigLeaves({
+    seed: 7171, twigs: 10, pairs: [6, 9], span: 0.18, len: [0.06, 0.1], aspect: [0.52, 0.62], round: 1,
+    top: [127, 154, 69], deep: [98, 126, 50], under: [150, 170, 100], underP: 0.12,
+    twig: [120, 96, 72], petiole: [150, 88, 60], rib: [176, 190, 120], notch: [196, 206, 140],
+  });
+}
+
 /**
  * Casuarina wisp card, 512×1024 (≈ 1.4 × 2.4 m), transparent; canvas top = the card's top edge
  * at the branch. Casuarina "needles" are thin jointed branchlets hanging in soft tufts: a few
