@@ -23,8 +23,8 @@ Not in 2b: cane, young groves, era landscape changes beyond per-species density,
 | `almendro` | *Terminalia catappa* | tree, 6–12 m, tiered horizontal branches, large leaves, some red leaves | river banks near the landings, town | low in 1840/1900 (inferred, L); full from 1925 [S1] |
 | `seaGrape` | *Coccoloba uvifera* | shrub, 1–3 m, round leaves | beach edge and dunes, seaward of the casuarinas | all eras, 1 [S22] H |
 | `morningGlory` | *Ipomoea pes-caprae* | ground cover, trailing vines | open sand at the beach | all eras, 1 [S22] H |
-| `grass` | coastal grasses | ground cover, clumps | open land, not in wetland, not on road | all eras, 1 (inferred, M) |
-| `reeds` | wet-edge reeds / sedges | ground cover, tall clumps | wet river edges and wetland | all eras, 1 (inferred, M) |
+| `grass` | coastal grasses | ground cover, clumps | open land, not in wetland, not on road | all eras, 1 (inferred, L) |
+| `reeds` | wet-edge reeds / sedges | ground cover, tall clumps | wet river edges and wetland | all eras, 1 (inferred, L) |
 
 - `SpeciesId` and `EraSpec.vegetation` grow to include every id. Every era value is `Sourced`, with `inferred` set where the value is a guess.
 - Exact density numbers and habitat thresholds are set in the plan and tuned on screen; each keeps its source.
