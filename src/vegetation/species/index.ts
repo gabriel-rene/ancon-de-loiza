@@ -21,6 +21,8 @@ export interface FoliageMaterial extends PartMaterial {
   alphaTest: number;
   /** Texture label (`foliageTexture` name; shows in coverage warnings). */
   texture: string;
+  /** Per-instance colour jitter (see `PlantMaterialOpts.tint` in windMaterial.ts). */
+  tint?: { value: number; hue: number };
 }
 export interface SpeciesDef {
   /** Geometry generator (deterministic in `seed`); local frame, base at the origin, up = +Y. */
@@ -40,18 +42,18 @@ export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
     build: buildPalm, paint: paintFrond,
     // Trunk multiplier: the pale grey vertex colours read near-white under a high sun.
     bark: { color: 0xb8b0a4, roughness: 0.92, vertexColors: true },
-    foliage: { color: 0xffffff, roughness: 0.8, translucency: 3, alphaTest: 0.5, texture: 'palmFrond' },
+    foliage: { color: 0xffffff, roughness: 0.8, translucency: 3, alphaTest: 0.5, texture: 'palmFrond', tint: { value: 0.1, hue: 0.08 } },
   },
   redMangrove: {
     build: buildMangrove, paint: paintMangroveLeaves,
     bark: { color: 0xffffff, roughness: 0.9, vertexColors: true },
-    foliage: { color: 0xffffff, roughness: 0.62, translucency: 1.2, alphaTest: 0.5, vertexColors: true, texture: 'mangroveLeaves' },
+    foliage: { color: 0xffffff, roughness: 0.62, translucency: 1.2, alphaTest: 0.5, vertexColors: true, texture: 'mangroveLeaves', tint: { value: 0.18, hue: 0.12 } },
   },
   // Matte, see-through wisps: high roughness, strong back-light through the thin branchlets.
   casuarina: {
     build: buildCasuarina, paint: paintCasuarinaWisps,
     bark: { color: 0xffffff, roughness: 0.95, vertexColors: true },
-    foliage: { color: 0xffffff, roughness: 0.85, translucency: 2.5, alphaTest: 0.5, vertexColors: true, texture: 'casuarinaWisps' },
+    foliage: { color: 0xffffff, roughness: 0.85, translucency: 2.5, alphaTest: 0.5, vertexColors: true, texture: 'casuarinaWisps', tint: { value: 0.12, hue: 0.06 } },
   },
 };
 
@@ -59,12 +61,12 @@ export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
 export function makeSpeciesMaterials(id: WoodyId): { materials: PlantMaterials; map: THREE.Texture } {
   const def = SPECIES[id]!;
   const map = foliageTexture(def.paint(), def.foliage.alphaTest, def.foliage.texture);
-  const { color, roughness, translucency, alphaTest, vertexColors } = def.foliage;
+  const { color, roughness, translucency, alphaTest, vertexColors, tint } = def.foliage;
   return {
     map,
     materials: {
       bark: makePlantMaterials({ part: 'bark', ...def.bark }),
-      foliage: makePlantMaterials({ part: 'foliage', map, color, roughness, translucency, alphaTest, vertexColors }),
+      foliage: makePlantMaterials({ part: 'foliage', map, color, roughness, translucency, alphaTest, vertexColors, tint }),
     },
   };
 }

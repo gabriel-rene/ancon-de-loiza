@@ -16,4 +16,5 @@ test('registry covers every species with a generator, painter and material setti
   }
   expect(SPECIES.casuarina!.foliage.roughness).toBe(0.85);
   expect(SPECIES.casuarina!.foliage.translucency).toBeGreaterThan(SPECIES.redMangrove!.foliage.translucency);
+  expect(SPECIES.redMangrove!.foliage.tint!.value).toBeGreaterThan(0.1);
 });

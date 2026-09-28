@@ -23,6 +23,7 @@ const WIND_VERTEX = /* glsl */ `
   attribute float aFlex;
   varying float vFlex;
   varying vec3 vPlantW;
+  varying float vSeed;
   void main() {
     vec3 ip = vec3(0.0); float s = 1.0; mat3 R = mat3(1.0);
     #ifdef USE_INSTANCING
@@ -31,6 +32,7 @@ const WIND_VERTEX = /* glsl */ `
       R = mat3(instanceMatrix) / s;
     #endif
     float ph = dot(ip.xz, vec2(0.071, 0.053));
+    vSeed = fract(sin(dot(ip.xz, vec2(12.9898, 78.233))) * 43758.5453);
     float gust = 0.65 + 0.35 * sin(uTime * 0.31 + ph * 0.2);
     float sway = (sin(uTime * 1.1 + ph) * 0.7 + sin(uTime * 2.3 + ph * 1.7) * 0.3) * gust;
     float k = aFlex * aFlex;
@@ -61,14 +63,20 @@ export const cardUniforms = { uCardAO: { value: 0.3 } };
  * keeps the geometry's outward-bent normals on both faces instead of flipping back faces.
  */
 const foliageFragment = (bentNormals: boolean) => /* glsl */ `
-  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans;${bentNormals ? ' uniform float uCardAO;' : ''}
+  uniform vec3 uSunDir; uniform float uSunI; uniform float uTrans; uniform vec2 uTint;${bentNormals ? ' uniform float uCardAO;' : ''}
   varying float vFlex;
   varying vec3 vPlantW;
+  varying float vSeed;
   void main() {
     vec4 c = csm_DiffuseColor;
     #ifdef USE_COLOR
       c.rgb *= vColor.rgb;
     #endif
+    float tv = (vSeed - 0.5) * 2.0;                                   // -1..1 per plant
+    float th = (fract(vSeed * 7.13) - 0.5) * 2.0;
+    c.rgb *= 1.0 + uTint.x * tv;
+    c.rgb = mix(c.rgb, c.rgb * vec3(1.12, 1.06, 0.78), max(0.0, th) * uTint.y); // toward yellow-green
+    c.rgb = mix(c.rgb, c.rgb * vec3(0.9, 0.98, 1.05), max(0.0, -th) * uTint.y); // toward blue-green
     float back = pow(max(dot(normalize(vPlantW - cameraPosition), uSunDir), 0.0), 3.0);
     float day = smoothstep(-0.02, 0.08, uSunDir.y);
     c.rgb *= mix(0.78, 1.0, vFlex) * (1.0 + uTrans * 0.25 * back * day);
@@ -89,6 +97,8 @@ export interface PlantMaterialOpts {
   vertexColors?: boolean;
   /** Impostor cards: don't flip normals on back faces (the card's normals are bent outward). */
   bentNormals?: boolean;
+  /** Per-instance colour jitter (hashed from instance position); value = ± brightness fraction, hue = ± yellow-green/blue-green shift fraction. */
+  tint?: { value: number; hue: number };
 }
 
 /** A wind-swayed MeshStandardMaterial plus the matching depth material for `customDepthMaterial`. */
@@ -101,6 +111,7 @@ export function makePlantMaterials(opts: PlantMaterialOpts): { material: THREE.M
     fragmentShader: foliage ? foliageFragment(!!opts.bentNormals) : undefined,
     uniforms: foliage
       ? { ...windUniforms, uSunDir: sunUniforms.uSunDir, uSunI: sunUniforms.uSunI, uTrans: { value: opts.translucency ?? 0 },
+        uTint: { value: [opts.tint?.value ?? 0, opts.tint?.hue ?? 0] },
         ...(opts.bentNormals ? cardUniforms : {}) }
       : { ...windUniforms },
     color: opts.color,

@@ -59,6 +59,12 @@ function translucencyOf(m: THREE.Material): number {
   return typeof u?.uTrans?.value === 'number' ? u.uTrans.value : 0;
 }
 
+function tintOf(m: THREE.Material): { value: number; hue: number } {
+  const u = (m as THREE.Material & { uniforms?: Record<string, THREE.IUniform> }).uniforms;
+  const v = u?.uTint?.value as number[] | undefined;
+  return { value: v?.[0] ?? 0, hue: v?.[1] ?? 0 };
+}
+
 /**
  * Instanced renderer for one species: LOD0 part meshes near the camera, baked impostor cards
  * beyond `lod0` metres. The water reflection keeps the meshes within `reflLod0` metres (prop
@@ -86,10 +92,11 @@ export function InstancedSpecies({ variants, materials, instances, lod0, reflLod
   useEffect(() => {
     const t0 = performance.now();
     const trans = translucencyOf(materials.foliage.material);
+    const tint = tintOf(materials.foliage.material);
     const out = variants.map((parts, v): Bake | null => {
       if (parts.length === 0) return null;
       const { texture, card } = bakeImpostor(gl, parts.map((p) => ({ geometry: p.geometry, material: materials[p.name].material })), 256, `impostor:${name}-${v}`);
-      const mats = makePlantMaterials({ part: 'foliage', map: texture, color: 0xffffff, roughness: 0.9, alphaTest: 0.5, translucency: trans, bentNormals: true });
+      const mats = makePlantMaterials({ part: 'foliage', map: texture, color: 0xffffff, roughness: 0.9, alphaTest: 0.5, translucency: trans, tint, bentNormals: true });
       return { texture, card, mats };
     });
     vegTiming.bakeMs += performance.now() - t0;
