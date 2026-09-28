@@ -71,9 +71,9 @@ const barkTube = (rng: Rng, st: BarkStyle, at: Curve, rad: (t: number) => number
   flex: (t: number) => number) =>
   tube(at, rad, radial, segs, flex, { vertex: (x, y, z, o) => barkColor(rng, st, x, y, z, o), under: 0.15 });
 
-interface Lobe { C: THREE.Vector3; rx: number; ry: number; rz: number }
+export interface Lobe { C: THREE.Vector3; rx: number; ry: number; rz: number }
 
-interface CanopyOpts {
+export interface CanopyOpts {
   n: number;
   /** Card edge length range (m). */
   size: [number, number];
@@ -84,8 +84,9 @@ interface CanopyOpts {
 /**
  * Leaf cards over one or more flattened, flat-bottomed ellipsoid lobes, denser at the shell.
  * Card orientation follows `buildCanopy` in mangrove.ts (copied, with per-species parameters).
+ * Also used by buttonwood (shrubs.ts).
  */
-function buildCanopy(rng: Rng, lobes: Lobe[], o: CanopyOpts) {
+export function buildCanopy(rng: Rng, lobes: Lobe[], o: CanopyOpts) {
   const pos: number[] = [], nrm: number[] = [], uv: number[] = [], col: number[] = [], fl: number[] = [], idx: number[] = [];
   const dir = new THREE.Vector3(), c = new THREE.Vector3(), en = new THREE.Vector3(), cn = new THREE.Vector3();
   const u = new THREE.Vector3(), v = new THREE.Vector3(), p = new THREE.Vector3(), nn = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);

@@ -83,7 +83,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       return Math.min(1, Math.max(0.5 * near, wet) * low) * (1 - s.town);
     },
   },
-  // Conocarpus erectus: drier ground behind the mangroves.
+  // Conocarpus erectus: drier ground behind the mangroves (research §5, S22).
   buttonwood: {
     spacing: 5, radius: 1.5, scale: [0.75, 1.25], variants: 3, rot: Math.PI, clump: { scale: 35, strength: 0.6, size: 0.15 }, trunk: 0.3,
     density: (s) => {
@@ -142,6 +142,6 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
   },
 };
 /** Woody species with a registry entry, larger plants first (they claim space first). Species tasks append here. */
-export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'coconut', 'blackMangrove', 'whiteMangrove', 'redMangrove'];
+export const PLACEMENT_ORDER: WoodyId[] = ['casuarina', 'coconut', 'blackMangrove', 'whiteMangrove', 'redMangrove', 'buttonwood', 'seaGrape'];
 /** Ground cover, placed per tile around the camera (see ground/tiles.ts). */
 export const GROUND_ORDER: GroundId[] = ['reeds', 'morningGlory', 'grass'];

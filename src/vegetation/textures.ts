@@ -290,6 +290,103 @@ export function paintWhiteMangroveLeaves(): HTMLCanvasElement {
 }
 
 /**
+ * Buttonwood leaf card, 512×512, transparent: narrow, pointed (lanceolate) leaves, silvery
+ * grey-green (~#8c9a7a) — the silky-haired coastal form — with a light sheen and some paler
+ * undersides. Buttonwood leaves are alternate; at card scale the shared twig layout reads the
+ * same. Its cards are 0.6–1.0 m, not 1.2 m, so the painted 6–11 cm maps to about 3–9 cm.
+ */
+export function paintButtonwoodLeaves(): HTMLCanvasElement {
+  return paintTwigLeaves({
+    seed: 8181, twigs: 11, pairs: [7, 10], span: 0.2, len: [0.06, 0.11], aspect: [0.2, 0.28], round: 0,
+    top: [140, 154, 122], deep: [116, 130, 100], under: [178, 186, 166], underP: 0.3,
+    twig: [72, 64, 56], petiole: [120, 118, 92], rib: [180, 188, 160], notch: null,
+  });
+}
+
+/**
+ * Sea-grape leaf card, 512×512 (≈ 0.9 m), transparent: a few short grey twigs from the bottom
+ * carrying ~16 very large, round leathery leaves (15–23 cm) with a notched heart-shaped base,
+ * olive-green (~#5d7a2e) with red-pink midrib and veins and a glossy highlight; ~8 % of leaves
+ * fully red (~#8a3a28) and a few yellowing. Leaves overlap to fill most of a rounded
+ * area so the card edge doesn't read.
+ */
+export function paintSeaGrapeLeaves(): HTMLCanvasElement {
+  const S = 512, px = S / 0.9;
+  const c = canvas(S, S), g = c.getContext('2d')!;
+  const rng = cellRng(0, 0, 9191);
+  const GREEN = [93, 122, 46], DEEP = [70, 96, 34], RED = [138, 58, 40], YELLOW = [150, 150, 60];
+  const VEIN = [196, 110, 110], TWIG = [128, 120, 108];
+  // Leaf centres: jittered 4 × 4 grid inside a disc, larger leaves low (older, outer), plus a few extra.
+  const leaves: { x: number; y: number; R: number }[] = [];
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) {
+    const x = S * (0.2 + 0.6 * (i + 0.2 + 0.6 * rng()) / 4), y = S * (0.18 + 0.64 * (j + 0.2 + 0.6 * rng()) / 4);
+    if (Math.hypot(x - S / 2, y - S / 2) > S * 0.4) continue;
+    leaves.push({ x, y, R: lerp(0.085, 0.125, rng()) * px * lerp(0.9, 1.05, y / S) });
+  }
+  for (let k = 0; k < 3; k++) leaves.push({ x: S * (0.35 + 0.3 * rng()), y: S * (0.3 + 0.4 * rng()), R: lerp(0.085, 0.115, rng()) * px });
+  // Twigs from the bottom centre to each leaf's base (drawn first; the leaves overlap them).
+  const bx = S * (0.45 + 0.1 * rng()), by = S - 6;
+  g.strokeStyle = rgb(TWIG); g.lineCap = 'round';
+  for (const L of leaves) {
+    g.lineWidth = 3 + 2 * rng();
+    g.beginPath(); g.moveTo(bx, by);
+    g.quadraticCurveTo(lerp(bx, L.x, 0.3) + (rng() - 0.5) * 40, lerp(by, L.y, 0.6), L.x, L.y + L.R * 0.8);
+    g.stroke();
+  }
+  // Leaves back to front (higher first, so lower, nearer leaves overlap them).
+  leaves.sort((a, b) => a.y - b.y);
+  for (const L of leaves) {
+    const r = rng();
+    const base = r < 0.08 ? RED : r < 0.14 ? mix(GREEN, YELLOW, 0.6) : mix(GREEN, DEEP, rng());
+    const v = 0.88 + 0.24 * rng();
+    const col = base.map((q) => q * v);
+    g.save();
+    g.translate(L.x, L.y);
+    // Petiole points down-ish toward the twigs; leaf tilts a little either way.
+    g.rotate(Math.PI / 2 + (rng() - 0.5) * 0.8);
+    const R = L.R, sx = 1 + 0.12 * rng(); // slightly broader than long
+    // Heart-shaped round blade: circle minus a notch at the base (+x = toward the petiole).
+    const path = () => {
+      g.beginPath();
+      g.moveTo(R * 0.72, 0);
+      g.lineTo(R * Math.cos(0.32), R * sx * Math.sin(0.32));
+      g.ellipse(0, 0, R, R * sx, 0, 0.32, Math.PI * 2 - 0.32);
+      g.closePath();
+    };
+    path(); g.fillStyle = rgb(col); g.fill();
+    g.save(); path(); g.clip();
+    // Glossy leathery sheen: off-centre radial highlight, darker rim.
+    const hx = (rng() - 0.5) * R * 0.6, hy = (rng() - 0.5) * R * 0.6;
+    const grad = g.createRadialGradient(hx, hy, R * 0.05, hx, hy, R * 1.1);
+    grad.addColorStop(0, rgba(mix(col, [240, 240, 215], 0.35), 0.7));
+    grad.addColorStop(0.5, rgba(col, 0));
+    grad.addColorStop(1, rgba(col.map((q) => q * 0.6), 0.6));
+    g.fillStyle = grad; g.fillRect(-R * 1.2, -R * 1.2, R * 2.4, R * 2.4);
+    // Red-pink midrib and 4–5 pairs of curving lateral veins (paler on red leaves).
+    const vein = rgba(base === RED ? [210, 140, 120] : VEIN, 0.8);
+    g.strokeStyle = vein; g.lineWidth = Math.max(1.5, R * 0.05);
+    g.beginPath(); g.moveTo(R * 0.72, 0); g.lineTo(-R * 0.95, 0); g.stroke();
+    g.lineWidth = Math.max(1, R * 0.025);
+    const nv = 4 + Math.floor(rng() * 2);
+    for (let k = 0; k < nv; k++) {
+      const x0 = lerp(R * 0.6, -R * 0.6, (k + 0.5) / nv);
+      for (const s of [-1, 1]) {
+        g.beginPath(); g.moveTo(x0, 0);
+        g.quadraticCurveTo(x0 - R * 0.15, s * R * sx * 0.5, x0 - R * 0.4, s * R * sx * 0.88);
+        g.stroke();
+      }
+    }
+    g.restore();
+    path(); g.strokeStyle = rgb(col.map((q) => q * 0.55)); g.lineWidth = 1.5; g.stroke();
+    // Stout petiole.
+    g.strokeStyle = rgb(base === RED ? [150, 80, 60] : [130, 110, 80]); g.lineWidth = Math.max(2, R * 0.07);
+    g.beginPath(); g.moveTo(R * 0.72, 0); g.lineTo(R * 0.95, 0); g.stroke();
+    g.restore();
+  }
+  return c;
+}
+
+/**
  * Casuarina wisp card, 512×1024 (≈ 1.4 × 2.4 m), transparent; canvas top = the card's top edge
  * at the branch. Casuarina "needles" are thin jointed branchlets hanging in soft tufts: a few
  * grey-brown twigs fan down from the top, and tufts of 18–36 hair-thin strands (1.6–2.8 px,

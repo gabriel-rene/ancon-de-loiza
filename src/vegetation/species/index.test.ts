@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { SPECIES } from './index';
 
 test('registry covers every species with a generator, painter and material settings', () => {
-  expect(Object.keys(SPECIES).sort()).toEqual(['blackMangrove', 'casuarina', 'coconut', 'redMangrove', 'whiteMangrove']);
+  expect(Object.keys(SPECIES).sort()).toEqual(['blackMangrove', 'buttonwood', 'casuarina', 'coconut', 'redMangrove', 'seaGrape', 'whiteMangrove']);
   for (const def of Object.values(SPECIES)) {
     expect(def.build(1).map((p) => p.name).sort()).toEqual(['bark', 'foliage']);
     expect(typeof def.paint).toBe('function');
@@ -17,4 +17,6 @@ test('registry covers every species with a generator, painter and material setti
   expect(SPECIES.casuarina!.foliage.roughness).toBe(0.85);
   expect(SPECIES.casuarina!.foliage.translucency).toBeGreaterThan(SPECIES.redMangrove!.foliage.translucency);
   expect(SPECIES.redMangrove!.foliage.tint!.value).toBeGreaterThan(0.1);
+  // Leathery, glossy sea grape vs. matte silvery buttonwood.
+  expect(SPECIES.seaGrape!.foliage.roughness).toBeLessThan(SPECIES.buttonwood!.foliage.roughness);
 });

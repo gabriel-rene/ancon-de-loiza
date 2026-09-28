@@ -1,7 +1,8 @@
 import type * as THREE from 'three';
 import type { PlantMaterials } from '../InstancedSpecies';
 import {
-  foliageTexture, paintBlackMangroveLeaves, paintCasuarinaWisps, paintFrond, paintMangroveLeaves, paintWhiteMangroveLeaves,
+  foliageTexture, paintBlackMangroveLeaves, paintButtonwoodLeaves, paintCasuarinaWisps, paintFrond, paintMangroveLeaves,
+  paintSeaGrapeLeaves, paintWhiteMangroveLeaves,
 } from '../textures';
 import type { PlantPart, WoodyId } from '../types';
 import { makePlantMaterials } from '../windMaterial';
@@ -9,6 +10,7 @@ import { buildBlackMangrove, buildWhiteMangrove } from './basinMangrove';
 import { buildCasuarina } from './casuarina';
 import { buildMangrove } from './mangrove';
 import { buildPalm } from './palm';
+import { buildButtonwood, buildSeaGrape } from './shrubs';
 
 /** Material settings for one plant part (fed to `makePlantMaterials`). */
 export interface PartMaterial {
@@ -69,6 +71,17 @@ export const SPECIES: Partial<Record<WoodyId, SpeciesDef>> = {
     build: buildWhiteMangrove, paint: paintWhiteMangroveLeaves,
     bark: { color: 0xffffff, roughness: 0.85, vertexColors: true },
     foliage: { color: 0xffffff, roughness: 0.55, translucency: 1.6, alphaTest: 0.5, vertexColors: true, texture: 'whiteMangroveLeaves', tint: { value: 0.14, hue: 0.1 } },
+  },
+  // Shrubs: matte silvery buttonwood; glossy, leathery sea grape.
+  buttonwood: {
+    build: buildButtonwood, paint: paintButtonwoodLeaves,
+    bark: { color: 0xffffff, roughness: 0.95, vertexColors: true },
+    foliage: { color: 0xffffff, roughness: 0.75, translucency: 1.0, alphaTest: 0.5, vertexColors: true, texture: 'buttonwoodLeaves', tint: { value: 0.12, hue: 0.05 } },
+  },
+  seaGrape: {
+    build: buildSeaGrape, paint: paintSeaGrapeLeaves,
+    bark: { color: 0xffffff, roughness: 0.8, vertexColors: true },
+    foliage: { color: 0xffffff, roughness: 0.5, translucency: 1.4, alphaTest: 0.5, vertexColors: true, texture: 'seaGrapeLeaves', tint: { value: 0.14, hue: 0.1 } },
   },
 };
 
