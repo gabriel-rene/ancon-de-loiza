@@ -72,7 +72,7 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       return Math.min(1, Math.max(0.56 * behind, wet) * low) * (1 - s.town);
     },
   },
-  // Laguncularia racemosa: mixed with black mangrove, nearer the fringe.
+  // Laguncularia racemosa: basin mangrove behind the red fringe, mixed with black mangrove but nearer the fringe (research §5, S22/S34).
   whiteMangrove: {
     spacing: 4, radius: 1.6, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 30, strength: 0.55, size: 0.2 }, trunk: 0.35,
     density: (s) => {
