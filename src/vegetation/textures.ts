@@ -705,12 +705,12 @@ export function paintCaneSide(): HTMLCanvasElement {
   const g = cv.getContext('2d')!, rng = cellRng(7, 3, 1900);
   // Deep shade inside the stand.
   const bg = g.createLinearGradient(0, 512, 0, 70);
-  bg.addColorStop(0, '#232b12'); bg.addColorStop(1, '#46611f');
+  bg.addColorStop(0, '#1c2110'); bg.addColorStop(1, '#384c19');
   g.fillStyle = bg; g.fillRect(0, 70, 256, 442);
   // Stalks.
   for (let k = 0; k < 70; k++) {
     const x = rng() * 256, w = 2 + rng() * 2.5;
-    g.fillStyle = `hsl(${58 + rng() * 20}, ${42 + rng() * 24}%, ${26 + rng() * 14}%)`;
+    g.fillStyle = `hsl(${58 + rng() * 20}, ${30 + rng() * 18}%, ${22 + rng() * 12}%)`;
     g.fillRect(x, 120 + rng() * 60, w, 400);
     g.fillStyle = 'rgba(40,30,15,0.5)';
     for (let y = 160 + rng() * 40; y < 512; y += 100 + rng() * 40) g.fillRect(x - 0.5, y, w + 1, 3);
@@ -718,7 +718,7 @@ export function paintCaneSide(): HTMLCanvasElement {
   // Leaf blades: long, arching, pale undersides catching light; tips reach into the top band.
   for (let k = 0; k < 260; k++) {
     const x = rng() * 256, y = 20 + rng() * 300, len = 60 + rng() * 120, dir = rng() < 0.5 ? -1 : 1;
-    g.strokeStyle = `hsl(${74 + rng() * 24}, ${46 + rng() * 28}%, ${28 + rng() * 26}%)`;
+    g.strokeStyle = `hsl(${72 + rng() * 22}, ${30 + rng() * 20}%, ${24 + rng() * 18}%)`;
     g.lineWidth = 2 + rng() * 3;
     g.beginPath(); g.moveTo(x, y + len * 0.6);
     g.quadraticCurveTo(x + dir * len * 0.3, y - len * 0.2, x + dir * len * 0.6, y + len * 0.1 * rng());
@@ -731,10 +731,10 @@ export function paintCaneSide(): HTMLCanvasElement {
 export function paintCaneTop(): HTMLCanvasElement {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 256;
   const g = cv.getContext('2d')!, rng = cellRng(7, 4, 1900);
-  g.fillStyle = '#334c17'; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#293c12'; g.fillRect(0, 0, 256, 256);
   for (let k = 0; k < 420; k++) {
     const x = rng() * 256, y = rng() * 256, a = rng() * Math.PI * 2, len = 30 + rng() * 60;
-    g.strokeStyle = `hsl(${72 + rng() * 26}, ${45 + rng() * 30}%, ${24 + rng() * 30}%)`;
+    g.strokeStyle = `hsl(${70 + rng() * 20}, ${26 + rng() * 20}%, ${18 + rng() * 18}%)`;
     g.lineWidth = 1.5 + rng() * 2.5;
     // Draw each blade at its tile-wrapped copies so the texture tiles seamlessly.
     for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) {

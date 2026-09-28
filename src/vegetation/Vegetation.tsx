@@ -82,12 +82,19 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     for (const id of PLACEMENT_ORDER) d[id] = era.vegetation[id].value * density;
     return d;
   }, [era, density]);
-  const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
+
+  // No woody species grows where cane is shown: computed before placement so the near/far runs
+  // (and the placement cache key, which must vary with cane share) can both skip it.
+  const caneShare = era.landscape.cane.value;
+  const caneShown = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
+  const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
+
+  const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}|c${caneShare}`;
   const key = placementKey(dens, bankOffset, tier);
   const { sets, pf, nearCount } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
-    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED);
+    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip: caneSkip });
     // Ground cover places per tile inside the frame loop; build its habitat masks here instead
     // of three 512² passes in its first frame.
     warmHabitat(pf, masksFor(pf), GROUND_ORDER);
@@ -98,8 +105,10 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       const g = near.grid, ext = g.cell * g.size, cx = g.minX + ext / 2, cz = g.minZ + ext / 2, half = ext / 2 - FAR_OVERLAP;
       const farDens = {} as Record<WoodyId, number>;
       for (const id of PLACEMENT_ORDER) farDens[id] = dens[id] * FAR_DENSITY;
-      farSet = placeAll(far, masksFor(far), farDens, FAR_SEED,
-        { occCell: FAR_OCC_CELL, skip: (x, z) => Math.abs(x - cx) < half && Math.abs(z - cz) < half });
+      farSet = placeAll(far, masksFor(far), farDens, FAR_SEED, {
+        occCell: FAR_OCC_CELL,
+        skip: (x, z) => (Math.abs(x - cx) < half && Math.abs(z - cz) < half) || !!caneSkip?.(x, z),
+      });
     }
     const out = {} as Record<WoodyId, PlantInstance[]>, nearCount = {} as Record<WoodyId, number>;
     vegTiming.counts = {};
@@ -110,7 +119,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
     return { sets: out, pf, nearCount };
-  }), [key, near, far]);
+  }), [key, near, far, caneSkip]);
 
   // Near trunk discs for ground cover (reseat only moves y, so x/z/scale match the placement run).
   const trunks = useMemo(() => {
@@ -124,10 +133,6 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     for (const id of GROUND_ORDER) d[id] = era.vegetation[id].value * density;
     return d;
   }, [era, density]);
-
-  const caneShare = era.landscape.cane.value;
-  const caneShown = useMemo(() => (caneShare > 0 ? shownMask(caneFor(), caneShare) : null), [caneShare]);
-  const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
 
   // Needle litter under the near casuarinas, for the terrain material.
   useEffect(() => {

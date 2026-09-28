@@ -11,15 +11,21 @@ let mats: Mats | null = null;
 /** Painted textures and wind materials: built once, kept for the app's life (like the species materials). */
 function caneMaterials(): Mats {
   if (mats) return mats;
-  const top = foliageTexture(paintCaneTop(), 0.5, 'caneTop'), side = foliageTexture(paintCaneSide(), 0.5, 'caneSide');
+  // Top canvas is fully opaque (no cutout needed): a plain generated-mipmap CanvasTexture, not
+  // foliageTexture's coverage-preserving mip chain — that chain is built for cards with genuine
+  // alpha variation and can't find a stable rescale for a uniformly-opaque alpha channel (see
+  // rulings note), which pinned mip alpha right at the alpha-test cutoff and alpha-tested the
+  // whole top away at the fields-camera's distance. The top never needs alpha testing at all.
+  const top = new THREE.CanvasTexture(paintCaneTop());
+  top.colorSpace = THREE.SRGBColorSpace;
   top.wrapS = top.wrapT = THREE.RepeatWrapping;
+  top.anisotropy = 8;
+  top.needsUpdate = true;
+  const side = foliageTexture(paintCaneSide(), 0.5, 'caneSide');
   side.wrapS = THREE.RepeatWrapping; side.wrapT = THREE.ClampToEdgeWrapping;
   mats = {
-    // Top canvas is fully opaque (no cutout needed): alphaTest 0 avoids the coverage-preserving
-    // mip chain's alpha-rescale (built for partial-coverage cards) pushing an always-255 alpha
-    // channel down near the cutoff at distance, which would alpha-test the whole top away.
-    top: makePlantMaterials({ part: 'foliage', map: top, color: 0xffffff, roughness: 0.85, translucency: 1.2, tint: { value: 0.08, hue: 0.08 } }),
-    sides: makePlantMaterials({ part: 'foliage', map: side, color: 0xffffff, roughness: 0.85, translucency: 1.2, alphaTest: 0.5 }),
+    top: makePlantMaterials({ part: 'foliage', map: top, color: 0xffffff, roughness: 0.85, translucency: 1.2, vertexColors: true }),
+    sides: makePlantMaterials({ part: 'foliage', map: side, color: 0xffffff, roughness: 0.85, translucency: 1.2, alphaTest: 0.5, vertexColors: true }),
   };
   return mats;
 }
