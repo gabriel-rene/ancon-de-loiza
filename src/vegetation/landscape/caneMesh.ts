@@ -1,12 +1,13 @@
 import * as THREE from 'three';
+import { WATER } from '../../terrain/fields';
 import { hash3 } from '../rng';
 import type { CaneLayout } from './caneFields';
 
 export const CANE_FRINGE = 0.6;
-/** Below the wall's own run-end ground samples (phase 2c review round 3: raised from 0.3 so a
- * long wall's flat bottom edge never floats over a bump partway along its run). */
+/** Below the wall's own run-end ground samples, so a long wall's flat bottom edge never floats
+ * over a bump partway along its run. */
 export const CANE_SINK = 1.0;
-export const CANE_TOP_TILE = 4, CANE_SIDE_TILE = 2.5;
+const CANE_TOP_TILE = 4, CANE_SIDE_TILE = 2.5;
 
 /** Smooth value noise in [0, 1] on a `scale`-metre lattice (bilinear, deterministic in `seed`). */
 function fieldNoise(x: number, z: number, scale: number, seed: number): number {
@@ -29,8 +30,6 @@ const CANE_MOTTLE_SCALE = 55, CANE_COLOR_SEED = 4210;
 function caneTint(rank: number, x: number, z: number): [number, number, number] {
   const mottle = fieldNoise(x, z, CANE_MOTTLE_SCALE, CANE_COLOR_SEED) - 0.5; // -0.5 .. 0.5
   const rk = rank - 0.5; // -0.5 .. 0.5
-  // Phase 2c art gate: amplitudes raised (rank 0.12 → 0.3, mottle 0.18 → 0.24, hue shifts ~2×)
-  // — the old values left every field the same flat green at the fields-camera's distance.
   const val = 1 + 0.3 * rk + 0.24 * mottle;
   return [val * (1 + 0.18 * rk - 0.1 * mottle), val * (1 + 0.04 * rk + 0.03 * mottle), val * (1 - 0.32 * rk - 0.16 * mottle)];
 }
@@ -47,6 +46,33 @@ function meanGround(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number,
   }
   for (let f = 0; f < sum.length; f++) sum[f] = cnt[f] ? sum[f] / cnt[f] : 0;
   return sum;
+}
+
+/** How far (m) from open water a shown cell must stay: drops the cell itself plus a small buffer,
+ * so the wall that appears at the new field edge lands a step back from the steepest bank grade,
+ * not right at the waterline. */
+const WATER_BUFFER = 5;
+
+/**
+ * `shown` without the cells whose rendered water is not `WATER.LAND` — river, pond or sea — at the
+ * cell centre or within `WATER_BUFFER` metres of it (the four cardinal neighbours at that
+ * distance). Cane cannot stand in or right at the edge of water; run this before `trimSteep` so a
+ * wet cell (typically far below its field's other cells) never pulls the field's flat-top mean
+ * down. One pass; returns a copy.
+ */
+export function trimWet(layout: CaneLayout, shown: Uint8Array, waterAt: (x: number, z: number) => number): Uint8Array {
+  const { size: n, cell: c, minX, minZ } = layout.grid;
+  const out = shown.slice();
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i;
+    if (!out[k]) continue;
+    const x = minX + (i + 0.5) * c, z = minZ + (j + 0.5) * c;
+    const wet = waterAt(x, z) !== WATER.LAND
+      || waterAt(x + WATER_BUFFER, z) !== WATER.LAND || waterAt(x - WATER_BUFFER, z) !== WATER.LAND
+      || waterAt(x, z + WATER_BUFFER) !== WATER.LAND || waterAt(x, z - WATER_BUFFER) !== WATER.LAND;
+    if (wet) out[k] = 0;
+  }
+  return out;
 }
 
 /**
@@ -70,18 +96,15 @@ export function trimSteep(layout: CaneLayout, shown: Uint8Array, heightAt: (x: n
 /**
  * Cane blocks for the shown cells of `layout` (spec 2c §3). Top: per grid row, each run of
  * consecutive cells of one field becomes one quad; every field's top is flat, at the mean of
- * `heightAt` over that field's shown cell centres plus the field's height (phase 2c review round
- * 3) — sampling `heightAt` per vertex instead let two merged runs meeting along a shared edge (a
- * row's run and the next row's run, or a run and a wall) disagree on that edge's height wherever
- * the terrain wasn't flat between their own sample points, opening thin T-junction gaps that
- * showed the ground through. A field-constant Y makes that geometrically impossible: every top
- * vertex of a field is exactly the same height, so any two of its edges are trivially collinear
- * in Y. Sides: each straight run of boundary edges (a shown cell next to a cell that is not the
- * same shown field) becomes one wall from CANE_SINK below the ground *at that run's own
- * endpoints* to CANE_FRINGE above the field's flat top, facing out; the side texture's alpha-cut
- * leaf tips make that top edge ragged. Merged runs share their exact grid-corner (x, z) — no
- * per-vertex displacement — so the top and every wall meeting it stay watertight; each vertex is
- * coloured by `caneTint`.
+ * `heightAt` over that field's shown cell centres plus the field's height. A field-constant Y
+ * keeps two merged runs that meet along a shared edge (a row's run and the next row's run, or a
+ * run and a wall) always collinear in Y, so no T-junction gap can open regardless of how the
+ * underlying terrain curves between their sample points. Sides: each straight run of boundary
+ * edges (a shown cell next to a cell that is not the same shown field) becomes one wall from
+ * CANE_SINK below the ground *at that run's own endpoints* to CANE_FRINGE above the field's flat
+ * top, facing out; the side texture's alpha-cut leaf tips make that top edge ragged. Merged runs
+ * share their exact grid-corner (x, z) — no per-vertex displacement — so the top and every wall
+ * meeting it stay watertight; each vertex is coloured by `caneTint`.
  */
 export function buildCaneGeometry(layout: CaneLayout, shown: Uint8Array, heightAt: (x: number, z: number) => number) {
   const { size: n, cell: c, minX, minZ } = layout.grid;

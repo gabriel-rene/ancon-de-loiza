@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { describe, expect, test } from 'vitest';
 import geo from '../../data/geo/loiza.json';
 import type { GeoBundle } from '../../data/geo/types';
+import { buildFields, WATER } from '../../terrain/fields';
 import { caneLayout, shownMask, type CaneLayout } from './caneFields';
-import { buildCaneGeometry, CANE_FRINGE, CANE_SINK, trimSteep } from './caneMesh';
+import { caneHeightAt, caneWaterAt } from './CaneFieldsMesh';
+import { buildCaneGeometry, CANE_FRINGE, CANE_SINK, trimSteep, trimWet } from './caneMesh';
 
 const tris = (g: THREE.BufferGeometry) => g.index!.count / 3;
 /** 4×4 cells of 10 m at the origin; one 2×2 field in the middle (cells (1,1)–(2,2)). */
@@ -84,5 +86,65 @@ describe('trimSteep', () => {
   test('hidden cells stay hidden and do not count toward the mean', () => {
     const half = shown.slice(); half[0] = half[1] = half[2] = 0; // mean of shown = −1.5
     expect(Array.from(trimSteep(row, half, sloped).slice(0, 5))).toEqual([0, 0, 0, 1, 1]);
+  });
+});
+
+describe('trimWet', () => {
+  /** Six 10 m cells in a row; cell 4 (centre x=45) sits on river water. Cell 3's centre (x=35) is
+   * exactly the 5 m water buffer away from cell 4's, so it is dropped too; cell 2 (x=25, 15 m from
+   * the water) is not. */
+  const row: CaneLayout = {
+    grid: { size: 6, cell: 10, minX: 0, minZ: 0 },
+    field: Int32Array.from({ length: 36 }, (_, k) => (k < 6 ? 0 : -1)),
+    fields: [{ rank: 0.1, height: 3, cells: 6 }],
+  };
+  const shown = shownMask(row, 1);
+  const waterAt = (x: number) => (Math.floor(x / 10) === 4 ? WATER.RIVER : WATER.LAND);
+
+  test('drops a wet cell and its buffer neighbour, keeps cells further away', () => {
+    expect(Array.from(trimWet(row, shown, waterAt).slice(0, 6))).toEqual([1, 1, 1, 0, 0, 1]);
+    expect(Array.from(shown.slice(0, 6))).toEqual([1, 1, 1, 1, 1, 1]); // input untouched
+  });
+
+  test('all dry: nothing dropped', () => {
+    expect(Array.from(trimWet(row, shown, () => WATER.LAND))).toEqual(Array.from(shown));
+  });
+
+  test('an already-hidden wet cell stays hidden (never re-shown) and still buffers its neighbour', () => {
+    const half = shown.slice(); half[4] = 0; // cell 4 (the river cell) already hidden
+    expect(Array.from(trimWet(row, half, waterAt).slice(0, 6))).toEqual([1, 1, 1, 0, 0, 1]);
+  });
+});
+
+describe('trimWet + trimSteep on the real layout', () => {
+  const G = geo as unknown as GeoBundle;
+  const L = caneLayout(G);
+  // High-tier sizes (src/scene/useWorldFields.ts): near extent 2560/size 512, far extent 10240/size 512.
+  const near = buildFields(G, { extent: 2560, size: 512, bankOffset: 8 });
+  const far = buildFields(G, { extent: 10240, size: 512, bankOffset: 8 });
+  const heightAt = caneHeightAt(near, far), waterAt = caneWaterAt(near, far);
+  const shown = shownMask(L, 1);
+  const wet = trimWet(L, shown, waterAt);
+  const trimmed = trimSteep(L, wet, heightAt);
+
+  test('no shown cell sits on rendered water', () => {
+    const { size: n, cell: c, minX, minZ } = L.grid;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      if (!trimmed[j * n + i]) continue;
+      const x = minX + (i + 0.5) * c, z = minZ + (j + 0.5) * c;
+      expect(waterAt(x, z)).toBe(WATER.LAND);
+    }
+  });
+
+  test('worst wall (flat top + fringe − lowest wall-bottom ground) stays within 7 m', () => {
+    // Each wall quad's vertices come in (bottom, top) pairs at each of its two endpoints (see
+    // caneMesh.ts `wall()`): consecutive vertices 6 floats apart share an x,z column, bottom at
+    // `g - CANE_SINK` and top at `flatTop + CANE_FRINGE` — so the *visible* wall height above
+    // ground adds CANE_SINK back to the bottom vertex before taking the difference.
+    const { sides } = buildCaneGeometry(L, trimmed, heightAt);
+    const p = sides.getAttribute('position').array as Float32Array;
+    let worst = 0;
+    for (let i = 0; i + 5 < p.length; i += 6) worst = Math.max(worst, p[i + 4] - (p[i + 1] + CANE_SINK));
+    expect(worst).toBeLessThanOrEqual(7);
   });
 });

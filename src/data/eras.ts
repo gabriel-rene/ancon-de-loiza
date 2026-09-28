@@ -87,7 +87,8 @@ const veg = (coconut: Sourced<number>, casuarina: Sourced<number>, almendro: Sou
   blackMangrove: BASIN, whiteMangrove: BASIN, buttonwood: BUTTONWOOD, seaGrape: DUNE, morningGlory: DUNE,
   grass: GRASS, reeds: GRASS,
 });
-// coconut: coast shifted from sugar to coconut collection (S23); groves mature through the 20th c. (inferred timing).
+// coconut: Loíza's agriculture shifted from sugar to "minor fruits and coconut collection" (S23);
+// groves mature through the 20th c. (inferred timing).
 // casuarina: gives Piñones its name; forest proclaimed 1918 (S22, S28); introduced, mass planting
 // early–mid 20th c. (S28, inferred timing). From 1959 onward, modern coastal photos (2026) at the
 // old landing show mature Casuarina on the skyline — S19b is "1 Ancón de Loíza.jpg" (the companion
@@ -105,8 +106,11 @@ const VEG = {
 } satisfies Record<EraId, ReturnType<typeof veg>>;
 
 // Cane on the Iturregui estates, whose cane land reached Carolina; the ancón carried their cane
-// workers, late 1800s – early 1900s (S1, research §2.4, §5). The coast then shifted from sugar to
-// coconut (S23). Shares, block survival and palm ages are all inferred.
+// workers before 1920, when the estates sold the ancón to the Cortijos (S1, research §2.4, §5;
+// start date inferred). The coast then shifted from sugar to "minor fruits and coconut collection"
+// (S23). Shares, block survival and palm ages are all inferred. 1900's cane confidence stays 'M':
+// S1 confirms the Iturregui cane operation was active before 1920, but the 1900 share itself is
+// inferred (no source gives a year-by-year figure).
 const cane = (v: number, c: Confidence = 'L') => s(v, v > 0 ? ['S1'] : ['S1', 'S23'], c, true);
 const farm = (v: number) => s(v, ['S23'], 'L', true);
 const age = (v: number) => s(v, ['S23'], 'L', true);

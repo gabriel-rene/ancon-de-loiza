@@ -5,13 +5,13 @@ import { hash3 } from '../rng';
 import type { PlantInstance, Site } from '../types';
 
 /*
- * Coconut farm blocks (phase 2c, spec §2): planted groves on the flat sand behind the beach, the
- * coast's shift from sugar to coconut [S23]. 3–6 rectangles of 120 × 80 m, long side along the
- * coast, palms in straight rows 8 m apart. All numbers inferred.
+ * Coconut farm blocks (phase 2c, spec §2): planted groves on the flat sand behind the beach — the
+ * coast's shift from sugar to "minor fruits and coconut collection" [S23]. 3–6 rectangles of
+ * 120 × 80 m, long side along the coast, palms in straight rows 8 m apart. All numbers inferred.
  */
 
 export const ROW = 8;
-const HALF_L = 60, HALF_W = 40, LATTICE = 40, MIN_GAP = 200, MAX_BLOCKS = 6, SAMPLE = 20, SEED = 1901;
+const HALF_L = 60, HALF_W = 40, LATTICE = 40, MIN_GAP = 200, MAX_BLOCKS = 6, SAMPLE = 10, SEED = 1901;
 const u01 = (i: number, j: number, s: number) => hash3(i, j, s) / 4294967296;
 
 export interface Block { cx: number; cz: number; ux: number; uz: number; halfL: number; halfW: number }

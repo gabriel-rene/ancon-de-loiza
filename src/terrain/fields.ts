@@ -123,3 +123,12 @@ export function sampleField(f: WorldFields, arr: Float32Array, x: number, z: num
   const a = arr[j * size + i], b = arr[j * size + i + 1], c = arr[(j + 1) * size + i], d = arr[(j + 1) * size + i + 1];
   return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
 }
+
+/** Nearest-cell sample of a per-cell categorical array (e.g. `water`) at world x,z — no
+ * interpolation, since averaging across a categorical boundary is meaningless. */
+export function sampleNearest(f: WorldFields, arr: Uint8Array, x: number, z: number) {
+  const { size, cell, minX, minZ } = f.grid;
+  const i = Math.min(size - 1, Math.max(0, Math.floor((x - minX) / cell)));
+  const j = Math.min(size - 1, Math.max(0, Math.floor((z - minZ) / cell)));
+  return arr[j * size + i];
+}

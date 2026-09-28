@@ -53,18 +53,19 @@ fragments landed on the wrong side of that knife-edge and were discarded: the to
 non-empty geometry (confirmed via a temporary render-time log: `topIdx: 12798` triangle-index
 count) but was effectively invisible, showing bare terrain grass through the "cane" fields with
 only the boundary walls (whose `caneSide` texture has real alpha variation, so its mips behaved
-normally) visible. Fixed by dropping `alphaTest` (default 0) on the top material only — it never
-needs an alpha cutout since it's opaque, so there's nothing to discard regardless of what the mip
-chain does to its (irrelevant) alpha channel. The `foliageTexture "caneTop": coverage alpha scale
-pinned at 0.5 on mip level 1 (128×128)` console warning still fires (the coverage search still
-pins for the reason above) — this is now harmless, since the alpha it's warning about doesn't do
-anything, but it's worth knowing this specific warning is expected and not a residual bug.
+normally) visible. Fixed by dropping `alphaTest` (default 0) on the top material and building its texture as a plain
+`THREE.CanvasTexture` (generated mipmaps) instead of routing it through `foliageTexture`'s
+coverage-preserving mip chain at all — it never needs an alpha cutout since it's opaque, so there's
+nothing for that chain to preserve. The `foliageTexture "caneTop": coverage alpha scale pinned at
+0.5 on mip level 1 (128×128)` console warning no longer fires: `caneMaterials()` never calls
+`foliageTexture` for the top texture, only for the side texture (which has genuine alpha variation
+and doesn't pin).
 
 **Task 6: colour tuning**
 
-Tuned `paintCaneTop`'s base fill from `#3f5a1d` to `#334c17` and its blade-stroke HSL range from
+Tuned `paintCaneTop`'s base fill from `#3f5a1d` to `#293c12` and its blade-stroke HSL range from
 `hsl(76±24, 38–63%, 26–54%)` to `hsl(72±26, 45–75%, 24–54%)`; `paintCaneSide`'s background
-gradient from `#2b3317 → #4d6a23` to `#232b12 → #46611f`, its stalk HSL from `hsl(62±18, 35–55%,
+gradient from `#2b3317 → #4d6a23` to `#1c2110 → #384c19`, its stalk HSL from `hsl(62±18, 35–55%,
 28–42%)` to `hsl(58±20, 42–66%, 26–40%)`, and its leaf-blade HSL from `hsl(78±22, 40–65%, 30–55%)`
 to `hsl(74±24, 46–74%, 28–54%)`. All three shifts: darker base, higher saturation floor. At the
 `fields` camera's distance and haze, the original values read almost the same tan-green as the
@@ -78,9 +79,9 @@ scene.
 grassland east of the river, cart lanes (unplanted boundary strips) visible between fields,
 side-wall tops read ragged (the alpha-cut leaf tips), no floating/sunk walls or z-fighting
 spotted on the near-terrain fields close to camera. `era=1840` shows visibly fewer fields than
-1900 (0.6 vs 1 share); `era=1925` fewer still (0.3); `era=1935` shows none (only the bare field-
-boundary grid lines, no green fill) — matches the nesting the nested nearest-rank shown-mask is
-built to give. `q=low` (no shadows): cane still renders correctly; noted a pre-existing, unrelated
+1900 (0.6 vs 1 share); `era=1925` fewer still (0.3); `era=1935` shows no cane at all (cane share 0
+that era, so no mesh builds — bare grassland, no field-boundary lines either) — matches the nesting
+the nested nearest-rank shown-mask is built to give. `q=low` (no shadows): cane still renders correctly; noted a pre-existing, unrelated
 patch of flat grey rendering over one of the casuarina tree clusters at `q=low` (not present at
 `q=medium`/`q=high`, not aligned with any cane field) — looks like a low-tier tree-impostor
 artifact, out of this task's scope (nothing in Task 6 touches tree rendering), flagged here for
@@ -343,6 +344,43 @@ centre would enforce the 5.6 m bound exactly. I kept the ruled rule (centre, 1.5
 the alternatives are for the controller to choose. On screen, at the same pose as the
 before-shot, the riverbank field now stops short of the bank. A grass strip with its bank trees
 shows between the water and a wall about cane height, where before there was a 7–8 m hedge.
+
+### Final fix wave — I1: wet-cell trim
+
+`trimWet(layout, shown, waterAt)` in `caneMesh.ts` drops a shown cell whose rendered water (at the
+cell centre, or at any of the 4 cardinal points 5 m out — `WATER_BUFFER`) is not `WATER.LAND`.
+`CaneFieldsMesh.tsx` exports `caneWaterAt(near, far)`, the same near/far split as `caneHeightAt`
+but a nearest-cell (categorical) sample instead of bilinear — a new `sampleNearest` helper in
+`terrain/fields.ts`. `Vegetation.tsx` runs `trimWet` before `trimSteep` (`caneWet`, then
+`caneShown = trimSteep(..., caneWet, ...)`), so a wet cell's low ground never pulls a field's
+flat-top mean down before `trimSteep`'s own pass.
+
+Real layout, share 1, bank offset 8 (pre-dam), per tier (cells wet-dropped out of 103,647 shown;
+cells `trimSteep` additionally drops once wet cells are gone; worst wall = flat top + fringe −
+visible ground at the wall's own lowest endpoint, i.e. excluding the buried `CANE_SINK` depth):
+
+| tier (near/far) | wet-dropped | steep-dropped after wet | worst wall (wet+steep) | worst wall (steep only, no wet trim — regression baseline) | wet cells left after steep-only (bug being fixed) |
+|---|---|---|---|---|---|
+| high 512/512 | 924 | 272 | 6.13 m | 6.29 m | 34 |
+| medium 384/256 | 1,029 | 386 | 5.96 m | 6.31 m | 89 |
+| low 256/192 | 887 | 418 | 5.93 m | 6.43 m | 109 |
+
+The "wet cells left after steep-only" column reproduces the review's probe numbers (34/89/109)
+exactly, confirming `trimSteep` alone (the pre-fix state) never removed the water cells it was
+never told about. After the fix, no shown cell sits on water at any tier (asserted in
+`caneMesh.test.ts`'s real-layout test). The wet trim also *lowers* the worst wall slightly at every
+tier (dropping a low wet outlier from a field's mean pulls that field's flat top down too, which
+happened to be dominated by the same pre-existing "wall stands on a cell corner, not centre" residual
+from Task 9, not a new water-adjacent wall) — no regression from the water fix, and the pre-existing
+6.3 m residual (Task 9, still deferred) is unaffected in kind.
+
+### Final fix wave — M7: block-search sample step
+
+`findBlocks`'s interior sample step (checking every point inside a candidate block against the
+site rule) went from 20 m to `SAMPLE = 10` m, so a road between the old 20 m samples can no longer
+cross a block undetected. Real layout, high tier: still **6 blocks** (unchanged from before), at
+centres (160, −400), (760, −200), (−400, −640), (−160, −600), (−680, −960), (1120, −120) — inside
+the spec's 3–6 range; all `plantation.test.ts` tests pass unchanged.
 
 ## Deferred
 

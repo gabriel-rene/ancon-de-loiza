@@ -15,10 +15,9 @@ import { hash3 } from '../rng';
 export const CANE_CELL = 5;
 const PITCH = 220, JITTER = 50, SEED = 1900;
 /** Half-width (m) of a boundary line's cart lane: a cell whose centre falls within this of a
- * jittered boundary line is a lane, not field — independent of CANE_CELL, so halving the cell
- * size sharpens the field raster without narrowing the lanes it cuts (spec: 6–10 m lanes; equal
- * to CANE_CELL so every lane is exactly two 5 m cells wide, 10 m — round 2's LANE_HALF = 4 left
- * ~40% of lanes under the 6 m floor). */
+ * jittered boundary line is a lane, not field — independent of CANE_CELL, so the cell size can
+ * change without narrowing the lanes it cuts (spec: 6–10 m lanes; equal to CANE_CELL so every
+ * lane is exactly two 5 m cells wide, 10 m, comfortably inside the band). */
 const LANE_HALF = 5;
 /** Minimum field area (m²) to keep (drops raster scraps); MIN_CELLS follows from CANE_CELL. */
 const MIN_AREA = 2000;

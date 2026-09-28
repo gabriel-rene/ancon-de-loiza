@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { sampleField, type WorldFields } from '../../terrain/fields';
+import { sampleField, sampleNearest, type WorldFields } from '../../terrain/fields';
 import { foliageTexture, paintCaneSide, paintCaneTop } from '../textures';
 import { makePlantMaterials } from '../windMaterial';
 import type { CaneLayout } from './caneFields';
@@ -35,6 +35,14 @@ export function caneHeightAt(near: WorldFields, far: WorldFields) {
   const g = near.grid, x1 = g.minX + g.cell * g.size, z1 = g.minZ + g.cell * g.size;
   return (x: number, z: number) =>
     x > g.minX && x < x1 && z > g.minZ && z < z1 ? sampleField(near, near.height, x, z) : sampleField(far, far.height, x, z);
+}
+
+/** Rendered water category (WATER.LAND/RIVER/SEA/POND) at world x,z: `near` inside its extent,
+ * `far` beyond — same near/far split as `caneHeightAt`. Shared by the wet-cell trim. */
+export function caneWaterAt(near: WorldFields, far: WorldFields) {
+  const g = near.grid, x1 = g.minX + g.cell * g.size, z1 = g.minZ + g.cell * g.size;
+  return (x: number, z: number) =>
+    x > g.minX && x < x1 && z > g.minZ && z < z1 ? sampleNearest(near, near.water, x, z) : sampleNearest(far, far.water, x, z);
 }
 
 /**

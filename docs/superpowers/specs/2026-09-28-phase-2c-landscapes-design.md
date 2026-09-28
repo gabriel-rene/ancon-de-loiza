@@ -27,7 +27,7 @@ All values are inferred (no source gives field sizes or grove dates). Each one i
 | `1935`, `1959` | 0 [S1][S23] L | 1.0 [S23] L | 1 L |
 | `1975`, `1984`, `1986` | 0 [S1][S23] L | 0.85 [S23] L | 1 L |
 
-Sources: cane on the Iturregui estates and the cane-worker traffic ([S1], research §2.4 and §5, "late 1800s – early 1900s"); the shift from sugar to coconut ([S23]).
+Sources: cane on the Iturregui estates and the cane-worker traffic ([S1], research §2.4 and §5); the ancón carried their cane workers before 1920, when the Iturreguis sold it to the Cortijos (start date inferred). The shift from sugar to "minor fruits and coconut collection" ([S23]).
 
 - **Cane place:** the OSM `grassland` polygon — open, inland, on the west (Torrecilla / Carolina) side, about 0.6–3 km from the river. The Iturregui cane land reached Carolina [S1].
 - **Farm-block place:** the flat sand behind the beach: 60–400 m from the sea, height < 3 m, not wetland, at least 40 m from the river, clear of roads, the town core and the landing clearings. 3–6 blocks, each about 80 × 120 m, turned to follow the coast.
@@ -38,10 +38,10 @@ Sources: cane on the Iturregui estates and the cane-worker traffic ([S1], resear
 | Unit | Job |
 |---|---|
 | `src/data/eras.ts` | New `landscape: { cane, plantation, palmAge }`, each `Sourced<number>`. |
-| `src/vegetation/landscape/caneFields.ts` | Pure. Cuts the grassland into fields of 150–300 m (jittered grid, clipped to the grassland) with 6–10 m cart lanes. Each field gets a fixed random rank. An era shows the fields whose rank < `cane`, so era sets nest (1925 ⊂ 1840 ⊂ 1900) and fields never move between eras. |
-| `src/vegetation/landscape/caneMesh.ts` | One merged mesh for all shown fields: a top surface 2.5–3.5 m above the ground that follows the terrain, a ragged top edge, and textured sides. The cane texture is painted in code (canvas, as the leaf textures). The mesh sways with the existing wind material. |
+| `src/vegetation/landscape/caneFields.ts` | Pure. Cuts the grassland into fields of 150–300 m (jittered grid on a 5 m cell, `CANE_CELL`, clipped to the grassland) with 6–10 m cart lanes. Each field gets a fixed random rank. An era shows the fields whose rank < `cane`, so era sets nest (1925 ⊂ 1840 ⊂ 1900) and fields never move between eras. |
+| `src/vegetation/landscape/caneMesh.ts` | One merged mesh for all shown fields: a flat top per field, 2.5–3.5 m above the field's mean ground, with a ragged top edge, and textured sides. Two per-tier trims run before the mesh is built — `trimWet` drops cells on or near rendered water, `trimSteep` drops cells whose ground sits well below their field's mean (riverbank slopes) — so cane never stands on water or behind an unreasonably tall downhill wall. The cane texture is painted in code (canvas, as the leaf textures). The mesh sways with the existing wind material. |
 | `src/vegetation/landscape/plantation.ts` | Pure. Finds the farm blocks by the §2 rules, fills them with palms in rows 8 m apart (small jitter), and removes palms by `plantation` survival (deterministic). |
-| `src/vegetation/species/palm.ts` | `buildPalm(seed, age)`. A young palm has a short trunk or none and full-size fronds near the ground; it is not a scaled-down old palm. Three cached ages: 0, 0.5, 1. Impostor cards are baked per age. |
+| `src/vegetation/species/palm.ts` | `buildPalm(seed, age)`. A young palm has a short trunk or none and fronds at 75 % length near the ground; it is not a scaled-down old palm. Three cached ages: 0, 0.5, 1. Impostor cards are baked per age. |
 | `Vegetation.tsx` / placement | Farm palms are placed first; they claim occupancy and join the coconut set, so they use the coconut LOD, cards and shadows. Wild coconut is excluded inside blocks. |
 | Ground cover | Grass (near clumps and far tint) is off inside shown cane fields. |
 
@@ -59,7 +59,7 @@ Sources: cane on the Iturregui estates and the cane-worker traffic ([S1], resear
   - Palm age changes trunk height; young palms stay under 6 m; each age stays within the palm triangle budget.
   - The era schema test covers `landscape` (every value has sources and a confidence flag).
   - Cane mesh stays within its triangle budget.
-- **Screenshots (Playwright):** 1900 aerial and ride, 1840 aerial, 1925 bank, 1975 aerial. Art gate against the quality-bar image, as in 2b.
+- **Screenshots (Playwright):** 1900 aerial and ride, 1840 fields (the aerial view does not show the cane land), 1925 bank, 1975 aerial. Art gate against the quality-bar image, as in 2b.
 - **Fact check:** a review agent checks the §2 claims against [S1] and [S23]. The user sees only flagged items.
 - **Code review** at the end, as in earlier phases.
 
