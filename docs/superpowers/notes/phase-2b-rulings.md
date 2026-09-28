@@ -689,7 +689,7 @@ None.
 
 ## Deferred
 
-- Task 2: minor (deferred): SPECIES is Partial<Record<WoodyId,…>> with `!` at call sites; files outside brief touched (type fallout only)
+- Task 2: ~~SPECIES is Partial with `!`~~ — fixed in Task 6 (R4, full Record)
 - Task 3: minor (deferred): tint effect subtle at bank distance (mostly far cards) — recheck close-up in Task 4
 - Task 4: minor (deferred): buildCanopy copied from mangrove.ts (~54 lines, plan-mandated copy)
 - Task 4: minor (deferred): basin trees in fairly regular rows at distance (placement spacing); black mangrove a bit pale at noon
@@ -697,10 +697,12 @@ None.
 - Task 6: minor (deferred): almendros sparse near east landing, not visible in default views — tune density at T12 art gate if the picnic story needs them seen
 - Task 6: minor (deferred): glossy flat plates (almendro, sea grape) take a slight blue-teal sky cast at midday — recheck after Task 10 noon fix
 - Task 6: minor (deferred): almendro up to ~500 cards/tree — watch in R7 draw-cost task
-- Task 7: minor (deferred): unused depth material built for ground clumps; one-frame pop-in for tiles past the 6/frame limit (per brief)
+- Task 7: minor (deferred): one-frame pop-in for tiles past the 6/frame limit (per brief; none seen in motion). Unused depth material — fixed in final fix wave
 - Task 9: minor (deferred): placement.test count bounds hard-coded to old tuning counts; coconut clump scale 160 may leave ~100 m bare coast stretches (check aerial)
 - Task 9: minor (deferred): coconut clump.strength vestigial under coverage mode (make optional); casuarina dispersion borderline at cell 30 (1.41)
 - Task 10: minor (deferred): glossy leaf sky sheen comes from env reflection, not fog/grade — not fixed by T10
 - Task 10: minor (deferred): noon full frame still fairly flat/low-contrast (grade fix, not a re-light); haze passes by ~2 %; hue.mjs rects fixed to one framing
 - Task 11: minor (deferred): smoothing applies on every tier (high ~1.5 px softer); relies on ClampToEdge default; shimmer in motion unchecked
-- Task 11b: minor (deferred): frustumRays forEach allocates per frame ×8 species; camera rays recomputed per species; empty shadow meshes stay visible in main/reflection lists; test gaps (mirrored rays, lightBox axes); partitionLod3 now unused
+- Task 11b: minor (deferred): camera rays recomputed per species; empty shadow meshes stay visible in main/reflection lists (measured ~0 cost); mirrored-ray test gap. Fixed in final fix wave: frustumRays forEach allocation, dead partitionLod3
+- Final review: minor (deferred): dense-grass worst case +0.29 ms on high (not a gate query) — tune groundRadius/spacing only if asked
+- Final review: minor (deferred): newInstanced allocates an n×16 matrix then replaces it (build-time only); tilesInRadius allocates per 250 ms refresh
