@@ -28,11 +28,11 @@ export class CrewSet {
   private readonly poleMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
   private ground?: (x: number, z: number) => number;
   private pose?: VesselPose;
-  /** Deck-local ground height under deck-local (x, z). Docked, pitch and roll are ≈ 0, so world Y − hull Y. */
+  /** Deck-local ground height under deck-local (x, z). Ground Y minus the world Y of deck-local (x, 0, z): right under heave, pitch and roll to first order. */
   private readonly groundLocal = (x: number, z: number) => {
     const p = this.pose!;
     _g.set(x, 0, z).applyMatrix4(p.matrix);
-    return this.ground!(_g.x, _g.z) - p.position.y;
+    return this.ground!(_g.x, _g.z) - _g.y;
   };
   private readonly actx: ActorCtx = { spec: undefined!, layout: undefined! };
 
