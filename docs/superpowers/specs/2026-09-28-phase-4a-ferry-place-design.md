@@ -60,7 +60,7 @@ Picked by name/ID from `src/data/geo/loiza.json`. No other roads are drawn.
 |---|---|---|
 | Antigua PR-187, to the west landing | 1058673941 | all |
 | Calle Carlos Escobar, to the east landing | 22182236 | all |
-| PR-187 bridge approaches | 204521441 (and the bridge way 204521442, drawn by the bridge unit) | `1984` dirt, `1986` asphalt |
+| PR-187 bridge approaches | east 204521441; west the tail of 528811967 past the Antigua junction (cut there before 1984); the bridge way 204521442 is drawn by the bridge unit | `1984` dirt, `1986` asphalt |
 
 **Simple roads — painted into the ground texture, no geometry:** OSM kinds `secondary`, `secondary_link`, `tertiary`, `track`, `path`, `footway`, minus the story roads and the bridge ways. Same surface-by-era rule. PR-951 and PR-188 show from `1935` (inferred, L); all others in every era.
 

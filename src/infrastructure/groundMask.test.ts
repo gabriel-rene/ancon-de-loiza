@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getEra } from '../data/eras';
+import { ERAS, getEra } from '../data/eras';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle, XZ } from '../data/geo/types';
 import { groundMask, MASK, type GroundMask } from './groundMask';
@@ -33,9 +33,25 @@ describe('ground mask', () => {
     expect(at(m, [300, -300], 1)).toBe(255);
     expect(at(m, [300 + 6 + MASK.soft + 1, -300], 1)).toBe(0);
   });
-  test('no bridge approach before 1984', () => {
-    const early = groundMask(eraRoads(G, getEra('1975')), []), late = groundMask(eraRoads(G, getEra('1986')), []);
+  test('no bridge approach before 1984; dirt (G) while building, road (R) once open', () => {
+    const early = groundMask(eraRoads(G, getEra('1975')), []), building = groundMask(eraRoads(G, getEra('1984')), []);
+    const late = groundMask(eraRoads(G, getEra('1986')), []);
     expect(at(early, mid('204521441'), 0)).toBe(0);
+    expect(at(building, mid('204521441'), 0)).toBe(0);
+    expect(at(building, mid('204521441'), 1)).toBe(255);
     expect(at(late, mid('204521441'), 0)).toBe(255);
+  });
+  test('west bridge end: no road before 1984 (PR-187 stops at the Antigua junction); dirt in 1984, road in 1986', () => {
+    const end = way('204521442').points[0], near = (m: GroundMask, ch: 0 | 1) => {
+      let w = 0;
+      for (let dz = -20; dz <= 20; dz += 2.5) for (let dx = -20; dx <= 20; dx += 2.5)
+        if (Math.hypot(dx, dz) <= 20) w = Math.max(w, at(m, [end[0] + dx, end[1] + dz], ch));
+      return w;
+    };
+    for (const e of ERAS) if (e.infrastructure.bridge.value === 'none') expect(near(groundMask(eraRoads(G, e), []), 0), e.id).toBe(0);
+    const building = groundMask(eraRoads(G, getEra('1984')), []), open = groundMask(eraRoads(G, getEra('1986')), []);
+    expect(near(building, 0)).toBe(0);
+    expect(near(building, 1)).toBe(255);
+    expect(near(open, 0)).toBe(255);
   });
 });

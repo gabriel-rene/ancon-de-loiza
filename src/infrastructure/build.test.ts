@@ -27,7 +27,8 @@ describe('one era of infrastructure', () => {
     const i = input(e), o = buildInfrastructure(i);
     expect(drawCalls(o)).toBeLessThanOrEqual(LIMITS.drawCalls);
     expect(triangles(o)).toBeLessThanOrEqual(LIMITS.triangles);
-    expect(o.road).not.toBeNull();
+    expect(o.roads.length).toBeGreaterThan(0);
+    expect(o.roads.map((r) => r.surface).sort()).toEqual([...new Set(i.roads.story.map((r) => r.surface))].sort());
     const f = placementFields(e.river.bankOffset.value), [clear] = landingClearings(crossingGeometry(f));
     const s = o.station, fps = [s.house, s.terrace, s.shelter, e.infrastructure.neighbourHouse.value ? s.neighbour : null];
     for (const fp of fps) if (fp) for (const [x, z] of corners(fp)) {

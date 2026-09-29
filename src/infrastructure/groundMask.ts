@@ -23,23 +23,28 @@ function stamp(data: Uint8Array, ch: number, x0: number, z0: number, x1: number,
   }
 }
 
-function segment(data: Uint8Array, [ax, az]: XZ, [bx, bz]: XZ, half: number) {
+function segment(data: Uint8Array, ch: number, [ax, az]: XZ, [bx, bz]: XZ, half: number) {
   const soft = Math.min(MASK.soft, half), r = half + soft, dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
-  stamp(data, 0, Math.min(ax, bx) - r, Math.min(az, bz) - r, Math.max(ax, bx) + r, Math.max(az, bz) + r, (x, z) => {
+  stamp(data, ch, Math.min(ax, bx) - r, Math.min(az, bz) - r, Math.max(ax, bx) + r, Math.max(az, bz) + r, (x, z) => {
     const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / l2));
     return 1 - smooth(half - soft, half + soft, Math.hypot(x - ax - t * dx, z - az - t * dz));
   });
 }
 
-/** R: road weight (story roads with a shoulder, main roads and paths); G: trodden dirt. */
+/**
+ * R: road weight in the era's surface (story roads with a shoulder, main roads and paths); G: trodden dirt.
+ * A road whose own surface differs from the era's (only the bridge approaches while the bridge is being
+ * built: 'sand') goes to G, so its paint and shoulder read as dirt, not the era's asphalt.
+ */
 export function groundMask(roads: EraRoads, dirt: readonly DirtPatch[]): GroundMask {
   const data = new Uint8Array(MASK.size * MASK.size * 4);
   for (let k = 3; k < data.length; k += 4) data[k] = 255;
+  const ch = (s: RoadSurface | undefined) => (s === undefined || s === roads.surface ? 0 : 1);
   const lines = [
-    ...roads.story.map((r) => ({ pts: r.points, half: r.width / 2 + MASK.shoulder })),
-    ...roads.simple.map((r) => ({ pts: r.points, half: r.width / 2 })),
+    ...roads.story.map((r) => ({ pts: r.points, half: r.width / 2 + MASK.shoulder, ch: ch(r.surface) })),
+    ...roads.simple.map((r) => ({ pts: r.points, half: r.width / 2, ch: ch(r.surface) })),
   ];
-  for (const l of lines) for (let k = 0; k + 1 < l.pts.length; k++) segment(data, l.pts[k], l.pts[k + 1], l.half);
+  for (const l of lines) for (let k = 0; k + 1 < l.pts.length; k++) segment(data, l.ch, l.pts[k], l.pts[k + 1], l.half);
   for (const d of dirt) {
     const r = Math.hypot(d.hu, d.hv) + MASK.soft, [ux, uz] = d.axis;
     stamp(data, 1, d.c[0] - r, d.c[1] - r, d.c[0] + r, d.c[1] + r, (x, z) => {

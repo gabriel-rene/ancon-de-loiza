@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { Infrastructure } from '../data/eras';
+import type { Infrastructure, RoadSurface } from '../data/eras';
 import type { XZ } from '../data/geo/types';
 import type { LandingPad } from '../terrain/landingPads';
 import { bridgePlan, buildBridge } from './bridge';
@@ -16,12 +16,14 @@ export interface InfraInput {
   waterAt: (x: number, z: number) => number;
 }
 export interface InfraOutput {
-  parts: Partial<Record<InfraMaterialId, THREE.BufferGeometry>>; road: THREE.BufferGeometry | null; dirt: DirtPatch[]; station: StationLayout;
+  parts: Partial<Record<InfraMaterialId, THREE.BufferGeometry>>; roads: RoadStrip[]; dirt: DirtPatch[]; station: StationLayout;
 }
+/** One story-road strip mesh per surface in use (at most 2: the era's, and dirt approaches in `building`). */
+export interface RoadStrip { surface: RoadSurface; geometry: THREE.BufferGeometry }
 /** Spec 4a §5. */
 export const LIMITS = { drawCalls: 12, triangles: 40000 } as const;
 
-/** All of one era's infrastructure: ≤ 5 merged meshes (one per material) plus the story-road strip. Pure. */
+/** All of one era's infrastructure: ≤ 5 merged meshes (one per material) plus ≤ 2 story-road strips. Pure. */
 export function buildInfrastructure(i: InfraInput): InfraOutput {
   const b = makeBuilders(), v = i.infra, [east, west] = i.pads;
   buildLanding(b, east, v.landing.value, 1);
@@ -33,11 +35,14 @@ export function buildInfrastructure(i: InfraInput): InfraOutput {
   if (plan) buildBridge(b, plan, v.bridge.value, i.groundAt);
   return {
     parts: finish(b),
-    road: buildRoadStrip(i.roads.story, i.groundAt, i.landAt),
+    roads: [...new Set(i.roads.story.map((r) => r.surface))].flatMap((surface) => {
+      const geometry = buildRoadStrip(i.roads.story.filter((r) => r.surface === surface), i.groundAt, i.landAt);
+      return geometry ? [{ surface, geometry }] : [];
+    }),
     dirt: [...landingDirt(east, v.landing.value), ...landingDirt(west, v.landing.value), ...station.dirt],
     station,
   };
 }
-export const drawCalls = (o: InfraOutput) => Object.keys(o.parts).length + (o.road ? 1 : 0);
+export const drawCalls = (o: InfraOutput) => Object.keys(o.parts).length + o.roads.length;
 export const triangles = (o: InfraOutput) =>
-  Object.values(o.parts).reduce((n, g) => n + triangleCount(g!), 0) + (o.road ? triangleCount(o.road) : 0);
+  Object.values(o.parts).reduce((n, g) => n + triangleCount(g!), 0) + o.roads.reduce((n, r) => n + triangleCount(r.geometry), 0);

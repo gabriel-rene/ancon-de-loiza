@@ -18,7 +18,7 @@ const BRIDGE_WAY_POINTS = bridgeWay(G);
 
 /**
  * Phase 4a: roads, landings, station and bridge for the current era. Geometry is built once per era and
- * tier (≤ 5 merged meshes + the road strip); minor roads and trodden dirt go to the terrain as the
+ * tier (≤ 5 merged meshes + ≤ 2 road strips, one per surface); minor roads and trodden dirt go to the terrain as the
  * uGround mask. Heights read the tier's rendered terrain (`near`); water tests read the fixed 512
  * placement fields, like the ferry, so nothing moves between tiers.
  */
@@ -33,7 +33,7 @@ export function Infrastructure({ near, era, castShadow }: { near: WorldFields; e
     dryAt: (x, z) => waterAt(place, x, z) === WATER.LAND && sampleField(place, place.shore, x, z) >= 2,
     waterAt: (x, z) => waterAt(place, x, z),
   }), [era, bank, roads, near, place]);
-  useEffect(() => () => { for (const g of Object.values(out.parts)) g?.dispose(); out.road?.dispose(); }, [out]);
+  useEffect(() => () => { for (const g of Object.values(out.parts)) g?.dispose(); for (const r of out.roads) r.geometry.dispose(); }, [out]);
 
   const mask = useMemo(() => {
     const m = groundMask(roads, out.dirt);
@@ -52,7 +52,7 @@ export function Infrastructure({ near, era, castShadow }: { near: WorldFields; e
       {(Object.keys(out.parts) as InfraMaterialId[]).map((id) => (
         <mesh key={id} geometry={out.parts[id]} material={mats[id]} castShadow={castShadow} receiveShadow />
       ))}
-      {out.road && <mesh geometry={out.road} material={roadMaterial(era.infrastructure.roadSurface.value)} receiveShadow />}
+      {out.roads.map((r) => <mesh key={r.surface} geometry={r.geometry} material={roadMaterial(r.surface)} receiveShadow />)}
     </group>
   );
 }

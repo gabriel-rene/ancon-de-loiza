@@ -15,7 +15,7 @@ describe('story road strip', () => {
     expect(Math.min(...r.map((p) => p[0]))).toBe(0);
   });
   test('the strip lies ROAD_LIFT above the ground, is as wide as the road, stops at the water', () => {
-    const g = buildRoadStrip([{ id: 'escobar', points: [[0, 0], [60, 0]], width: 6 }], ground, (x) => x < 50)!;
+    const g = buildRoadStrip([{ id: 'escobar', points: [[0, 0], [60, 0]], width: 6, surface: 'sand' }], ground, (x) => x < 50)!;
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       expect(p.getY(i)).toBeCloseTo(ground(p.getX(i), p.getZ(i)) + ROAD_LIFT, 3);
