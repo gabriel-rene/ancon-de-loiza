@@ -32,7 +32,7 @@ function posts(pb: PartBuilder, f: Footprint, g: GroundAt, top: number) {
 function gable(b: Builders, f: Footprint, top: number, wall: number) {
   const r: Footprint = { c: f.c, yaw: f.yaw + Math.PI / 2, hx: f.hz, hz: f.hx };
   const o = HOUSE.eave, run = r.hx + o, rise = Math.tan(HOUSE.tilt) * run, len = run / Math.cos(HOUSE.tilt);
-  for (const s of [-1, 1]) box(b.zinc, r, [len, 0.04, 2 * r.hz + 2 * o], (s * run) / 2, top + rise / 2, 0, 0xffffff, -s * HOUSE.tilt);
+  for (const s of [-1, 1]) box(b.zinc, r, [len, 0.04, 2 * r.hz + 2 * o], (s * run) / 2, top + rise / 2 - Math.tan(HOUSE.tilt) * o, 0, 0xffffff, -s * HOUSE.tilt);   // lowered so the slab meets the wall top at the wall line
   const tri = new THREE.CylinderGeometry(1, 1, 2 * r.hz, 3, 1);
   tri.rotateX(-Math.PI / 2);
   const riseIn = Math.tan(HOUSE.tilt) * r.hx;
