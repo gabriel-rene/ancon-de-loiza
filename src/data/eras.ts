@@ -204,7 +204,7 @@ const INFRA = {
   '1984': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
     bridge: s<BridgeState>('building', ['S4'], 'H') },
   '1986': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
-    bridge: s<BridgeState>('open', ['S1', 'S3'], 'H') },
+    bridge: s<BridgeState>('open', ['S1'], 'H') },
 } satisfies Record<EraId, Infrastructure>;
 
 export const ERAS: Era[] = [
