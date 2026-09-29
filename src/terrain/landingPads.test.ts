@@ -50,7 +50,7 @@ describe('landing pads', () => {
     test(`bank ${bank}: ground beyond the margin is untouched`, () => {
       const raw = buildFields(G, { extent: 2560, size: 512, bankOffset: bank });
       for (const p of pads) {
-        const far = cellCentres(f, p, (a, v) => a > PAD.length + PAD.margin + 1 && a < PAD.length + 30 && Math.abs(v) < 10);
+        const far = cellCentres(f, p, (a, v) => a > PAD.length + f.grid.cell + PAD.margin + 1 && a < PAD.length + 30 && Math.abs(v) < 10);
         for (const c of far) expect(f.height[c.k]).toBe(raw.height[c.k]);
       }
     });
@@ -63,5 +63,12 @@ describe('landing pads', () => {
     flattenLandings(low, pads);
     for (const p of pads) for (const c of cellCentres(low, p, (a, v) => a >= 0 && a <= PAD.length && Math.abs(v) <= PAD.halfWidth))
       expect(low.height[c.k]).toBeCloseTo(padHeight(p, c.a), 5);
+    // One coarse cell beyond the sides is still on the profile, so the ramp/log sides are not pierced between vertices.
+    const cell = low.grid.cell;
+    for (const p of pads) {
+      const side = cellCentres(low, p, (a, v) => a >= 0 && a <= PAD.length && Math.abs(v) > PAD.halfWidth && Math.abs(v) <= PAD.halfWidth + cell);
+      expect(side.length).toBeGreaterThan(0);
+      for (const c of side) expect(low.height[c.k]).toBeCloseTo(padHeight(p, c.a), 5);
+    }
   });
 });

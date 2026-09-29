@@ -56,16 +56,18 @@ export function landingPads(f: WorldFields, shoreY: number = PAD.shoreY): [Landi
   return [mk('east', g.shoreEast, [-g.dir[0], -g.dir[1]]), mk('west', g.shoreWest, [g.dir[0], g.dir[1]])];
 }
 
-/** Blend the pads into `f.height` (full inside, fading out over PAD.margin). Runs once per fields object. */
+/** Blend the pads into `f.height` (full inside and one grid cell beyond, then fading out over PAD.margin). Runs once per fields object. */
 export function flattenLandings(f: WorldFields, pads: readonly LandingPad[]) {
   if (f.padded) return;
-  const { size, cell, minX, minZ } = f.grid, reach = PAD.length + PAD.wet + PAD.margin + PAD.halfWidth;
+  const { size, cell, minX, minZ } = f.grid, reach = PAD.length + PAD.wet + PAD.margin + PAD.halfWidth + cell;
   for (const p of pads) {
     const i0 = Math.max(0, Math.floor((p.shore[0] - reach - minX) / cell)), i1 = Math.min(size - 1, Math.ceil((p.shore[0] + reach - minX) / cell));
     const j0 = Math.max(0, Math.floor((p.shore[1] - reach - minZ) / cell)), j1 = Math.min(size - 1, Math.ceil((p.shore[1] + reach - minZ) / cell));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = j * size + i, [a, v] = padFrame(p, minX + (i + 0.5) * cell, minZ + (j + 0.5) * cell);
-      const out = Math.max(0, -PAD.wet - a, a - PAD.length, Math.abs(v) - PAD.halfWidth);
+      // Full weight one grid cell past the pad's edges, so coarse tiers (10 m cells) keep the ground under the
+      // ramp and log sides on the profile instead of poking through them.
+      const out = Math.max(0, -PAD.wet - cell - a, a - PAD.length - cell, Math.abs(v) - PAD.halfWidth - cell);
       if (out >= PAD.margin) continue;
       const w = 1 - smooth(out / PAD.margin), t = padHeight(p, Math.min(PAD.length, Math.max(-PAD.wet, a)));
       f.height[k] += (t - f.height[k]) * w;
