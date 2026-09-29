@@ -127,8 +127,9 @@ function concreteHouse(b: B, f: Footprint, t: Footprint, g: GroundAt) {
   // The bar terrace over the river side: slab, columns, a zinc roof sloping to the river, an iron rail.
   box(b.concrete, t, [2 * t.hx, 0.2, 2 * t.hz], 0, floor - 0.1, 0, 0xc9c2b2);
   for (const lx of [-t.hx + 0.2, t.hx - 0.2]) for (const lz of [-t.hz + 0.2, 0, t.hz - 0.2]) {
-    const [x, z] = toWorld(t, lx, lz), gy = g(x, z) - 0.3;
-    b.concrete.box([0.25, floor + 2.7 - gy, 0.25], [x, (floor + 2.7 + gy) / 2, z], PAINT.trim, 0, t.yaw);
+    // Each column stops just under the tilted roof above it.
+    const [x, z] = toWorld(t, lx, lz), gy = g(x, z) - 0.3, cy = floor + 2.73 + Math.tan(0.12) * lx;
+    b.concrete.box([0.25, cy - gy, 0.25], [x, (cy + gy) / 2, z], PAINT.trim, 0, t.yaw);
   }
   box(b.zinc, t, [2 * t.hx + 0.6, 0.04, 2 * t.hz + 0.4], 0, floor + 2.75, 0, 0xffffff, 0.12);
   for (const s of [-1, 1]) box(b.iron, t, [2 * t.hx, 0.05, 0.05], 0, floor + 0.95, s * t.hz, 0x2b2826);
