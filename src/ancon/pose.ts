@@ -78,7 +78,7 @@ export function computeVesselPose(clock: number, ctx: PoseContext, out: VesselPo
 
 /**
  * Apron angle (rad, + raised) of the end at local x sign `end` (−1 east, +1 west). `down`: its docked
- * angle (default APRON_DOWN; <Ancon> passes apronRestLift so the apron lies on the landing).
+ * angle (default APRON_DOWN; <Ancon> passes restLift (docking.ts) so the apron lies on the landing).
  */
 export function apronLift(st: CrossingState, end: 1 | -1, down = APRON_DOWN): number {
   const nearEast = st.s < 0.5, docked = (end === -1) === nearEast ? st.slack : 0;

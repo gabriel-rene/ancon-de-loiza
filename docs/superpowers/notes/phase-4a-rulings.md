@@ -102,3 +102,20 @@ Test runs: `world.spec.ts` 26 passed, 5 skipped (station, taken with the real GP
   edges (low tier no longer pokes through the ramp/log sides).
 - Budget per era (draw calls / triangles): 1840 3/630, 1900 3/630, 1925 3/786, 1935 3/1530,
   1959 3/1530, 1975 5/4030, 1984 6/6304 (+1 strip: the dirt approach), 1986 4/6332.
+
+## Deferred (reviews)
+
+Minor items parked by the task and final reviews (none block 4a):
+
+- Textures (`src/infrastructure/textures.ts`) are not wrap-tiled; road `wrapS` could clamp; thatch course step does not divide 512. No seams seen at shot scale.
+- 1.5 m paths are faint in the 2.5 m-texel ground mask.
+- Story strips cover whole ways (cheap); could be clipped to ~120 m from each end under the frame rule.
+- Strip width shrinks at sharp bends (no miter).
+- Bridge crest sits at t = 0.5, not over the river centre; the first ~20 m of deck at each end is partly buried (reads as an embankment); unfinished 1984 spans carry the asphalt top.
+- The neighbour's house stands by the east landing, ~246 m from the OSM bridge line; "demolished for the bridge" [S4] is not visible as such on screen.
+- The PR-951 gate before 1935 also hides older streets that carry that number (revisit in 4b).
+- Heights for infrastructure read the tier's `near` terrain; tests check only the 512 fields.
+- The station `fitInland` slide is capped at 10 m; real layouts needed no slide, and `build.test` guards the clearing.
+- Test gaps: no multi-road strip index test; no rotated-pad landing test; bridge open-state test does not assert rails and lamps; vegetation corridor and placement key have no test.
+- Pre-existing (not 4a): `tests/e2e/leak.spec.ts` fails with the same numbers on the pre-4a base (+18 geometries, +18 textures per era cycle).
+- Content (not changed in 4a): `src/data/facts.ts` and the 1986 era summary say the bridge opened in 1985; S1 gives 1986, S3 gives 1985. For the user to decide.

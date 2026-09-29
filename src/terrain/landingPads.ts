@@ -20,7 +20,7 @@ export interface LandingPad {
   /**
    * Pad level at the shore (m): PAD.shoreY, or lower on a bank where an apron-less barge docks — its floor
    * boards reach over the pad's end and must stay above it (placementFields.padShoreY). Aprons follow the
-   * pad instead (pose.apronRestLift).
+   * pad instead (restLift in src/ancon/docking.ts).
    */
   shoreY: number;
 }

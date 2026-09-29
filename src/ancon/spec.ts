@@ -21,7 +21,7 @@ export interface DeckLayout {
 }
 /** End apron length per kind (m). Inferred from research §2.2 ("ramp/apron boards at each end", "hinged or loose end ramps"). */
 export const APRON: Record<VesselKind, number> = { timberBarge: 0, plankPlatform: 0.9, woodPlatform: 1.1, steelPontoon: 1.6 };
-/** Depth of each kind's apron underside below the deck at the hinge (m): plank; planks on beams; steel ramp's hinge knuckles. Checked against the geometry in vessels.test. */
+/** Depth of each kind's apron underside below the deck at the hinge (m): plank; planks on beams; steel ramp's hinge knuckles. Checked against the geometry in docking.test. */
 export const APRON_UNDER: Record<VesselKind, number> = { timberBarge: 0, plankPlatform: 0.06, woodPlatform: 0.18, steelPontoon: 0.12 };
 /** One parked vehicle incl. walking clearance (inferred; compact cars of each era). */
 export const CAR_SLOT = { length: 4.4, width: 2.5 } as const;
