@@ -19,10 +19,12 @@ export const deckToWorld = (f: DockFrame, x: number, z: number): [number, number
   const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
   return [f.pos[0] + c * x + s * z, f.pos[1] - s * x + c * z];
 };
-export const worldToDeck = (f: DockFrame, wx: number, wz: number): [number, number] => {
+export const worldToDeckInto = (f: DockFrame, wx: number, wz: number, out: [number, number]): [number, number] => {
   const c = Math.cos(f.yaw), s = Math.sin(f.yaw), dx = wx - f.pos[0], dz = wz - f.pos[1];
-  return [c * dx - s * dz, s * dx + c * dz];
+  out[0] = c * dx - s * dz; out[1] = s * dx + c * dz;
+  return out;
 };
+export const worldToDeck = (f: DockFrame, wx: number, wz: number): [number, number] => worldToDeckInto(f, wx, wz, [0, 0]);
 
 export interface Polyline { pts: XZ[]; cum: number[]; len: number }
 export function polyline(pts: readonly XZ[]): Polyline {

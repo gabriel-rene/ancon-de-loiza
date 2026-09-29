@@ -28,10 +28,12 @@ export const PAD = { length: 16, halfWidth: 5, wet: 4, margin: 6, shoreY: 0.3, w
 
 const smooth = (t: number) => { const u = Math.min(1, Math.max(0, t)); return u * u * (3 - 2 * u); };
 
-export function padFrame(p: LandingPad, x: number, z: number): [number, number] {
+export function padFrameInto(p: LandingPad, x: number, z: number, out: [number, number]): [number, number] {
   const dx = x - p.shore[0], dz = z - p.shore[1];
-  return [dx * p.inland[0] + dz * p.inland[1], dx * p.lateral[0] + dz * p.lateral[1]];
+  out[0] = dx * p.inland[0] + dz * p.inland[1]; out[1] = dx * p.lateral[0] + dz * p.lateral[1];
+  return out;
 }
+export const padFrame = (p: LandingPad, x: number, z: number): [number, number] => padFrameInto(p, x, z, [0, 0]);
 export const padPoint = (p: LandingPad, a: number, v: number): [number, number] =>
   [p.shore[0] + p.inland[0] * a + p.lateral[0] * v, p.shore[1] + p.inland[1] * a + p.lateral[1] * v];
 /** three.js rotY convention: local +X → (cos, 0, −sin). */

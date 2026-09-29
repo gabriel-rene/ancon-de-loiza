@@ -5,8 +5,8 @@ import { APRON_REST } from '../ancon/geometry';
 import type { VesselPose } from '../ancon/pose';
 import { landingTop } from '../infrastructure/landing';
 import { ROAD_LIFT } from '../infrastructure/roadStrip';
-import { PAD, padFrame } from '../terrain/landingPads';
-import { arriveFrame, departFrame, pointAt, worldToDeck, type DockEnv, type DockFrame, type Polyline } from './env';
+import { PAD, padFrameInto } from '../terrain/landingPads';
+import { arriveFrame, departFrame, pointAt, worldToDeckInto, type DockEnv, type DockFrame, type Polyline } from './env';
 import { travelOf } from './plan';
 import type { MoverSched } from './schedule';
 import { tripAt, type TripPoint } from './trip';
@@ -22,7 +22,7 @@ export const createMoverFrame = (): MoverFrame => ({
 });
 
 const _e = new THREE.Vector3(), _f = new THREE.Vector3(), _u = new THREE.Vector3(), _r = new THREE.Vector3(), _m = new THREE.Vector3(), _up = new THREE.Vector3();
-const _xz: [number, number] = [0, 0], _tp: TripPoint = { s: 0, v: 0 };
+const _xz: [number, number] = [0, 0], _dk: [number, number] = [0, 0], _pf: [number, number] = [0, 0], _tp: TripPoint = { s: 0, v: 0 };
 const UP = new THREE.Vector3(0, 1, 0);
 
 /**
@@ -31,9 +31,9 @@ const UP = new THREE.Vector3(0, 1, 0);
  * to the landing, 0.8 m onto the bank for an apron-less barge), the landing pad, or the road. Returns true on the deck.
  */
 export function surfacePoint(env: DockEnv, f: DockFrame, wx: number, wz: number, pose: VesselPose, out: THREE.Vector3): boolean {
-  const L = env.layout, [x, z] = worldToDeck(f, wx, wz), ax = Math.abs(x);
+  const L = env.layout, dk = worldToDeckInto(f, wx, wz, _dk), x = dk[0], z = dk[1], ax = Math.abs(x);
   if (ax <= L.halfLength) { out.set(x, L.deckY, z).applyMatrix4(pose.matrix); return true; }
-  const [a, v] = padFrame(f.pad, wx, wz), land = landingTop(f.pad, env.look, a);
+  const pf = padFrameInto(f.pad, wx, wz, _pf), a = pf[0], v = pf[1], land = landingTop(f.pad, env.look, a);
   const end = L.apron > 0 ? L.reach : L.halfLength + APRON_REST;
   if (ax <= end) {
     _e.set(Math.sign(x) * L.halfLength, L.deckY, z).applyMatrix4(pose.matrix);

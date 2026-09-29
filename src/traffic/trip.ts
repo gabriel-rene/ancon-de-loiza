@@ -6,6 +6,8 @@ export interface Trip { t0: number; s0: number; s1: number; v0: number; vmax: nu
 export interface TripPoint { s: number; v: number }
 
 interface Shape { vp: number; ta: number; da: number; tc: number; dc: number; td: number }
+/** Scratch result: each caller reads it before calling shape again (allocation-free). */
+const _shape: Shape = { vp: 0, ta: 0, da: 0, tc: 0, dc: 0, td: 0 };
 function shape(t: Trip): Shape {
   const d = Math.max(0, t.s1 - t.s0), a = t.accel, v0 = Math.min(t.v0, t.vmax);
   let vp = t.vmax, da = (vp * vp - v0 * v0) / (2 * a), dd = t.stop ? (vp * vp) / (2 * a) : 0;
@@ -14,7 +16,9 @@ function shape(t: Trip): Shape {
     da = (vp * vp - v0 * v0) / (2 * a); dd = t.stop ? (vp * vp) / (2 * a) : 0;
   }
   const dc = Math.max(0, d - da - dd);
-  return { vp, ta: (vp - v0) / a, da, tc: vp > 0 ? dc / vp : 0, dc, td: t.stop ? vp / a : 0 };
+  const h = _shape;
+  h.vp = vp; h.ta = (vp - v0) / a; h.da = da; h.tc = vp > 0 ? dc / vp : 0; h.dc = dc; h.td = t.stop ? vp / a : 0;
+  return h;
 }
 export const tripDuration = (t: Trip) => { const h = shape(t); return h.ta + h.tc + h.td; };
 export const tripEndSpeed = (t: Trip) => (t.stop ? 0 : shape(t).vp);
