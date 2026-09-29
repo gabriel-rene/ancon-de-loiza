@@ -10,6 +10,7 @@ const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
   ...(Object.values(e.landscape) as Sourced<unknown>[]),
   ...(Object.values(e.ancon) as Sourced<unknown>[]),
   ...(Object.values(e.infrastructure) as Sourced<unknown>[]),
+  ...(Object.values(e.town) as Sourced<unknown>[]),
 ];
 
 describe('eras', () => {
@@ -110,5 +111,17 @@ describe('eras', () => {
     // Pure guesses are marked.
     for (const e of ERAS) expect(e.infrastructure.landing.inferred).toBe(true);
     expect(getEra('1935').infrastructure.roadSurface.inferred).toBe(true);
+  });
+  test('town shares per era follow spec 4b §2', () => {
+    const col = (k: 'houseShare' | 'concreteShare' | 'thatchShare') => ERAS.map((e) => e.town[k].value);
+    expect(col('houseShare')).toEqual([0.25, 0.35, 0.45, 0.55, 0.7, 1, 1, 1]);
+    expect(col('concreteShare')).toEqual([0, 0, 0, 0, 0.1, 0.5, 0.65, 0.65]);
+    expect(col('thatchShare')).toEqual([1, 0.8, 0.5, 0.15, 0.05, 0, 0, 0]);
+    for (let k = 1; k < ERAS.length; k++) {   // the town only grows, and looks only move hut → wood → concrete
+      expect(ERAS[k].town.houseShare.value).toBeGreaterThanOrEqual(ERAS[k - 1].town.houseShare.value);
+      expect(ERAS[k].town.concreteShare.value).toBeGreaterThanOrEqual(ERAS[k - 1].town.concreteShare.value);
+      expect(ERAS[k].town.thatchShare.value).toBeLessThanOrEqual(ERAS[k - 1].town.thatchShare.value);
+    }
+    for (const e of ERAS) for (const v of Object.values(e.town)) expect(v.inferred).toBe(true);
   });
 });
