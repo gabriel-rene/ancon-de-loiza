@@ -16,6 +16,10 @@ export interface CrossingGeometry {
 }
 /** The docked apron tip (or barge bow) rests this far onto the bank. */
 export const APRON_REST = 0.8;
+/** Docked, an apron's underside sits this far above the landing surface, at its tip and at its hinge (m). */
+export const APRON_GAP = 0.01;
+/** Docked, an apron-less barge's floor boards stand this far above the pad at its end (m). */
+export const BARGE_CLEAR = 0.04;
 /** Each landing clearing is centred this far inland of its shore point: docked hull, bank posts and the ride camera then all fall inside LANDING_CLEARING[0]. */
 export const CLEAR_INLAND = 6;
 const SEARCH = 150, STEP = 0.25;

@@ -14,6 +14,8 @@ import { caneLayout, inCane, shownMask, type CaneLayout } from './landscape/cane
 import { CaneFields, caneHeightAt, caneWaterAt } from './landscape/CaneFieldsMesh';
 import { trimSteep, trimWet } from './landscape/caneMesh';
 import { findBlocks, insideBlocks, plantBlocks } from './landscape/plantation';
+import { BRIDGE, bridgeCorridor } from '../infrastructure/bridge';
+import { bridgeWay } from '../infrastructure/roads';
 import { litterMap } from './litter';
 import { buildVegMasks, type VegMasks } from './masks';
 import { markTrunks, Occupancy, placeAll, warmHabitat } from './placement';
@@ -26,6 +28,8 @@ import { vegTiming } from './stats';
 import type { GroundId, PlantInstance, PlantPart, WoodyId } from './types';
 
 const G = geo as unknown as GeoBundle;
+/** Eras with a bridge keep woody plants off its line (deck half-width + 3 m), so no crown pierces the deck (4a). */
+const inBridge = bridgeCorridor(bridgeWay(G), BRIDGE.width / 2 + 3);
 const NEAR_SEED = 1840, FAR_SEED = 1841;
 /** The distant ring (cards) starts this far inside the near field's edge and is half as dense. */
 const FAR_OVERLAP = 40, FAR_DENSITY = 0.5, FAR_OCC_CELL = 4;
@@ -97,16 +101,18 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   const caneWet = useMemo(() => (caneByShare ? trimWet(caneFor(), caneByShare, caneWaterAt(near, far)) : null), [caneByShare, near, far]);
   const caneShown = useMemo(() => (caneWet ? trimSteep(caneFor(), caneWet, caneHeightAt(near, far)) : null), [caneWet, near, far]);
   const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
+  const bridge = era.infrastructure.bridge.value !== 'none';
+  const skip = useMemo(() => (bridge ? (x: number, z: number) => inBridge(x, z) || !!caneSkip?.(x, z) : caneSkip), [bridge, caneSkip]);
 
   const survival = era.landscape.plantation.value;
   const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
-  const key = placementKey(dens, bankOffset, tier, `p${survival}|c${caneShare}`);
+  const key = placementKey(dens, bankOffset, tier, `p${survival}|c${caneShare}|b${bridge ? 1 : 0}`);
   const { sets, pf, nearCount } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
     const blocks = survival > 0 ? findBlocks(pf, masksFor(pf)) : [];
     const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival), inside: insideBlocks(blocks) } : undefined;
-    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip: caneSkip, planted });
+    const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip, planted });
     // Ground cover places per tile inside the frame loop; build its habitat masks here instead
     // of three 512² passes in its first frame.
     warmHabitat(pf, masksFor(pf), GROUND_ORDER);
@@ -119,7 +125,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
       for (const id of PLACEMENT_ORDER) farDens[id] = dens[id] * FAR_DENSITY;
       farSet = placeAll(far, masksFor(far), farDens, FAR_SEED, {
         occCell: FAR_OCC_CELL,
-        skip: (x, z) => (Math.abs(x - cx) < half && Math.abs(z - cz) < half) || !!caneSkip?.(x, z),
+        skip: (x, z) => (Math.abs(x - cx) < half && Math.abs(z - cz) < half) || !!skip?.(x, z),
       });
     }
     const out = {} as Record<WoodyId, PlantInstance[]>, nearCount = {} as Record<WoodyId, number>;
@@ -131,7 +137,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
     return { sets: out, pf, nearCount };
-  }), [key, near, far, caneSkip]);
+  }), [key, near, far, skip]);
 
   // Near trunk discs for ground cover (reseat only moves y, so x/z/scale match the placement run).
   const trunks = useMemo(() => {

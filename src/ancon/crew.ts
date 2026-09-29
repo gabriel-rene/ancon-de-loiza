@@ -32,9 +32,15 @@ export interface ActorFrame {
   handL: V3; handR: V3;
   hasPole: boolean; poleTop: V3; poleTip: V3;
 }
-export interface ActorCtx { spec: VesselSpec; layout: DeckLayout }
+export interface ActorCtx {
+  spec: VesselSpec; layout: DeckLayout;
+  /** Deck-local ground height (m) under deck-local (x, z); omitted = no ground (poles may go anywhere). */
+  groundLocal?: (x: number, z: number) => number;
+}
 
 export const HAUL_HZ = 0.5, STROKE_S = 7, PUSH = 0.65, POLE_BED = 2.1, STEER_DEPTH = 0.5;
+/** A pole tip on the ground rests this far above it. */
+export const TIP_REST = 0.03;
 /** Push poles pass the hull's top edge this far outboard (pole radius 0.045 + margin). */
 export const POLE_CLEAR = 0.1;
 /** Seconds to lower a pole into a stroke or to steer; to ship the steering pole (reversed through the vertical). */
@@ -165,16 +171,26 @@ function poleShape(kind: 'upright' | 'push' | 'carry', x: number, z: number, sid
 }
 /** The steering pole is held by its top end (STEER_GRIP below the top), so none of it overhangs the deck crowd. */
 const STEER_GRIP = 0.4;
-function steerShape(xEnd: number, tr: number, sweep: number, L: DeckLayout, o: PoleShape): PoleShape {
-  // Hands 0.25 m in front of him (he stands on the centreline facing +z): clear of the boarding lane at z = 0.6.
-  set3(o.hl, xEnd + tr * 0.25, L.deckY + 1.15, 0.25);
-  // Trailing aft and down to STEER_DEPTH below the waterline, swept slowly about the vertical.
-  const along = POLE_LEN - STEER_GRIP, dy = -(o.hl[1] + STEER_DEPTH) / along, hz = Math.sqrt(1 - dy * dy);
-  const c = Math.cos(sweep), s = Math.sin(sweep), bx = -tr, bz = 0;
+/** Set the pole from the lower hand `o.hl` along the trailing direction, dropping `dy` per metre. */
+function steerAlong(dy: number, along: number, tr: number, sweep: number, o: PoleShape) {
+  const hz = Math.sqrt(1 - dy * dy), c = Math.cos(sweep), s = Math.sin(sweep), bx = -tr, bz = 0;
   const dx = (bx * c + bz * s) * hz, dz = (-bx * s + bz * c) * hz;
   set3(o.hr, o.hl[0] + dx * 0.5, o.hl[1] + dy * 0.5, o.hl[2] + dz * 0.5);
   set3(o.tip, o.hl[0] + dx * along, o.hl[1] + dy * along, o.hl[2] + dz * along);
   set3(o.top, o.tip[0] - dx * POLE_LEN, o.tip[1] - dy * POLE_LEN, o.tip[2] - dz * POLE_LEN);
+}
+function steerShape(xEnd: number, tr: number, sweep: number, L: DeckLayout, o: PoleShape, ground?: (x: number, z: number) => number): PoleShape {
+  // Hands 0.25 m in front of him (he stands on the centreline facing +z): clear of the boarding lane at z = 0.6.
+  set3(o.hl, xEnd + tr * 0.25, L.deckY + 1.15, 0.25);
+  // Trailing aft and down to STEER_DEPTH below the waterline, swept slowly about the vertical — unless the
+  // ground (the bank, while docked) is higher there: then the tip rests on it (two passes: the tip moves a little).
+  const along = POLE_LEN - STEER_GRIP;
+  steerAlong(-(o.hl[1] + STEER_DEPTH) / along, along, tr, sweep, o);
+  if (ground) for (let i = 0; i < 2; i++) {
+    const fy = ground(o.tip[0], o.tip[2]) + TIP_REST;
+    if (o.tip[1] >= fy - 1e-4) break;
+    steerAlong(Math.min(0, Math.max(-1, (fy - o.hl[1]) / along)), along, tr, sweep, o);
+  }
   return o;
 }
 /** Grip-to-butt distance (m) while a pole is lifted over the gunwale. */
@@ -334,7 +350,7 @@ const helmWalkStart = (L: DeckLayout) => MOVE_END + T.unload - 0.5 - (2 * (L.hal
  * next leg he only lowers the tip into the water astern. The one reversal per leg is the swing when he ships the
  * steering pole (in front of him, across the empty deck) just before setting off.
  */
-function helmsman(st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
+function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
   const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
   const sweep = 0.22 * Math.sin(clock * 0.45) * (0.3 + 0.7 * st.effort);
   if (tau < MOVE_END) {
@@ -342,7 +358,7 @@ function helmsman(st: CrossingState, clock: number, { layout: L }: ActorCtx, f: 
     set3(f.pos, xEnd, L.deckY, 0);
     f.yaw = lerpAngle(faceDir(-tr, 0), 0, k);
     f.pose.kind = 'stand'; f.pose.phase = fract(clock * 0.1);
-    applyShape(mixShape(poleShape('carry', xEnd, 0.3, 0, tr, 0, L, sA), steerShape(xEnd, tr, sweep, L, sB), kp, sE), f);
+    applyShape(mixShape(poleShape('carry', xEnd, 0.3, 0, tr, 0, L, sA), steerShape(xEnd, tr, sweep, L, sB, groundLocal), kp, sE), f);
     return;
   }
   // Unload: keep steering at the trailing end, ship the pole, then walk the centreline to the far end.
@@ -354,7 +370,7 @@ function helmsman(st: CrossingState, clock: number, { layout: L }: ActorCtx, f: 
   // Ship: draw the pole in and stand it upright in front of him, then tip it forward into the tip-first carry — the
   // reversal happens in the vertical plane in front of him, sweeping nobody.
   const up = poleShape('upright', x, 0.3, 0, tr, 0, L, sD);
-  if (kShip < 0.5) applyShape(mixShape(steerShape(x, tr, sweep, L, sA), up, 2 * kShip, sE, true), f);   // the lift stages ease themselves
+  if (kShip < 0.5) applyShape(mixShape(steerShape(x, tr, sweep, L, sA, groundLocal), up, 2 * kShip, sE, true), f);   // the lift stages ease themselves
   else applyShape(mixShape(up, poleShape('carry', x, 0.3, 0, -tr, 0, L, sB), smooth(2 * kShip - 1), sE), f);
 }
 

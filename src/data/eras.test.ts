@@ -9,6 +9,7 @@ const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
   ...(Object.values(e.vegetation) as Sourced<unknown>[]),
   ...(Object.values(e.landscape) as Sourced<unknown>[]),
   ...(Object.values(e.ancon) as Sourced<unknown>[]),
+  ...(Object.values(e.infrastructure) as Sourced<unknown>[]),
 ];
 
 describe('eras', () => {
@@ -92,5 +93,22 @@ describe('eras', () => {
     expect(getEra('1900').landscape.cane.confidence).toBe('M');
     expect(getEra('1900').landscape.cane.sources).toContain('S1');
     expect(getEra('1900').landscape.plantation.sources).toContain('S23');
+  });
+  test('infrastructure per era follows spec 4a §2', () => {
+    const col = <K extends keyof (typeof ERAS)[number]['infrastructure']>(k: K) => ERAS.map((e) => e.infrastructure[k].value);
+    expect(col('roadSurface')).toEqual(['sand', 'sand', 'sand', 'gravel', 'asphalt', 'asphalt', 'asphalt', 'asphalt']);
+    expect(col('landing')).toEqual(['bank', 'bank', 'bank', 'timber', 'timber', 'concrete', 'concrete', 'concrete']);
+    expect(col('station')).toEqual(['shelter', 'shelter', 'woodThatch', 'woodZinc', 'woodZinc', 'concrete', 'concrete', 'concrete']);
+    expect(col('neighbourHouse')).toEqual([false, false, false, true, true, true, false, false]);
+    expect(col('bridge')).toEqual(['none', 'none', 'none', 'none', 'none', 'none', 'building', 'open']);
+    // Sourced facts (spec 4a §2, fact-checked): the 1960s house [S4], the demolition [S4], the bridge dates [S1][S3][S4].
+    expect(getEra('1975').infrastructure.station.sources).toContain('S4');
+    expect(getEra('1975').infrastructure.station.confidence).toBe('M');   // 1960s house [S4]; concrete inferred
+    expect(getEra('1984').infrastructure.neighbourHouse.sources).toContain('S4');
+    expect(getEra('1984').infrastructure.bridge.confidence).toBe('H');
+    expect(getEra('1986').infrastructure.bridge.sources).toContain('S1');
+    // Pure guesses are marked.
+    for (const e of ERAS) expect(e.infrastructure.landing.inferred).toBe(true);
+    expect(getEra('1935').infrastructure.roadSurface.inferred).toBe(true);
   });
 });

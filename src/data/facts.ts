@@ -115,8 +115,8 @@ export const FACTS: Record<EraId, Fact[]> = {
       sources: ['S4'] },
   ],
   '1986': [
-    { text: { es: 'El puente de la PR-187 sobre el río se inauguró en 1985. El servicio regular del ancón terminó en 1986.',
-              en: 'The PR-187 bridge over the river opened in 1985. Regular ancón service ended in 1986.' },
+    { text: { es: 'El puente de la PR-187 sobre el río estaba en servicio en 1986 (algunas fuentes dicen 1985). El servicio regular del ancón terminó en 1986.',
+              en: 'The PR-187 bridge over the river was in service by 1986 (some sources say 1985). Regular ancón service ended in 1986.' },
       sources: ['S4', 'S4b'] },
     { text: { es: 'En 1987 la familia operó «La Paseadora», un bote turístico de fin de semana: $2 los adultos y $1.50 los niños.',
               en: 'In 1987 the family ran “La Paseadora”, a weekend tourist boat: $2 for adults and $1.50 for children.' },

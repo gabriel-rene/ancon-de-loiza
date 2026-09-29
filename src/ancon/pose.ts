@@ -38,6 +38,8 @@ export const DRIFT_PER_FLOW: Record<Propulsion, number> = { poles: 6, ropes: 1.5
 export const CRAB_PER_FLOW: Record<Propulsion, number> = { poles: 0.05, ropes: 0.015, moored: 0 };
 /** Bow-up pitch (rad) per m/s² of surge acceleration. */
 export const PITCH_PER_ACCEL = 0.15;
+/** Share of the periodic motion the vessel loses while docked, its end held by the landing (inferred). */
+export const DOCK_HOLD = 0.8;
 const APRON_UP = 0.12, APRON_DOWN = -0.14;
 
 export const createVesselPose = (): VesselPose => ({
@@ -55,8 +57,10 @@ export function computeVesselPose(clock: number, ctx: PoseContext, out: VesselPo
   const drift = flow * DRIFT_PER_FLOW[spec.propulsion] * bump;
   const x = e[0] + (w[0] - e[0]) * st.s + RIVER_DIR[0] * drift;
   const z = e[1] + (w[1] - e[1]) * st.s + RIVER_DIR[1] * drift;
-  // Periodic motion, smaller for bigger hulls; half as much moored.
-  const k = Math.sqrt(8 / Math.max(spec.length, 4)) * (spec.moored ? 0.5 : 1), t = clock;
+  // Periodic motion, smaller for bigger hulls; half as much moored. Docked, the end is held by the landing (the
+  // barge's bow nosed onto the bank, or the apron lying on it), so most of the motion dies out with the slack.
+  const held = 1 - DOCK_HOLD * st.slack;
+  const k = Math.sqrt(8 / Math.max(spec.length, 4)) * (spec.moored ? 0.5 : 1) * held, t = clock;
   const heave = k * (0.025 * Math.sin(1.3 * t) + 0.012 * Math.sin(2.9 * t + 1));
   const pitch = k * 0.012 * Math.sin(0.9 * t + 0.4) + PITCH_PER_ACCEL * st.a * lineLen;
   const roll = k * 0.018 * Math.sin(0.7 * t + 2);
@@ -72,8 +76,14 @@ export function computeVesselPose(clock: number, ctx: PoseContext, out: VesselPo
   return out;
 }
 
-/** Apron angle (rad, + raised) of the end at local x sign `end` (−1 east, +1 west). */
-export function apronLift(st: CrossingState, end: 1 | -1): number {
+/**
+ * Apron angle (rad, + raised) of the end at local x sign `end` (−1 east, +1 west). `down`: its docked
+ * angle (default APRON_DOWN; <Ancon> passes restLift (docking.ts) so the apron lies on the landing).
+ */
+export function apronLift(st: CrossingState, end: 1 | -1, down = APRON_DOWN): number {
   const nearEast = st.s < 0.5, docked = (end === -1) === nearEast ? st.slack : 0;
-  return APRON_UP + (APRON_DOWN - APRON_UP) * docked;
+  return APRON_UP + (down - APRON_UP) * docked;
 }
+
+/** Docked apron angles stay within this range (rad, + raised): never raised past APRON_UP, never steeper than 0.35. */
+export const APRON_REST_RANGE = [-0.35, APRON_UP] as const;

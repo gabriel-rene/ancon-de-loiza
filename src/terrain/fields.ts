@@ -21,6 +21,8 @@ export interface WorldFields {
   info: Uint8Array;
   /** RGBA8 per cell: R depth/15m, G river(255)/pond(128)/sea(0), B shore distance/60m, A 255. */
   waterInfo: Uint8Array;
+  /** Set once the ferry landing pads are flattened in (Phase 4a, landingPads.ts). */
+  padded?: boolean;
 }
 
 export function buildFields(geo: GeoBundle, opts: { extent: number; size: number; bankOffset: number }): WorldFields {

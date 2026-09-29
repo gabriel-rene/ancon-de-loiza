@@ -36,6 +36,22 @@ describe('cast', () => {
 });
 
 describe('choreography', () => {
+  test('docked, the steering pole tip rests on the bank instead of going into it', () => {
+    for (const id of ['1840', '1900', '1925'] as const) {
+      const s = setup(id), helm = s.actors.find((a) => a.role === 'helmsman')!;
+      const bank = 0.45, ground = { ...s, groundLocal: (x: number) => (Math.abs(x) > s.layout.halfLength ? bank : -3) };
+      for (const c of [5, 10, 15]) {   // load phase: docked
+        const f = actorFrame(helm, crossingState(c, createCrossingState()), c, ground, createActorFrame());
+        if (!f.hasPole) continue;
+        const tip = f.poleTip;
+        if (Math.abs(tip[0]) > s.layout.halfLength) expect(tip[1], `${id} c=${c}`).toBeGreaterThanOrEqual(bank + 0.03 - 0.02);
+        expect(Math.hypot(f.poleTop[0] - tip[0], f.poleTop[1] - tip[1], f.poleTop[2] - tip[2])).toBeCloseTo(POLE_LEN, 3);
+      }
+      // Mid-river (ground far below) the pole still trails into the water as before.
+      const mid = actorFrame(helm, crossingState(MID, createCrossingState()), MID, { ...s, groundLocal: () => -3 }, createActorFrame());
+      expect(mid.poleTip[1]).toBeLessThan(0);
+    }
+  });
   test('haulers keep both hands on the rope line while hauling', () => {
     for (const id of ['1935', '1975', '1984'] as EraId[]) {
       const s = setup(id);

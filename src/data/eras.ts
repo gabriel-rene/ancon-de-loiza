@@ -19,6 +19,15 @@ export interface Landscape {
   palmAge: Sourced<number>;
 }
 
+export type RoadSurface = 'sand' | 'gravel' | 'asphalt';
+export type LandingLook = 'bank' | 'timber' | 'concrete';
+export type StationLook = 'shelter' | 'woodThatch' | 'woodZinc' | 'concrete';
+export type BridgeState = 'none' | 'building' | 'open';
+export interface Infrastructure {
+  roadSurface: Sourced<RoadSurface>; landing: Sourced<LandingLook>; station: Sourced<StationLook>;
+  neighbourHouse: Sourced<boolean>; bridge: Sourced<BridgeState>;
+}
+
 export interface AnconEra {
   kind: Sourced<VesselKind>;
   /** Hull/deck length without the hinged end aprons, m. */
@@ -57,6 +66,7 @@ export interface Era {
   };
   vegetation: Record<SpeciesId, Sourced<number>>;
   landscape: Landscape;
+  infrastructure: Infrastructure;
   ancon: AnconEra;
 }
 
@@ -166,39 +176,70 @@ const ANCON = {
     shoreRope: s(false, ['S4'], 'M', true), passengers: s(0, ['S1', 'S4'], 'H'), clothing: WEAR('modern') },
 } satisfies Record<EraId, AnconEra>;
 
+// Phase 4a (spec 4a §2; sources checked in docs/superpowers/notes/phase-4a-factcheck.md). Sand camino
+// real before the 20th c. (research §9, S3); PR-187 numbered 1953 (S30) — gravel in 1935 and asphalt from
+// 1959 are inferred. Landing looks are inferred (the landing sits at the end of Calle Carlos Escobar in the
+// OSM data). The Cortijos ran the ancón from 1920 (S1); their house was built in the 1960s (S4; concrete is
+// inferred), with the bar's river terrace (S4; shown from 1975, inferred). A house beside the landing was
+// demolished for the bridge (S4; when is not dated). The reinforced-concrete bridge rose in the early 1980s
+// (S4) and was in service by 1986 (S1; S3 gives 1985).
+const road = (v: RoadSurface): Sourced<RoadSurface> =>
+  v === 'sand' ? s(v, ['S3'], 'M', true) : s(v, ['S30'], 'L', true);
+const landing = (v: LandingLook) => s(v, [], 'L', true);
+const STATION = {
+  shelter: s<StationLook>('shelter', [], 'L', true),
+  woodThatch: s<StationLook>('woodThatch', ['S1'], 'L', true),
+  woodZinc: s<StationLook>('woodZinc', ['S1', 'S4'], 'L', true),
+  concrete: s<StationLook>('concrete', ['S4'], 'M'),
+};
+const NEIGHBOUR_NONE = s(false, [], 'L', true), NEIGHBOUR = s(true, ['S4'], 'L', true), NEIGHBOUR_GONE = s(false, ['S4'], 'M');
+const NO_BRIDGE = s<BridgeState>('none', ['S1'], 'H');
+const INFRA = {
+  '1840': { roadSurface: road('sand'), landing: landing('bank'), station: STATION.shelter, neighbourHouse: NEIGHBOUR_NONE, bridge: NO_BRIDGE },
+  '1900': { roadSurface: road('sand'), landing: landing('bank'), station: STATION.shelter, neighbourHouse: NEIGHBOUR_NONE, bridge: NO_BRIDGE },
+  '1925': { roadSurface: road('sand'), landing: landing('bank'), station: STATION.woodThatch, neighbourHouse: NEIGHBOUR_NONE, bridge: NO_BRIDGE },
+  '1935': { roadSurface: road('gravel'), landing: landing('timber'), station: STATION.woodZinc, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
+  '1959': { roadSurface: road('asphalt'), landing: landing('timber'), station: STATION.woodZinc, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
+  '1975': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
+  '1984': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
+    bridge: s<BridgeState>('building', ['S4'], 'H') },
+  '1986': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
+    bridge: s<BridgeState>('open', ['S1'], 'H') },
+} satisfies Record<EraId, Infrastructure>;
+
 export const ERAS: Era[] = [
   { id: '1840', label: { es: 'Cruce colonial', en: 'Colonial crossing' }, years: { es: 'décadas de 1820–1890', en: '1820s–1890s' }, date: '1840-03-15',
     summary: s('An official ancón de pasaje, ordered in 1824, carries walkers, carts and animals across a fuller river on the camino real.', ['S3'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1840'], landscape: LAND['1840'], ancon: ANCON['1840'] },
+    vegetation: VEG['1840'], landscape: LAND['1840'], infrastructure: INFRA['1840'], ancon: ANCON['1840'] },
   { id: '1900', label: { es: 'Era del azúcar', en: 'Sugar era' }, years: { es: 'décadas de 1900–1910', en: '1900s–1910s' }, date: '1905-04-09',
     summary: s('The Iturregui sugar family runs the crossing for cane workers. A wooden barge is poled across.', ['S1', 'S3'], 'M'),
     river: PRE_DAM,
-    vegetation: VEG['1900'], landscape: LAND['1900'], ancon: ANCON['1900'] },
+    vegetation: VEG['1900'], landscape: LAND['1900'], infrastructure: INFRA['1900'], ancon: ANCON['1900'] },
   { id: '1925', label: { es: 'El ancón de los Cortijo', en: 'The Cortijo ancón' }, years: { es: 'década de 1920', en: '1920s' }, date: '1925-07-26',
     summary: s('Pedro Cortijo buys the ancón in 1920. A plank platform, two mangrove poles, 10 cents a crossing.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1925'], landscape: LAND['1925'], ancon: ANCON['1925'] },
+    vegetation: VEG['1925'], landscape: LAND['1925'], infrastructure: INFRA['1925'], ancon: ANCON['1925'] },
   { id: '1935', label: { es: 'Las sogas', en: 'The ropes' }, years: { es: 'décadas de 1930–1940', en: '1930s–1940s' }, date: '1935-02-17',
     summary: s('Cars arrive. Two taut marine ropes span the river and two or three men haul the platform by hand.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1935'], landscape: LAND['1935'], ancon: ANCON['1935'] },
+    vegetation: VEG['1935'], landscape: LAND['1935'], infrastructure: INFRA['1935'], ancon: ANCON['1935'] },
   { id: '1959', label: { es: 'Públicos', en: 'Públicos' }, years: { es: 'década de 1950', en: '1950s' }, date: '1959-08-02',
     summary: s('The platform grows. Shared taxis (públicos) cross. Upstream, the Carraízo dam tames the river.', ['S1', 'S4', 'S15'], 'M'),
     river: POST_DAM,
-    vegetation: VEG['1959'], landscape: LAND['1959'], ancon: ANCON['1959'] },
+    vegetation: VEG['1959'], landscape: LAND['1959'], infrastructure: INFRA['1959'], ancon: ANCON['1959'] },
   { id: '1975', label: { es: 'Paseos de fin de semana', en: 'Weekend outings' }, years: { es: 'décadas de 1960–1970', en: '1960s–1970s' }, date: '1975-07-27',
     summary: s('Families cross for the day. The Cortijo bar has a terrace over the river. About six cars per trip.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1975'], landscape: LAND['1975'], ancon: ANCON['1975'] },
+    vegetation: VEG['1975'], landscape: LAND['1975'], infrastructure: INFRA['1975'], ancon: ANCON['1975'] },
   { id: '1984', label: { es: 'La barcaza de acero', en: 'The steel barge' }, years: { es: '1980–1986', en: '1980–1986' }, date: '1984-02-17',
     summary: s('A steel-plate barge carries six to eight cars. Next door, the PR-187 bridge rises.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1984'], landscape: LAND['1984'], ancon: ANCON['1984'] },
+    vegetation: VEG['1984'], landscape: LAND['1984'], infrastructure: INFRA['1984'], ancon: ANCON['1984'] },
   { id: '1986', label: { es: 'El puente', en: 'The bridge' }, years: { es: '1986', en: '1986' }, date: '1986-02-17',
-    summary: s('The Puente de la Restauración opened in 1985. Regular ancón service ends in 1986.', ['S1', 'S4', 'S27'], 'H'),
+    summary: s('The Puente de la Restauración is in service by 1986 (some sources say 1985). Regular ancón service ends in 1986.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1986'], landscape: LAND['1986'], ancon: ANCON['1986'] }
+    vegetation: VEG['1986'], landscape: LAND['1986'], infrastructure: INFRA['1986'], ancon: ANCON['1986'] }
 ];
 
 export const ERA_IDS = ERAS.map((e) => e.id);

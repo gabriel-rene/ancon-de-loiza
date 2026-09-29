@@ -15,6 +15,7 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
       uniform sampler2D uInfo; uniform vec4 uRect;
       uniform sampler2D uLitter; uniform vec4 uLitterRect;
       uniform sampler2D uCover; uniform vec4 uCoverRect;
+      uniform sampler2D uGround; uniform vec4 uGroundRect; uniform float uRoadSurface;
       uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uSunI;
       varying vec3 vW; varying vec3 vNw;
       ${SNOISE_GLSL}
@@ -50,6 +51,17 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         vec3 reed = mix(vec3(0.12,0.17,0.05), vec3(0.20,0.22,0.09), n2);
         c = mix(c, reed, 0.6 * cov.g * (1.0 - m.r));
         c *= mix(1.0, mix(0.92, 1.06, n3), cov.r);                                        // grass: slight tuft mottling
+        // Phase 4a: main roads and paths (R) and trodden dirt (G), painted from <Infrastructure>.
+        vec2 gu = (vW.xz - uGroundRect.xy) / uGroundRect.z;
+        float inG = step(0.0, gu.x) * step(gu.x, 1.0) * step(0.0, gu.y) * step(gu.y, 1.0);
+        vec4 gm = texture2D(uGround, gu) * inG;
+        vec3 roadSand = mix(vec3(0.50,0.41,0.27), vec3(0.62,0.51,0.35), n2) * mix(0.9, 1.05, n3);
+        vec3 roadGravel = mix(vec3(0.33,0.31,0.27), vec3(0.44,0.41,0.36), n3);
+        vec3 roadAsphalt = mix(vec3(0.085,0.085,0.09), vec3(0.14,0.14,0.14), n2);
+        vec3 roadC = uRoadSurface < 0.5 ? roadSand : uRoadSurface < 1.5 ? roadGravel : roadAsphalt;
+        vec3 dirt = mix(vec3(0.22,0.16,0.10), vec3(0.32,0.25,0.16), n2) * mix(0.9, 1.05, n3);
+        c = mix(c, dirt, 0.85 * gm.g);
+        c = mix(c, roadC, gm.r);
         float wet = 1.0 - smoothstep(0.05, 0.7, vW.y);
         c *= mix(1.0, 0.5, wet);
         float slope = 1.0 - clamp(vNw.y, 0.0, 1.0);
@@ -61,7 +73,7 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         // at golden hour. Rather than an unshadowed emissive add, tilt the shading normal
         // toward the horizontal sun direction so the effect goes through the normal
         // (shadowed) lighting loop and disappears inside shadows (e.g. under trees).
-        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet) * (1.0 - litter);
+        float grassy = (1.0 - m.r) * (1.0 - m.g) * (1.0 - m.b) * (1.0 - wet) * (1.0 - litter) * (1.0 - gm.r) * (1.0 - gm.g);
         vec3 sunH = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4));
         float lowSun = 1.0 - smoothstep(0.15, 0.6, uSunDir.y);          // only near golden hour
         lowSun *= smoothstep(-0.035, 0.035, uSunDir.y);                 // 0 below horizon (matches atmosphereFor's day ramp)
