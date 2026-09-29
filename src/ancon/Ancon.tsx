@@ -6,7 +6,7 @@ import type { QualitySettings } from '../quality';
 import { useStore } from '../state/store';
 import { sampleField, type WorldFields } from '../terrain/fields';
 import { landingPadsFor, placementFields } from '../terrain/placementFields';
-import { advanceClock } from './crossing';
+import { advanceClock, defaultCrossingStart } from './crossing';
 import { castActors } from './crew';
 import { CrewSet } from './CrewSet';
 import { apronRests, restLift } from './docking';
@@ -62,8 +62,8 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
   const mats = vesselMaterials();
   const hull = useRef<THREE.Group>(null);
   const aprons = useRef<(THREE.Group | null)[]>([]);
-  const clock = useRef(start);
-  useEffect(() => { clock.current = start; }, [start]);
+  const clock = useRef(start ?? defaultCrossingStart(spec.timings));
+  useEffect(() => { clock.current = start ?? defaultCrossingStart(spec.timings); }, [start]);   // era switches keep the running clock (as before)
 
   useFrame((state, dt) => {
     const t0 = performance.now();

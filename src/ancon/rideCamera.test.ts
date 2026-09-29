@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { ERAS } from '../data/eras';
 import { sampleField } from '../terrain/fields';
 import { LANDING_CLEARING } from '../vegetation/masks';
-import { CROSSING_TIMINGS as T, legDuration } from './crossing';
+import { CROSSING_TIMINGS, CROSSING_TIMINGS as T, legDuration } from './crossing';
 import { actorFrame, castActors, createActorFrame } from './crew';
 import { landingClearings } from './geometry';
 import { computeVesselPose, createVesselPose } from './pose';
@@ -177,4 +177,11 @@ test('the steepest, widest drag stays a raised deck view, not a top-down aerial 
     expect(rig.eye.y - c.layout.deckY, e.id).toBeLessThan(20);
     expect(rig.eye.distanceTo(rig.pivot), e.id).toBeLessThan(40);
   }
+});
+
+test('rideYaw follows the timings it is given', () => {
+  const T2 = { ...CROSSING_TIMINGS, load: 40, unload: 30 }, L2 = legDuration(T2);
+  const mid2 = T2.load + T2.castOff + T2.cross / 2;
+  expect(Math.cos(rideYaw(mid2, false, T2))).toBeCloseTo(1, 9);
+  expect(Math.cos(rideYaw(L2 + mid2, false, T2))).toBeCloseTo(-1, 9);
 });

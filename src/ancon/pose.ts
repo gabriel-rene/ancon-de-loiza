@@ -52,7 +52,7 @@ const ONE = new THREE.Vector3(1, 1, 1);
 
 export function computeVesselPose(clock: number, ctx: PoseContext, out: VesselPose): VesselPose {
   const { geom: g, spec, flow, dockEast: e, dockWest: w, lineLen } = ctx, st = out.state;
-  if (spec.moored) mooredState(st); else crossingState(clock, st);
+  if (spec.moored) mooredState(st); else crossingState(clock, st, spec.timings);
   const bump = Math.sin(Math.PI * st.s);                        // 0 at both docks: the crew corrects the drift
   const drift = flow * DRIFT_PER_FLOW[spec.propulsion] * bump;
   const x = e[0] + (w[0] - e[0]) * st.s + RIVER_DIR[0] * drift;

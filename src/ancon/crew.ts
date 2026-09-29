@@ -2,7 +2,7 @@
 import { dressFigure, type FigureLook } from '../people/palettes';
 import type { PoseInput, PoseKind, V3 } from '../people/rig';
 import { hash3 } from '../vegetation/rng';
-import { CROSSING_TIMINGS as T, type CrossingState } from './crossing';
+import { type CrossingState, type CrossingTimings } from './crossing';
 import { clamp01, fract, lerp, lerpAngle, smooth } from './ease';
 import { POLE_LEN } from './pole';
 import { haulerStationX, haulerZ, type SeatAnchor } from './seats';
@@ -17,7 +17,7 @@ export interface Actor {
 }
 /**
  * A passenger's route: along the lane (deck-local z = `lane`) from the departure end to the spot's x, then across
- * to the spot; leaving, the reverse toward the arrival end. Start times (s into the leg) per travel direction
+ * to the spot; leaving, the reverse toward the arrival end. Start times per travel direction (boarding: s into the leg; leaving: s after unload starts)
  * (index 0: travel +1, 1: travel −1), scheduled so nobody walks through anybody (planWalks).
  */
 export interface PassengerWalk { lane: number; board: [number, number]; leave: [number, number] }
@@ -51,7 +51,7 @@ export const WALK_SPEED = 1.4, STRIDE = 1.1, TURN_S = 0.8;
 /** Haulers turn toward their rope line by atan(HAUL_TURN) ≈ 30°. */
 export const HAUL_TURN = 0.58;
 /** Seconds into a leg when unloading starts. */
-export const MOVE_END = T.load + T.castOff + T.cross + T.dock;
+export const moveEnd = (T: CrossingTimings) => T.load + T.castOff + T.cross + T.dock;
 
 export const createActorFrame = (): ActorFrame => ({
   visible: true, pos: [0, 0, 0], yaw: 0, pose: { kind: 'stand', phase: 0 }, handL: [0, 0, 0], handR: [0, 0, 0],
@@ -106,8 +106,8 @@ function crewRoom(spec: VesselSpec, L: DeckLayout) {
 
 /** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers. */
 export const laneZ = (spec: VesselSpec, L: DeckLayout) => (spec.propulsion === 'ropes' ? Math.min(LANE_Z, Math.abs(haulerZ(1, L)) - 0.5) : LANE_Z);
-/** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start; spacing in single file (m). */
-export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = MOVE_END + 0.3, FILE_GAP = 0.8;
+/** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start (s after unload starts); spacing in single file (m). */
+export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = 0.3, FILE_GAP = 0.8;
 
 /**
  * Collision-free boarding and leaving. Boarding, the farthest spot boards first (ties: the spot farther from the lane),
@@ -299,6 +299,7 @@ function stroke(t: number, i: number, side: number, z: number, tr: number, L: De
   return strokeOut;
 }
 function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
   const rail = L.deckY + (spec.kind === 'timberBarge' ? GUNWALE_TOP : 0);
   const i = a.index, side = i % 2 === 0 ? 1 : -1, z = side * (L.halfBeam - 0.45), tr = st.travel, tau = st.tLeg;
   const inboard = side > 0 ? Math.PI : 0, tEnd = MOVE_END - T.load;
@@ -340,17 +341,18 @@ function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: Ac
   else applyShape(mixShape(poleShape('upright', x, z, side, tr, 0, L, sB), poleShape('carry', x, z, side, tr, 0, L, sA), clamp01((tau - tw) / LIFT_SWING), sE, true), f);
 }
 /** Polers start back to their next stroke position once the helmsman is on his way (his pole shipped). */
-const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L) : MOVE_END) + 0.5;
+const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L, spec.timings) : moveEnd(spec.timings)) + 0.5;
 
 // ---- helmsman ----
 /** The helmsman crosses the deck at the very end of unloading, after the passengers have gone ashore (they leave by ≈ MOVE_END + 8 s). */
-const helmWalkStart = (L: DeckLayout) => MOVE_END + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
+const helmWalkStart = (L: DeckLayout, T: CrossingTimings) => moveEnd(T) + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
 /**
  * He carries the pole tip-first to the far end (tip toward +travel of the leg just ended), so at the start of the
  * next leg he only lowers the tip into the water astern. The one reversal per leg is the swing when he ships the
  * steering pole (in front of him, across the empty deck) just before setting off.
  */
-function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+function helmsman(st: CrossingState, clock: number, { spec, layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
   const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
   const sweep = 0.22 * Math.sin(clock * 0.45) * (0.3 + 0.7 * st.effort);
   if (tau < MOVE_END) {
@@ -362,7 +364,7 @@ function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: 
     return;
   }
   // Unload: keep steering at the trailing end, ship the pole, then walk the centreline to the far end.
-  const t0 = helmWalkStart(L), d = 2 * (L.halfLength - 0.5), walked = clamp01((tau - t0) / (d / WALK_SPEED)) * d, x = xEnd + tr * walked;
+  const t0 = helmWalkStart(L, T), d = 2 * (L.halfLength - 0.5), walked = clamp01((tau - t0) / (d / WALK_SPEED)) * d, x = xEnd + tr * walked;
   const kShip = clamp01((tau - t0 + SHIP_S) / SHIP_S), kTurn = smooth(clamp01((tau - t0) / TURN_S));
   set3(f.pos, x, L.deckY, 0);
   f.yaw = lerpAngle(0, faceDir(tr, 0), kTurn);
@@ -376,12 +378,13 @@ function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: 
 
 // ---- passengers ----
 const LANE_Z = 0.6, SPOT_TURN = 1.2 * TURN_S;
-function passenger(a: Actor, st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
+function passenger(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
   const w = a.walk!, k = st.travel > 0 ? 0 : 1, spot = a.spot!, tau = st.tLeg, tr = st.travel, V = WALK_SPEED;
   const sx = spot.pos[0], sz = spot.pos[2], lz = w.lane, xIn = -tr * L.halfLength, xOut = tr * L.halfLength;
   const lat = Math.abs(sz - lz), toSpot = Math.sign(sz - lz);
   const b0 = w.board[k], bc = b0 + Math.abs(sx - xIn) / V, b1 = bc + lat / V;
-  const l0 = w.leave[k], lc = l0 + lat / V, l1 = lc + Math.abs(xOut - sx) / V;
+  const l0 = MOVE_END + w.leave[k], lc = l0 + lat / V, l1 = lc + Math.abs(xOut - sx) / V;
   const along = faceDir(tr, 0), across = lat > 1e-6 ? faceDir(0, toSpot) : along, back = lat > 1e-6 ? faceDir(0, -toSpot) : along;
   f.pose.kind = 'walk';
   if (tau < b0 || tau >= l1) { f.visible = false; set3(f.pos, xIn, L.deckY, lz); f.yaw = along; return; }

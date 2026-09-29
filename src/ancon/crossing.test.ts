@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { advanceClock, createCrossingState, CROSSING_TIMINGS as T, crossingState, legDuration, mooredState, PHASES } from './crossing';
+import { advanceClock, createCrossingState, CROSSING_TIMINGS, CROSSING_TIMINGS as T, crossingState, legDuration, mooredState, PHASES } from './crossing';
 
 const L = legDuration();
 const at = (c: number) => ({ ...crossingState(c, createCrossingState()) });
@@ -73,4 +73,11 @@ describe('crossing state machine', () => {
     expect(mooredState(o)).toBe(o);
     expect([o.phase, o.s, o.v, o.slack, o.effort]).toEqual(['load', 0, 0, 1, 0]);
   });
+});
+
+import { defaultCrossingStart } from './crossing';
+
+test('the default start is 8 s before cast-off for any timings', () => {
+  expect(defaultCrossingStart(CROSSING_TIMINGS)).toBe(12);
+  expect(defaultCrossingStart({ ...CROSSING_TIMINGS, load: 45 })).toBe(37);
 });
