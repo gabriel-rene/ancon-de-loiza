@@ -2,14 +2,33 @@ import { describe, expect, test } from 'vitest';
 import { ERAS, getEra } from '../data/eras';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
-import { toWorld } from '../infrastructure/parts';
+import { waterAt } from '../ancon/geometry';
+import { toWorld, type Footprint } from '../infrastructure/parts';
+import { bridgeWay, eraRoads } from '../infrastructure/roads';
+import { stationLayout, upstreamSign } from '../infrastructure/station';
+import { sampleField, WATER } from '../terrain/fields';
+import { landingPadsFor, placementFields } from '../terrain/placementFields';
 import { LANDING_CLEARING } from '../vegetation/masks';
-import { distToLine, inRing, LOT, rectsOverlap } from './layout';
+import { CIRCLE_R, clipToCircle, TOWN_CENTRE } from './constants';
+import { churchReach, distToLine, inRing, LOT, rectLineDist, rectRingOverlap, rectsOverlap } from './layout';
 import { eraTown, lookOf, lotRules, lotsFor, STREET, townBlocked, type HouseLook } from './town';
 
 const G = geo as unknown as GeoBundle;
 const ORDER: Record<HouseLook, number> = { hut: 0, wood: 1, concrete: 2 };
 const town = (e: (typeof ERAS)[number]) => eraTown(e.river.bankOffset.value, e);
+
+describe('clipToCircle', () => {
+  const [cx, cz] = TOWN_CENTRE, R = CIRCLE_R;
+  test('cuts at the edge, keeps inside pieces, splits a line that leaves and comes back', () => {
+    const [a] = clipToCircle([[cx - 2 * R, cz], [cx, cz]]);
+    expect(a[0][0]).toBeCloseTo(cx - R, 6); expect(a[0][1]).toBeCloseTo(cz, 6); expect(a[1]).toEqual([cx, cz]);
+    expect(clipToCircle([[cx + 2 * R, cz], [cx + 3 * R, cz]])).toEqual([]);
+    const p = clipToCircle([[cx - 10, cz], [cx + 2 * R, cz], [cx + 2 * R, cz + 20], [cx + 10, cz + 20]]);
+    expect(p).toHaveLength(2);
+    expect(p[0][0]).toEqual([cx - 10, cz]); expect(p[0][1][0]).toBeCloseTo(cx + R, 6);
+    expect(Math.hypot(p[1][0][0] - cx, p[1][0][1] - cz)).toBeCloseTo(R, 6); expect(p[1][1]).toEqual([cx + 10, cz + 20]);
+  });
+});
 
 describe('lots on the real map', () => {
   test('enough lots, none overlapping, none in the landing clearing', () => {
@@ -57,17 +76,48 @@ describe('era town', () => {
       for (let i = 0; i < hs.length; i++) for (let j = i + 1; j < hs.length; j++) expect(rectsOverlap(hs[i].fp, hs[j].fp)).toBe(false);
     }
   });
-  test('streets: town kinds in the circle, each within 15 m of a shown house; more streets later', () => {
+  const srcOf = (id: string) => G.roads.find((r) => r.id === id.split('#')[0])!;
+  const numbered = (id: string) => ['PR-951', 'PR-188'].includes(srcOf(id).ref ?? '');
+  test('streets: town kinds (and numbered roads before 1935) within 15 m of a shown house; more streets later', () => {
     for (const e of ERAS) {
       const t = town(e);
       for (const s of t.streets) {
-        const src = G.roads.find((r) => r.id === s.id)!;
-        expect(Object.keys(STREET.kinds)).toContain(src.kind);
+        if (numbered(s.id) && Number(e.id) < 1935) expect(['tertiary', 'secondary']).toContain(srcOf(s.id).kind);
+        else expect(Object.keys(STREET.kinds)).toContain(srcOf(s.id).kind);
         expect(t.houses.some((h) => distToLine(s.points, h.fp.c[0], h.fp.c[1]) <= STREET.reach)).toBe(true);
       }
+      if (Number(e.id) >= 1935) expect(t.streets.some((s) => numbered(s.id))).toBe(false);   // then eraRoads paints them whole
     }
     expect(town(getEra('1986')).streets.length).toBeGreaterThanOrEqual(town(getEra('1840')).streets.length);
     expect(town(getEra('1986')).streets.length).toBeGreaterThan(0);
+  });
+  test('no painted street point lies outside the town circle, in any era', () => {
+    for (const e of ERAS) for (const s of town(e).streets) for (const [x, z] of s.points) {
+      expect(Math.hypot(x - TOWN_CENTRE[0], z - TOWN_CENTRE[1]), `${e.id} ${s.id}`).toBeLessThanOrEqual(CIRCLE_R + 0.01);
+    }
+  });
+  test('before 1935 the numbered roads paint only in-town pieces; Calle Espíritu Santo shows in 1840', () => {
+    for (const e of ERAS.filter((x) => Number(x.id) < 1935)) {
+      const pieces = town(e).streets.filter((s) => numbered(s.id));
+      for (const s of pieces) for (const [x, z] of s.points) expect(Math.hypot(x - TOWN_CENTRE[0], z - TOWN_CENTRE[1])).toBeLessThanOrEqual(CIRCLE_R + 0.01);
+    }
+    expect(town(getEra('1840')).streets.some((s) => s.id.startsWith('22182173#'))).toBe(true);
+  });
+  test('no house overlaps the church, the plaza, a story road or the 4a station (real data, every era)', () => {
+    for (const e of ERAS) {
+      const t = town(e), reach = churchReach(t.church), bank = e.river.bankOffset.value, f = placementFields(bank);
+      const dryAt = (x: number, z: number) => waterAt(f, x, z) === WATER.LAND && sampleField(f, f.shore, x, z) >= 2;
+      const [east] = landingPadsFor(bank), v = e.infrastructure, gone = v.bridge.value !== 'none' && !v.neighbourHouse.value;
+      const st = stationLayout(east, v.station.value, gone, upstreamSign(east, bridgeWay(G)), dryAt);
+      const station = [st.house, st.terrace, st.shelter, v.neighbourHouse.value ? st.neighbour : null].filter(Boolean) as Footprint[];
+      expect(station.length).toBeGreaterThan(0);
+      for (const h of t.houses) {
+        expect(rectsOverlap(h.fp, reach), `${e.id} ${h.id} church`).toBe(false);
+        expect(rectRingOverlap(h.fp, t.plaza), `${e.id} ${h.id} plaza`).toBe(false);
+        for (const r of eraRoads(G, e).story) expect(rectLineDist(h.fp, r.points), `${e.id} ${h.id} ${r.id}`).toBeGreaterThan(r.width / 2);
+        for (const s of station) expect(rectsOverlap(h.fp, s), `${e.id} ${h.id} station`).toBe(false);
+      }
+    }
   });
   test('plaza: 6–10 trees inside it; yards, church and plaza get dirt', () => {
     const t = town(getEra('1975'));

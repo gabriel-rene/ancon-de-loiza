@@ -6,11 +6,11 @@ import { landmarkXZ } from '../data/landmarks';
 import { BRIDGE } from '../infrastructure/bridge';
 import type { DirtPatch } from '../infrastructure/groundMask';
 import type { Footprint } from '../infrastructure/parts';
-import { bridgeWay, ROAD_WIDTH, STORY_WAYS, STORY_WIDTH, type SimpleRoad, type StoryId } from '../infrastructure/roads';
+import { bridgeWay, FROM_1935, ROAD_WIDTH, STORY_WAYS, STORY_WIDTH, type SimpleRoad, type StoryId } from '../infrastructure/roads';
 import { padPoint } from '../terrain/landingPads';
 import { landingPadsFor } from '../terrain/placementFields';
 import { cellRng } from '../vegetation/rng';
-import { CIRCLE_R, inTownCircle, TOWN_CENTRE } from './constants';
+import { CIRCLE_R, clipToCircle, inTownCircle, TOWN_CENTRE } from './constants';
 import { churchPlan, churchReach, distToLine, inRing, orientedBox, plazaRing, toLocal, townLots, type ChurchPlan, type Lot, type LotRules } from './layout';
 
 /**
@@ -66,11 +66,15 @@ function house(l: Lot, look: HouseLook): House {
 }
 const dirtOf = (f: Footprint, pad: number): DirtPatch => ({ c: f.c, axis: [Math.cos(f.yaw), -Math.sin(f.yaw)], hu: f.hx + pad, hv: f.hz + pad });
 
-function townStreets(g: GeoBundle, houses: House[]): SimpleRoad[] {
-  return g.roads
-    .filter((r) => Object.hasOwn(STREET.kinds, r.kind) && !r.bridge && inTownCircle(r.points) &&
-      houses.some((h) => distToLine(r.points, h.fp.c[0], h.fp.c[1]) <= STREET.reach))
-    .map((r) => ({ id: r.id, points: r.points, width: STREET.kinds[r.kind] }));
+/**
+ * Town streets (spec 4b §2): the town kinds and, before 1935, the numbered roads (eraRoads hides them whole then),
+ * clipped to the circle; each piece is painted when a shown house stands within STREET.reach of it.
+ */
+function townStreets(g: GeoBundle, houses: House[], year: number): SimpleRoad[] {
+  return g.roads.filter((r) => !r.bridge && (Object.hasOwn(STREET.kinds, r.kind) ||
+      (year < 1935 && !!r.ref && FROM_1935.has(r.ref) && Object.hasOwn(ROAD_WIDTH, r.kind))))
+    .flatMap((r) => clipToCircle(r.points).map((points, k) => ({ id: `${r.id}#${k}`, points, width: STREET.kinds[r.kind] ?? ROAD_WIDTH[r.kind] })))
+    .filter((s) => houses.some((h) => distToLine(s.points, h.fp.c[0], h.fp.c[1]) <= STREET.reach));
 }
 
 /** Almendros at the corners, palms at the edge middles, inset to 70–75 % of the plaza's half size (inferred, L). */
@@ -98,7 +102,7 @@ export function eraTown(bank: number, era: Era, g: GeoBundle = G): EraTown {
   const houses = all.slice(0, Math.round(all.length * t.houseShare.value)).map((l) => house(l, lookOf(l.u, t)));
   const church = churchPlan(g), plaza = plazaRing(g);
   const out: EraTown = {
-    houses, streets: townStreets(g, houses), church, plaza, plazaTrees: plazaTrees(plaza),
+    houses, streets: townStreets(g, houses, Number(era.id)), church, plaza, plazaTrees: plazaTrees(plaza),
     dirt: [...houses.map((h) => dirtOf(h.fp, 1.5)), dirtOf(churchReach(church), 2), dirtOf(orientedBox(plaza), 0)],
   };
   if (g === G) cache.set(key, out);

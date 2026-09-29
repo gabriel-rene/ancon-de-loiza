@@ -3,7 +3,6 @@ import { ERAS, getEra } from '../data/eras';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { BRIDGE_WAY, eraRoads, PR187_WAY, STORY_WAYS } from './roads';
-import { inTownCircle } from '../town/constants';
 
 const G = geo as unknown as GeoBundle;
 
@@ -26,14 +25,14 @@ describe('era roads', () => {
     const n = eraRoads(G, getEra('1975')).simple.length;
     expect(n).toBeGreaterThan(10); expect(n).toBeLessThan(40);   // "only a handful": ~30 of 263
   });
-  test('PR-951 and PR-188 appear from 1935; town streets that carry PR-951 show in every era (4b)', () => {
-    const ids = (id: '1840' | '1925' | '1935') => new Set(eraRoads(G, getEra(id)).simple.map((r) => r.id));
-    for (const r of G.roads.filter((x) => !x.bridge && (x.ref === 'PR-951' || x.ref === 'PR-188'))) {
+  test('PR-951 and PR-188 appear from 1935 (their in-town pieces before 1935 come from town.ts)', () => {
+    const ids = (id: '1840' | '1925' | '1935' | '1986') => new Set(eraRoads(G, getEra(id)).simple.map((r) => r.id));
+    const numbered = G.roads.filter((x) => x.ref === 'PR-951' || x.ref === 'PR-188');
+    for (const r of numbered.filter((x) => !x.bridge)) {
+      expect(ids('1840').has(r.id)).toBe(false); expect(ids('1925').has(r.id)).toBe(false);
       expect(ids('1935').has(r.id)).toBe(true);
-      expect(ids('1925').has(r.id)).toBe(inTownCircle(r.points));
     }
-    expect(ids('1840').has('22182173')).toBe(true);   // Calle Espíritu Santo, past the church
-    expect(ids('1925').has('22179753')).toBe(false);  // PR-951 outside the town
+    for (const r of numbered.filter((x) => x.bridge)) expect(ids('1986').has(r.id)).toBe(false);
   });
   test('surface follows the era', () => {
     expect(ERAS.map((e) => eraRoads(G, e).surface)).toEqual(ERAS.map((e) => e.infrastructure.roadSurface.value));
