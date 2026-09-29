@@ -5,11 +5,13 @@ import { LOT, type ChurchPlan } from './layout';
 
 /**
  * Parroquia del Espíritu Santo y San Patricio (spec 4b §2): one nave with massive walls and buttresses, a
- * two-storey three-bay front, a belfry with two bells [S14] H, on its OSM outline [S26] H. The front is the
- * end facing the plaza; the tower stands beside the front on the nave's +Z side. Heights, the low barrel
- * roof, the tower side and the lime-white paint are inferred (L). Same in every era (1729 enlargement).
+ * two-storey three-bay front, a belfry (bell gable) with two open-arch bells over the front [S14] H, on its
+ * OSM outline [S26] H. The front is the end facing the plaza; the bell gable stands on its centre bay, two
+ * bells side by side in one open arch, a cross on top. Heights, the low barrel roof and the lime-white
+ * paint are inferred (L). Same in every era (1729 enlargement).
  */
-export const CHURCH = { wall: 9, front: 13, towerBase: 13, belfry: 4, tower: 4, buttressEvery: 6 } as const;
+/** Heights (m) above the floor; gable = bell-gable width, arch = its opening height, buttress = depth past the wall. */
+export const CHURCH = { wall: 9, front: 13, gable: 4, arch: 2.6, buttress: 1.6, buttressEvery: 6 } as const;
 export const CHURCH_TRIANGLES = 2000;
 const LIME = 0xeeeae0, TRIM = 0xd9d2c3, DARK = 0x1d1b19, BRONZE = 0x5a4a32;
 
@@ -33,7 +35,7 @@ export function buildChurch(b: Builders, p: ChurchPlan, g: GroundAt) {
   // Buttresses along both long walls.
   const n = Math.max(2, Math.floor((2 * hx) / CHURCH.buttressEvery));
   for (let k = 0; k < n; k++) for (const s of [-1, 1]) {
-    box(c, f, [1.2, top - 1 - base, 1.6], -hx + ((k + 0.5) * 2 * hx) / n, (top - 1 + base) / 2, s * (hz + 0.8), LIME);
+    box(c, f, [1.2, top - 1 - base, CHURCH.buttress], -hx + ((k + 0.5) * 2 * hx) / n, (top - 1 + base) / 2, s * (hz + CHURCH.buttress / 2), LIME);
   }
 
   // Front: wall, cornice between the storeys, four pilasters (three bays), top, door, upper windows.
@@ -45,22 +47,19 @@ export function buildChurch(b: Builders, p: ChurchPlan, g: GroundAt) {
   box(b.iron, f, [0.1, 4, 2.2], fx + e * 0.45, floor + 2, 0, DARK);
   for (const lz of [(-2 * hz) / 3, 0, (2 * hz) / 3]) box(b.iron, f, [0.1, 1.8, 1.0], fx + e * 0.45, floor + 9, lz, DARK);
 
-  // Bell tower beside the front, on the +Z side: base, four belfry piers, cap, dome, cross, two bells.
-  const w = CHURCH.tower, tl = e * (hx - w / 2), tz = hz + w / 2, tb = floor + CHURCH.towerBase, bf = CHURCH.belfry;
-  box(c, f, [w, tb - base, w], tl, (tb + base) / 2, tz, LIME);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(c, f, [0.8, bf, 0.8], tl + sx * (w / 2 - 0.4), tb + bf / 2, tz + sz * (w / 2 - 0.4), LIME);
-  box(c, f, [w + 0.2, 0.4, w + 0.2], tl, tb + bf + 0.2, tz, TRIM);
-  const [tx, tzw] = toWorld(f, tl, tz), domeY = tb + bf + 0.4;
-  const dome = new THREE.ConeGeometry(w / 2, 2.2, 8, 1);
-  dome.translate(tx, domeY + 1.1, tzw);
-  c.add(dome, LIME);
-  b.iron.box([0.12, 1.2, 0.12], [tx, domeY + 2.8, tzw], DARK, 0, f.yaw);
-  b.iron.box([0.6, 0.12, 0.12], [tx, domeY + 2.95, tzw], DARK, 0, f.yaw);
+  // Bell gable (espadaña) on the centre bay, over the front's top: two piers and a top around one open
+  // arch, a cross on top, two bells side by side in the arch on a beam.
+  const y0 = floor + H + 1.6, W = CHURCH.gable, A = CHURCH.arch, pier = 0.9;
+  for (const s of [-1, 1]) box(c, f, [0.8, A, pier], fx, y0 + A / 2, s * (W / 2 - pier / 2), LIME);
+  box(c, f, [0.8, 1.0, W], fx, y0 + A + 0.5, 0, LIME);
+  box(b.iron, f, [0.12, 1.4, 0.12], fx, y0 + A + 1.7, 0, DARK);
+  box(b.iron, f, [0.12, 0.12, 0.7], fx, y0 + A + 1.95, 0, DARK);
+  box(b.iron, f, [0.1, 0.1, W - 2 * pier], fx, y0 + A - 0.15, 0, DARK);
   for (const s of [-1, 1]) {
-    const [bx, bz] = toWorld(f, tl + s * 0.8, tz);
-    b.iron.cylinder(0.3, 0.5, 0.8, [bx, tb + 1.6, bz], BRONZE, 'y', 8);
+    const [bx, bz] = toWorld(f, fx, s * 0.52);
+    b.iron.cylinder(0.25, 0.42, 0.7, [bx, y0 + A - 0.6, bz], BRONZE, 'y', 8);
   }
 }
 
-// The tower (tz + w/2 = hz + w) must stay inside churchReach (hz + LOT.churchReach).
-if (CHURCH.tower > LOT.churchReach) throw new Error('church tower wider than LOT.churchReach');
+// Every side part (the buttresses reach furthest) stays ≥ 1 m inside churchReach (hz + LOT.churchReach).
+if (CHURCH.buttress + 1 > LOT.churchReach) throw new Error('church buttresses closer than 1 m to LOT.churchReach');

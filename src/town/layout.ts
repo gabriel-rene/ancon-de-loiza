@@ -12,10 +12,10 @@ import { CIRCLE_R } from './constants';
  */
 export const CHURCH_WAY = '430399958';   // building=church, Iglesia de San Patricio [S14][S26]
 export const PLAZA_WAY = '429703572';    // leisure=park, Plaza Don Ricardo Sanjurjo [S26]
-/** Half sizes (m) per look, rank jitter (m), gap between lots (m), church reach past its nave sides for the tower (m). Inferred (L). */
+/** Half sizes (m) per look, rank jitter (m), gap between lots (m), church reach past its nave sides (buttresses + 1.4 m, church.ts) (m). Inferred (L). */
 export const LOT = {
   wood: { hx: [2.5, 4.5], hz: [2, 3.5] }, concrete: { hx: [3, 7], hz: [2.5, 6] },
-  jitter: 40, gap: 1, churchReach: 5,
+  jitter: 40, gap: 1, churchReach: 3,
 } as const;
 
 export interface Lot {
@@ -135,7 +135,7 @@ export function churchPlan(geo: GeoBundle): ChurchPlan {
   const fp = orientedBox(outline(geo, 'buildings', CHURCH_WAY).ring), [px, pz] = centroid(plazaRing(geo));
   return { fp, front: toLocal(fp, px, pz)[0] >= 0 ? 1 : -1 };
 }
-/** The church's whole reach: nave, front (+1 m) and the tower beside it (church.ts). */
+/** The church's whole reach: nave, front with its bell gable (+1 m) and the buttresses on the sides (church.ts). */
 export const churchReach = (p: ChurchPlan): Footprint => ({ ...p.fp, hx: p.fp.hx + 1, hz: p.fp.hz + LOT.churchReach });
 
 export function townLots(geo: GeoBundle, r: LotRules): Lot[] {

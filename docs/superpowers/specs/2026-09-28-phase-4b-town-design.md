@@ -23,7 +23,7 @@ Not in 4b: vehicles, carts, animals, crowds (4c); plaza furniture (benches, lamp
 Build only what the `ride` camera shows (low, on deck). The town is 150–350 m from the ferry, behind the station. So:
 
 - Houses are simple shapes; doors, windows and shutters are painted on a texture, not modelled.
-- The church gets full detail: its front and bell tower show above the roofs.
+- The church gets full detail: its front and bell gable show above the roofs.
 - The plaza ground is hidden by houses from the deck; only its trees can show. So the plaza gets open ground and trees only.
 - Only outlines within 350 m of the east landing are used (123 outlines today). The west bank has 7 within 350 m of its landing; they are left out.
 
@@ -48,7 +48,7 @@ Rules:
 - **Dropped outlines.** An outline is never used if it touches the landing clearing (22 m, `LANDING_CLEARING`), the 4a station footprints, a story road, the bridge corridor, the church outline or the plaza. The station's houses stay 4a's (the Cortijo house is one of the OSM outlines).
 - **Which look.** Each house gets a fixed random number (seeded by its OSM id). The era's shares turn that number into a look. So a house that is concrete in 1975 stays concrete in 1984.
 - **Size.** Today's outlines are larger than old houses. For thatch and wood looks, the house is a rectangle inside the outline's oriented bounding box, clamped to 5–9 m × 4–7 m. Concrete houses use the bounding box, clamped to 6–14 m × 5–12 m.
-- **Church.** Same shape in every era: it was built in 1645 and enlarged in 1729 [S14] H. Single nave, massive walls and buttresses, two-storey three-bay front, bell tower with two bells [S14] H. Position and outline from OSM (`building=church`) [S26] H. Wall colour lime-white, inferred L (fact check to confirm or correct).
+- **Church.** Same shape in every era: it was built in 1645 and enlarged in 1729 [S14] H. Single nave, massive walls and buttresses, two-storey three-bay front, belfry (bell gable) with two open-arch bells over the front [S14] H. Position and outline from OSM (`building=church`) [S26] H. Wall colour lime-white and the low exterior barrel roof, inferred L (fact check: no source states either).
 - **Plaza.** Plaza Don Ricardo Sanjurjo, position from OSM [S26] H. Open trodden ground and 6–10 trees (almendro and palm, existing species), inferred L.
 - **Streets.** OSM `residential` and `service` roads inside the 350 m circle are painted into the ground mask only where an era's house stands within 15 m of them. Same surface-by-era rule as 4a (sand, gravel, asphalt).
 - **4a fix.** The PR-951 gate before 1935 applies only to the PR-951 highway segments outside the town circle; town streets that carry the number follow the street rule above.
@@ -65,7 +65,7 @@ New folder `src/town/`, pure logic and components side by side (repo pattern, as
 | `layout.ts` | Pure. Oriented rectangles from outlines; the lots (outlines kept after the drops and overlaps, ranked); the church plan (outline, front end); the plaza ring. |
 | `town.ts` | Pure. One era's town: houses and looks (`hut`, `wood`, `concrete`), paint, town streets, yard dirt, plaza trees, and the no-plants test. |
 | `houseMesh.ts` | Pure geometry. Zocos, walls, gable zinc roof or thatched hip roof (wood, huts), or flat roof with parapet (concrete). Doors, windows and shutters are flat dark or painted pieces. |
-| `church.ts` | Pure geometry. Nave with a low barrel roof, buttresses, three-bay two-storey front, bell tower with two bells, on the OSM church outline. |
+| `church.ts` | Pure geometry. Nave with a low barrel roof, buttresses, three-bay two-storey front, bell gable with two bells in one open arch over the front, on the OSM church outline. |
 | `build.ts` | One era's town meshes (one per material) and the §4 budget. |
 | `Town.tsx` | Mounts the era's town. Rebuilds only on era or tier change. |
 | Vegetation | A no-plants patch per shown house (1 m past its walls), the church and the plaza, per era. |

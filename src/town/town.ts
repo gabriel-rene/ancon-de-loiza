@@ -109,7 +109,7 @@ export function eraTown(bank: number, era: Era, g: GeoBundle = G): EraTown {
   return out;
 }
 
-/** Plants keep out of every shown house (+1 m), the church with its tower (+2 m) and the plaza. */
+/** Plants keep out of every shown house (+1 m), the church (+2 m) and the plaza. */
 export function townBlocked(t: EraTown): (x: number, z: number) => boolean {
   const reach = churchReach(t.church);
   const rects: Footprint[] = [...t.houses.map((h) => ({ ...h.fp, hx: h.fp.hx + 1, hz: h.fp.hz + 1 })), { ...reach, hx: reach.hx + 2, hz: reach.hz + 2 }];
