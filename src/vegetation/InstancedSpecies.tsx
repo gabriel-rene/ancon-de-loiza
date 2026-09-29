@@ -41,6 +41,8 @@ interface VariantLod {
 
 /** Per-variant impostor: baked texture, crossed-card geometry and its card materials. */
 interface Bake { texture: THREE.Texture; card: THREE.BufferGeometry; mats: MatPair }
+/** The bakes of one plant, tagged with the variants and materials they were baked from. */
+interface Bakes { variants: PlantPart[][]; materials: PlantMaterials; list: (Bake | null)[] }
 
 const LOD_INTERVAL = 0.25; // s
 const LOD_MOVE = 8;        // m, horizontal: redo the split at once after this move
@@ -144,7 +146,7 @@ export function InstancedSpecies({ variants, materials, instances, lod0, reflLod
   const statsRef = useRef<{ near: number; far: number } | null>(null);
   const split = useRef(new Uint32Array(4));
   const view = useRef({ wedge: newWedge(), cur: newWedge(), rays: new Float32Array(12), box: newLightBox(), tx: 0, tz: 0, sun: new THREE.Vector3() });
-  const [bakes, setBakes] = useState<(Bake | null)[] | null>(null);
+  const [bakes, setBakes] = useState<Bakes | null>(null);
 
   // Impostor bakes depend only on the plant (variants + materials), not on where it stands, so
   // a new instance set (era / quality change) reuses them.
@@ -159,10 +161,8 @@ export function InstancedSpecies({ variants, materials, instances, lod0, reflLod
       return { texture, card, mats };
     });
     vegTiming.bakeMs += performance.now() - t0;
-    setBakes(out);
+    setBakes({ variants, materials, list: out });
     return () => {
-      // Clear the bakes before disposing them, so the mesh-build effect below (which may still be
-      // scheduled to run on stale `bakes`) sees null and skips instead of using disposed resources.
       setBakes(null);
       for (const b of out) if (b) { b.card.dispose(); b.texture.dispose(); b.mats.material.dispose(); b.mats.depth.dispose(); }
     };
@@ -170,12 +170,16 @@ export function InstancedSpecies({ variants, materials, instances, lod0, reflLod
 
   useEffect(() => {
     const g = group.current;
-    if (!g || !bakes || bakes.length !== variants.length) return;
+    // When the plant changes (palm age), this effect runs in the same commit as the bake effect
+    // above, while `bakes` still holds the old plant's bakes, which that effect's cleanup just
+    // disposed. Building cards from them would re-upload the disposed card geometry and texture,
+    // and nothing would free them again. Skip: the new bakes arrive on the next render.
+    if (!g || !bakes || bakes.variants !== variants || bakes.materials !== materials) return;
     const out: VariantLod[] = [];
     const ext = plantExtent(variants);
     variants.forEach((parts, v) => {
       const list = instances.filter((p) => p.variant === v);
-      const n = list.length, bake = bakes[v];
+      const n = list.length, bake = bakes.list[v];
       if (n === 0 || !bake) return;
       const matrices = composeInstanceMatrices(list);
       const xs = new Float32Array(n), zs = new Float32Array(n), rs = new Float32Array(n), ys = new Float32Array(n), ls = new Float32Array(n);
