@@ -29,6 +29,8 @@ describe('era roads', () => {
     const refs = (id: '1925' | '1935') => new Set(eraRoads(G, getEra(id)).simple.map((r) => G.roads.find((x) => x.id === r.id)!.ref));
     expect(refs('1925').has('PR-951')).toBe(false);
     expect(refs('1935').has('PR-951')).toBe(true);
+    expect(refs('1925').has('PR-188')).toBe(false);
+    expect(refs('1935').has('PR-188')).toBe(true);
   });
   test('surface follows the era', () => {
     expect(ERAS.map((e) => eraRoads(G, e).surface)).toEqual(ERAS.map((e) => e.infrastructure.roadSurface.value));

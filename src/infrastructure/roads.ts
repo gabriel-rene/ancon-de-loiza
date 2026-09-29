@@ -33,7 +33,7 @@ export function eraRoads(geo: GeoBundle, era: Era): EraRoads {
   const skip = new Set([...Object.values(STORY_WAYS), BRIDGE_WAY]);
   const year = Number(era.id);
   const simple = geo.roads
-    .filter((r) => r.kind in ROAD_WIDTH && !r.bridge && !skip.has(r.id) && !(r.ref && FROM_1935.has(r.ref) && year < 1935))
+    .filter((r) => Object.hasOwn(ROAD_WIDTH, r.kind) && !r.bridge && !skip.has(r.id) && !(r.ref && FROM_1935.has(r.ref) && year < 1935))
     .map((r) => ({ id: r.id, points: r.points, width: ROAD_WIDTH[r.kind] }));
   return { story, simple, surface: era.infrastructure.roadSurface.value };
 }
