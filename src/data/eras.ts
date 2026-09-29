@@ -237,7 +237,7 @@ export const ERAS: Era[] = [
     river: POST_DAM,
     vegetation: VEG['1984'], landscape: LAND['1984'], infrastructure: INFRA['1984'], ancon: ANCON['1984'] },
   { id: '1986', label: { es: 'El puente', en: 'The bridge' }, years: { es: '1986', en: '1986' }, date: '1986-02-17',
-    summary: s('The Puente de la Restauración opened in 1985. Regular ancón service ends in 1986.', ['S1', 'S4', 'S27'], 'H'),
+    summary: s('The Puente de la Restauración is in service by 1986 (some sources say 1985). Regular ancón service ends in 1986.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
     vegetation: VEG['1986'], landscape: LAND['1986'], infrastructure: INFRA['1986'], ancon: ANCON['1986'] }
 ];

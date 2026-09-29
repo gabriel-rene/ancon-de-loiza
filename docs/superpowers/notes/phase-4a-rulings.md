@@ -118,4 +118,4 @@ Minor items parked by the task and final reviews (none block 4a):
 - The station `fitInland` slide is capped at 10 m; real layouts needed no slide, and `build.test` guards the clearing.
 - Test gaps: no multi-road strip index test; no rotated-pad landing test; bridge open-state test does not assert rails and lamps; vegetation corridor and placement key have no test.
 - Pre-existing (not 4a): `tests/e2e/leak.spec.ts` fails with the same numbers on the pre-4a base (+18 geometries, +18 textures per era cycle).
-- Content (not changed in 4a): `src/data/facts.ts` and the 1986 era summary say the bridge opened in 1985; S1 gives 1986, S3 gives 1985. For the user to decide.
+- Bridge year (user ruling 2026-09-28, option A): the facts panel and the 1986 summary now say "in service by 1986 (some sources say 1985)".
