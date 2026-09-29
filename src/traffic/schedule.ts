@@ -1,11 +1,12 @@
 import { CROSSING_TIMINGS, legDuration, type CrossingTimings } from '../ancon/crossing';
+import { NO_LOAD, type DeckLoad } from '../ancon/crew';
 import { makePoseContext } from '../ancon/pose';
 import { crossingGeometry } from '../ancon/geometry';
 import { vesselSpec } from '../ancon/spec';
 import type { Era, EraId } from '../data/eras';
 import type { WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
-import { ANIMAL_ROAD, boardPath, CAR_ROAD, dockEnv, leaveOffDeckS, leavePath, leaveRoadS, queueHeadS, type DockEnv, type Polyline } from './env';
+import { ANIMAL_ROAD, boardPath, CAR_ROAD, departFrame, dockEnv, leaveOffDeckS, leavePath, leaveRoadS, pointAt, queueHeadS, worldToDeck, type DockEnv, type Polyline } from './env';
 import { isAnimal, rearOverhang } from './models';
 import { footprint, legMovers, travelOf, type Mover } from './plan';
 import { tripAt, tripDuration, tripEndSpeed, tripTimeAt, type Trip, type TripPoint } from './trip';
@@ -41,10 +42,9 @@ export interface MoverSched {
   /** Parked (s into the leg); tail past the deck end, at the road end (s after unload starts). */
   boardEnd: number; offDeck: number; gone: number;
 }
-/** What the crew needs from a leg's load (src/ancon/crew.ts). */
-export interface DeckLoad { rects: [number, number, number, number][]; boardEnd: number; offEnd: number; helmAshore: boolean }
 export interface LegPlan { leg: number; movers: MoverSched[]; load: DeckLoad }
-export const EMPTY_LOAD: DeckLoad = { rects: [], boardEnd: 0, offEnd: 0, helmAshore: false };
+export type { DeckLoad };
+export const EMPTY_LOAD = NO_LOAD;
 
 const isBike = (m: Mover) => m.kind === 'bicycle';
 const walks = (m: Mover) => m.kind === 'horse' || isBike(m);
@@ -121,9 +121,12 @@ export function planLeg(env: DockEnv, leg: number): LegPlan {
   chain(out.filter((s) => !isBike(s.m)).sort(byLead));
   chain(out.filter((s) => isBike(s.m)).sort(byLead));
   const rects = out.map((s) => footprint(s.m, tr));
+  // The helmsman waits ashore on the deck side away from the waiting line (its head's side of the deck axis).
+  const q = pointAt(out[0].board, out[0].spawn.s1, [0, 0]), [, qz] = worldToDeck(departFrame(env, leg), q[0], q[1]);
+  const ashoreZ = -Math.sign(qz || 1) * (L.halfBeam + 0.6);
   return {
     leg, movers: out,
-    load: { rects, boardEnd: Math.max(0, ...out.map((s) => s.boardEnd)), offEnd: Math.max(0, ...out.map((s) => s.offDeck)) + 0.5, helmAshore },
+    load: { rects, boardEnd: Math.max(0, ...out.map((s) => s.boardEnd)), offEnd: Math.max(0, ...out.map((s) => s.offDeck)) + 0.5, helmAshore, ashoreZ },
   };
 }
 

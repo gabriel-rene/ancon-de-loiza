@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FigureBatch } from '../people/figureBatch';
 import { createFigureMaterial } from '../people/material';
 import { createFigurePose, poseFigure, segmentMatrix, type Body, type FigurePose } from '../people/rig';
-import { actorFrame, createActorFrame, type Actor, type ActorCtx, type ActorFrame } from './crew';
+import { actorFrame, createActorFrame, type Actor, type ActorCtx, type ActorFrame, type DeckLoad } from './crew';
 import { buildPole } from './pole';
 import type { VesselPose } from './pose';
 
@@ -51,10 +51,10 @@ export class CrewSet {
     this.group.add(this.batch.group, this.poles);
   }
 
-  update(pose: VesselPose, ctx: ActorCtx & { groundAt?: (x: number, z: number) => number }) {
+  update(pose: VesselPose, ctx: ActorCtx & { groundAt?: (x: number, z: number) => number }, loadAt?: (leg: number) => DeckLoad) {
     this.pose = pose; this.ground = ctx.groundAt;
     const actx = this.actx;
-    actx.spec = ctx.spec; actx.layout = ctx.layout; actx.groundLocal = ctx.groundAt ? this.groundLocal : undefined;
+    actx.spec = ctx.spec; actx.layout = ctx.layout; actx.groundLocal = ctx.groundAt ? this.groundLocal : undefined; actx.loadAt = loadAt;
     let pi = 0;
     for (let i = 0; i < this.actors.length; i++) {
       const f = actorFrame(this.actors[i], pose.state, pose.clock, actx, this.frames[i]);
