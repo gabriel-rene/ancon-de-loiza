@@ -40,3 +40,45 @@ Spec: `docs/superpowers/specs/2026-09-28-phase-4a-ferry-place-design.md`. Plan: 
 - Station corners passed the clearing (22 m) and dry-ground test for all 8 eras with the existing `stationLayout` numbers; no `a`/`v` shifts were needed and `LANDING_CLEARING` is unchanged.
 - Ground mask: soft edge of a road segment is clamped to its half-width (`soft = min(MASK.soft, half)`) so 1.5 m paths keep a firm centre.
 - Budget per era (draw calls / triangles): 1840 3/630, 1900 3/630, 1925 3/786, 1935 3/1530, 1959 3/1530, 1975 5/1870, 1984 5/4144, 1986 4/4172.
+
+## After (Task 11)
+
+Same queries as the baseline, preview build, mean of two runs (mean ms; % vs baseline).
+
+| query | tier | fps | mean ms | baseline ms | change |
+|---|---|---|---|---|---|
+| 1975 ride | high | 104.2 | 9.60 | 9.66 | -0.6 % |
+| 1984 ride | high | 106.0 | 9.44 | 9.49 | -0.6 % |
+| 1975 bank | high | 120.6 | 8.30 | 8.28 | +0.2 % |
+| 1975 ride | medium | 168.0 | 5.95 | 5.97 | -0.3 % |
+| 1984 ride | medium | 172.3 | 5.81 | 5.81 | 0.0 % |
+| 1975 bank | medium | 203.1 | 4.93 | 4.94 | -0.3 % |
+| 1975 ride | low | 505 | 1.98 | 1.94 | +2.1 % |
+| 1984 ride | low | 519 | 1.93 | 1.87 | +3.2 % |
+| 1975 bank | low | 595 | 1.68 | 1.62 | +3.7 % |
+
+Tier means: high -0.3 %, medium -0.2 %, low +2.9 % (1.81 to 1.86 ms, sub-ms noise at dpr 1). All within 5 %.
+
+## Art gate (Task 11)
+
+No Important problems found; no code changes. One line per shot (after vs before):
+
+- 1900-station-noon: thatch shelter on bare bank, sand road curving inland, reflected in water; before was empty bank. Fine.
+- 1925-station-noon: wooden Cortijo house with thatched hip roof and the sand road; reflected. Fine.
+- 1959-station-docked: teal and pink zinc-roofed houses either side of the timber landing, ferry docked; clearing is plant-free. Fine.
+- 1975-station (golden hour): concrete house with bar terrace, neighbour's wooden house, concrete ramp; reflections good. The ramp reads as a flat dark slab (see Deferred).
+- 1984-station-noon: neighbour's house gone, terraced house, pale concrete ramp; road curves inland without flicker. Ramp flat (Deferred).
+- 1984-bridge-noon: two half-built spans from each bank, gap between, crane on the east span end; crane is a small yellow accent, does not dominate; piers reflect in water; no tree through deck.
+- 1986-bridge: continuous deck with lamps and piers, reflected in water; approach road fades into the plain; no tree through deck.
+- 1984-ride / 1975-ride / other ride, bank, aerial, fields, farm shots: landing and roads appear as small features at the far bank; nothing else changed.
+
+Checked from the parked list: no road-strip flicker seen in any shot; bridge in the reflection: yes (1984 and 1986); no tree through the deck: confirmed; station buildings inside the clearing: yes; crane not dominating: yes; bridge ends: the west end enters the tree line and the east end meets the road, no visible burial at shot scale.
+
+Test runs: `world.spec.ts` 26 passed, 5 skipped (station, taken with the real GPU via shot.mjs). `leak.spec.ts` FAILS, but not because of 4a: with `<Infrastructure>` removed from World the same deltas appear (+90 buffers, +18 geometries, +18 textures over one cycle), so the leak pre-dates 4a (see report).
+
+## Deferred (Task 11)
+
+- Minor: the landing concrete ramp is a flat single-tone slab from low cameras (no slope shading, no expansion joints); add a subtle ramp gradient or joint lines.
+- Minor: painted textures in `src/infrastructure/textures.ts` are not wrap-tiled; no seams visible at shot scale, but check zinc roofs and concrete in a close camera.
+- Minor: 1984 and 1986 low-detail road ends are unlit paint; fine at the frame's distance.
+- Existing (not 4a): era-cycle GPU resource growth in `leak.spec.ts`: +90 buffers, +18 geometries, +18 textures per cycle; present with Infrastructure removed. Needs its own investigation.
