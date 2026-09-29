@@ -6,7 +6,7 @@ import { LANDING_CLEARING } from '../vegetation/masks';
 import { corners, finish, makeBuilders, type Footprint } from './parts';
 import { buildStation, stationLayout, upstreamSign } from './station';
 
-const pad: LandingPad = { side: 'east', shore: [0, 0], inland: [1, 0], lateral: [0, 1], hInland: 1.2 };
+const pad: LandingPad = { side: 'east', shore: [0, 0], inland: [1, 0], lateral: [0, 1], hInland: 1.2, shoreY: PAD.shoreY };
 const LOOKS: StationLook[] = ['shelter', 'woodThatch', 'woodZinc', 'concrete'];
 const dry = () => true, flat = () => 1;
 const all = (l: ReturnType<typeof stationLayout>) => [l.house, l.terrace, l.shelter, l.neighbour].filter(Boolean) as Footprint[];

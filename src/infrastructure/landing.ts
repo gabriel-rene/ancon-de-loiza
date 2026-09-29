@@ -13,6 +13,11 @@ const DRY = new THREE.Color(0xa29d90), WORN = new THREE.Color(0x7d786d), WET = n
 const LANES: [number, number, boolean][] = [[-4.5, -2.7, false], [-2.7, -1.3, true], [-1.3, 1.3, false], [1.3, 2.7, true], [2.7, 4.5, false]];
 const _c = new THREE.Color();
 
+/** Height of the landing surface `a` m inland on pad `p` (the ramp's top on a concrete landing, else the pad). */
+export const landingTop = (p: LandingPad, look: LandingLook, a: number) => padHeight(p, a) + landingLift(look);
+/** How far the landing's surface stands above the pad (the concrete ramp's lift; 0 on bare bank and timber). */
+export const landingLift = (look: LandingLook) => (look === 'concrete' ? RAMP.lift : 0);
+
 /** A 1 m-long box lying on the pad from a0 to a1, across [−hw, hw], its top `lift` above the pad. */
 function onPad(b: Builders['concrete'], p: LandingPad, a0: number, a1: number, v: number, hw: number, lift: number, thick: number, color: number) {
   const am = (a0 + a1) / 2, [x, z] = padPoint(p, am, v), y0 = padHeight(p, a0), y1 = padHeight(p, a1);

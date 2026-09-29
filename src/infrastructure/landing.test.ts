@@ -4,7 +4,7 @@ import { PAD, padHeight } from '../terrain/landingPads';
 import { buildLanding, landingDirt, RAMP } from './landing';
 import { finish, makeBuilders } from './parts';
 
-const pad: LandingPad = { side: 'east', shore: [0, 0], inland: [1, 0], lateral: [0, 1], hInland: 1.2 };
+const pad: LandingPad = { side: 'east', shore: [0, 0], inland: [1, 0], lateral: [0, 1], hInland: 1.2, shoreY: PAD.shoreY };
 const built = (look: 'bank' | 'timber' | 'concrete') => { const b = makeBuilders(); buildLanding(b, pad, look, 1); return finish(b); };
 
 describe('landings', () => {

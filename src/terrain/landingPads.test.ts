@@ -4,7 +4,7 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { buildFields, sampleField, type WorldFields } from './fields';
 import { flattenLandings, PAD, padFrame, padHeight, padPoint, type LandingPad } from './landingPads';
-import { landingPadsFor, placementFields } from './placementFields';
+import { landingPadsFor, padShoreY, placementFields } from './placementFields';
 
 const G = geo as unknown as GeoBundle;
 const cellCentres = (f: WorldFields, p: LandingPad, keep: (a: number, v: number) => boolean) => {
@@ -42,7 +42,9 @@ describe('landing pads', () => {
         const [x, z] = padPoint(p, APRON_REST, 0);
         // The ferry samples the same bilinear field; within 0.2 m of the pad the apron still reads as resting on it.
         expect(Math.abs(sampleField(f, f.height, x, z) - padHeight(p, APRON_REST))).toBeLessThan(0.2);
-        expect(padHeight(p, 0)).toBe(PAD.shoreY);
+        expect(padHeight(p, 0)).toBe(p.shoreY);
+        expect(p.shoreY).toBe(padShoreY(bank));                 // lowered per bank so every docking ferry fits (docking.test)
+        expect(p.shoreY).toBeLessThanOrEqual(PAD.shoreY); expect(p.shoreY).toBeGreaterThan(0);
       }
     });
     test(`bank ${bank}: ground beyond the margin is untouched`, () => {

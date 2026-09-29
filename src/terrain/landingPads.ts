@@ -15,8 +15,14 @@ export interface LandingPad {
   inland: XZ;
   /** Unit vector = inland turned 90° (world [-inland.z, inland.x]); local +Z of a footprint with yaw padYaw(p). */
   lateral: XZ;
-  /** Original ground height 2 m past the pad's inland end (m, ≥ PAD.shoreY). */
+  /** Original ground height 2 m past the pad's inland end (m, ≥ shoreY). */
   hInland: number;
+  /**
+   * Pad level at the shore (m): PAD.shoreY, or lower on a bank where an apron-less barge docks — its floor
+   * boards reach over the pad's end and must stay above it (placementFields.padShoreY). Aprons follow the
+   * pad instead (pose.apronRestLift).
+   */
+  shoreY: number;
 }
 export const PAD = { length: 16, halfWidth: 5, wet: 4, margin: 6, shoreY: 0.3, wetY: -0.5 } as const;
 
@@ -32,20 +38,20 @@ export const padPoint = (p: LandingPad, a: number, v: number): [number, number] 
 export const padYaw = (p: LandingPad) => Math.atan2(-p.inland[1], p.inland[0]);
 
 /**
- * Pad surface height at `a` (clamped to the pad): level at shoreY for the first 1.5 m into the water (the
+ * Pad surface height at `a` (clamped to the pad): level at p.shoreY for the first 1.5 m into the water (the
  * ferry's end rests there), then down to wetY; inland it rises to hInland.
  */
 export function padHeight(p: LandingPad, a: number): number {
-  if (a <= 0) return PAD.shoreY + (PAD.wetY - PAD.shoreY) * smooth((-a - 1.5) / (PAD.wet - 1.5));
-  return PAD.shoreY + (p.hInland - PAD.shoreY) * smooth(Math.min(a, PAD.length) / PAD.length);
+  if (a <= 0) return p.shoreY + (PAD.wetY - p.shoreY) * smooth((-a - 1.5) / (PAD.wet - 1.5));
+  return p.shoreY + (p.hInland - p.shoreY) * smooth(Math.min(a, PAD.length) / PAD.length);
 }
 
 /** Both pads from the ferry's crossing geometry on `f` (read before `f` is flattened). */
-export function landingPads(f: WorldFields): [LandingPad, LandingPad] {
+export function landingPads(f: WorldFields, shoreY: number = PAD.shoreY): [LandingPad, LandingPad] {
   const g = crossingGeometry(f);
   const mk = (side: 'east' | 'west', shore: XZ, inland: XZ): LandingPad => {
     const x = shore[0] + inland[0] * (PAD.length + 2), z = shore[1] + inland[1] * (PAD.length + 2);
-    return { side, shore, inland, lateral: [-inland[1], inland[0]], hInland: Math.max(PAD.shoreY, sampleField(f, f.height, x, z)) };
+    return { side, shore, inland, lateral: [-inland[1], inland[0]], hInland: Math.max(shoreY, sampleField(f, f.height, x, z)), shoreY };
   };
   return [mk('east', g.shoreEast, [-g.dir[0], -g.dir[1]]), mk('west', g.shoreWest, [g.dir[0], g.dir[1]])];
 }

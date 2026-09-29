@@ -5,10 +5,11 @@ import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { useStore } from '../state/store';
 import { sampleField, type WorldFields } from '../terrain/fields';
-import { placementFields } from '../terrain/placementFields';
+import { landingPadsFor, placementFields } from '../terrain/placementFields';
 import { advanceClock } from './crossing';
 import { castActors } from './crew';
 import { CrewSet } from './CrewSet';
+import { apronRests, restLift } from './docking';
 import { crossingGeometry } from './geometry';
 import { vesselMaterials } from './materials';
 import { apronLift, computeVesselPose, makePoseContext } from './pose';
@@ -47,6 +48,9 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
   const layout = ctx.layout;
   const parts = useMemo(() => buildVessel(spec, layout, 1), [spec, layout]);
   useEffect(() => () => parts.forEach((p) => p.geometry.dispose()), [parts]);
+  // Docked, each apron's tip lies on its landing (pad level per bank, ramp on concrete), following the hull's motion.
+  const look = era.infrastructure.landing.value;
+  const rests = useMemo(() => apronRests(parts, landingPadsFor(bank), look), [parts, bank, look]);
   // Posts sit on the same 512 placement fields as the crossing; only tessellation follows the tier.
   const ropes = useMemo(() => new RopeSet({ spec, layout, geom: ctx.geom, fields: place, segments: q.ancon.ropeSegments, radial: q.ancon.ropeRadial }),
     [spec, layout, ctx, place, q.ancon.ropeSegments, q.ancon.ropeRadial]);
@@ -68,8 +72,8 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     const g = hull.current;
     if (g) { g.matrix.copy(pose.matrix); g.matrixWorldNeedsUpdate = true; }
     for (let i = 0; i < parts.length; i++) {
-      const p = parts[i], a = aprons.current[i];
-      if (p.apron && a) a.rotation.z = p.apron.end * apronLift(pose.state, p.apron.end);
+      const p = parts[i], a = aprons.current[i], r = rests[i];
+      if (p.apron && a && r) a.rotation.z = p.apron.end * apronLift(pose.state, p.apron.end, restLift(r, pose.heave, pose.pitch));
     }
     const cam = state.camera as THREE.PerspectiveCamera;
     ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height);
