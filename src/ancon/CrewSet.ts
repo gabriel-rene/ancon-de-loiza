@@ -8,6 +8,7 @@ import { buildPole } from './pole';
 import type { VesselPose } from './pose';
 
 const _w = new THREE.Matrix4(), _p = new THREE.Matrix4();
+const _g = new THREE.Vector3();
 
 /**
  * The crew and passengers of one era: one 'hi' FigureBatch for everyone on board (one draw call per
@@ -25,6 +26,15 @@ export class CrewSet {
   private readonly poses: FigurePose[];
   private readonly figMat = createFigureMaterial();
   private readonly poleMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
+  private ground?: (x: number, z: number) => number;
+  private pose?: VesselPose;
+  /** Deck-local ground height under deck-local (x, z). Docked, pitch and roll are ≈ 0, so world Y − hull Y. */
+  private readonly groundLocal = (x: number, z: number) => {
+    const p = this.pose!;
+    _g.set(x, 0, z).applyMatrix4(p.matrix);
+    return this.ground!(_g.x, _g.z) - p.position.y;
+  };
+  private readonly actx: ActorCtx = { spec: undefined!, layout: undefined! };
 
   constructor(private readonly actors: Actor[]) {
     const n = Math.max(1, actors.length);
@@ -41,10 +51,13 @@ export class CrewSet {
     this.group.add(this.batch.group, this.poles);
   }
 
-  update(pose: VesselPose, ctx: ActorCtx) {
+  update(pose: VesselPose, ctx: ActorCtx & { groundAt?: (x: number, z: number) => number }) {
+    this.pose = pose; this.ground = ctx.groundAt;
+    const actx = this.actx;
+    actx.spec = ctx.spec; actx.layout = ctx.layout; actx.groundLocal = ctx.groundAt ? this.groundLocal : undefined;
     let pi = 0;
     for (let i = 0; i < this.actors.length; i++) {
-      const f = actorFrame(this.actors[i], pose.state, pose.clock, ctx, this.frames[i]);
+      const f = actorFrame(this.actors[i], pose.state, pose.clock, actx, this.frames[i]);
       if (!f.visible) { this.batch.hide(i); continue; }
       _w.makeRotationY(f.yaw).setPosition(f.pos[0], f.pos[1], f.pos[2]).premultiply(pose.matrix);
       this.batch.set(i, _w, poseFigure(this.bodies[i], f.pose, this.poses[i]));
