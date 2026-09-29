@@ -47,6 +47,8 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
 
 for (const s of SHOTS) {
   test(`renders ${s.era} ${s.cam} @${s.t} c=${s.c}`, async ({ page }) => {
+    // Too slow on the software GPU (close water reflection); taken with scripts/dev/shot.mjs (phase-4a-rulings.md).
+    test.skip(s.cam === 'station', 'station shots use the real GPU');
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
