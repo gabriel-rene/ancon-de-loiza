@@ -44,11 +44,12 @@ const widthOf = (id: string, kind: string) => {
   const story = (Object.keys(STORY_WAYS) as StoryId[]).find((k) => STORY_WAYS[k] === id);
   return story ? STORY_WIDTH[story] : ROAD_WIDTH[kind] ?? STREET.kinds[kind] ?? 4;
 };
+/** Houses keep 1 m off every road edge (eaves overhang 0.5–0.6 m) and 3 m off the bridge corridor. */
 export function lotRules(bank: number, g: GeoBundle = G): LotRules {
   const [east] = landingPadsFor(bank);
   return {
     centre: TOWN_CENTRE, church: landmarkXZ('church'), clear: padPoint(east, CLEAR_INLAND, 0),
-    roads: g.roads.filter((r) => !r.bridge && inTownCircle(r.points)).map((r) => ({ points: r.points, half: widthOf(r.id, r.kind) / 2 + 0.3 }))
+    roads: g.roads.filter((r) => !r.bridge && inTownCircle(r.points)).map((r) => ({ points: r.points, half: widthOf(r.id, r.kind) / 2 + 1 }))
       .concat({ points: bridgeWay(g), half: BRIDGE.width / 2 + 3 }),
   };
 }
