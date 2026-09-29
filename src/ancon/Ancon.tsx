@@ -16,6 +16,7 @@ import { apronLift, computeVesselPose, makePoseContext } from './pose';
 import { RopeSet } from './RopeSet';
 import { seatAnchors } from './seats';
 import { vesselSpec } from './spec';
+import { eraTimings } from '../traffic/schedule';
 import { anconTiming } from './stats';
 import { emitVesselPose, sharedVesselPose } from './vesselPose';
 import { buildVessel } from './vessels';
@@ -40,9 +41,9 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
 }) {
   const start = useStore((s) => s.crossingStart), speed = useStore((s) => s.crossingSpeed);
   const bank = era.river.bankOffset.value;
-  const spec = useMemo(() => vesselSpec(era), [era]);
   // Crossing geometry always comes from the fixed 512 placement fields (never the tier's grid).
   const place = useMemo(() => placementFields(bank, near), [bank, near]);
+  const spec = useMemo(() => vesselSpec(era, eraTimings(era, place)), [era, place]);
   const ctx = useMemo(() => makePoseContext(crossingGeometry(place), spec, era.river.flow.value,
     (x: number, z: number) => sampleField(near, near.height, x, z)), [place, spec, era, near]);
   const layout = ctx.layout;

@@ -90,13 +90,14 @@ Carts: the ox driver leads the oxen on; the oxen stop at the cargo anchor; they 
 - **Heights.** Wheels sit on the terrain along roads, on `landingTop` on the pads and ramps, and on the deck (vessel pose) on board. The body follows the slope (pitch from front and rear axles).
 - **Ends.** Each road has an end point ≥ 60 m inland, chosen so that the ride camera does not frame it or the change cannot be seen at that distance. Vehicles appear there on the way in and go away there on the way out. Screenshots check this (§9).
 - **Waiting line.** The next leg's load drives down the road during the crossing and stops in a line on the pad and road, nose to tail with a 1.5 m gap, the first vehicle at the top of the ramp. Carts and animals wait at the side of the line.
-- **Speeds** (inferred L): 2 m/s on ramps and deck, up to 6 m/s on the road, smooth starts and stops; oxen 0.9 m/s; horse and bicycles at walking speed.
+- **Speeds** (inferred L): 2.8 m/s on ramps and deck (ruling 2026-09-29: at 2 m/s the 1984 stop runs past 50 s; 2.8 is the lowest that fits), up to 6 m/s on the road, smooth starts and stops; oxen 0.9 m/s; horse and bicycles at walking speed (1.3 m/s).
+- **Lanes** (ruling 2026-09-29). Roads keep right: the waiting line and the movers driving on use the right-hand lane, movers driving off the other lane, offset sideways along the road and the pad. Bicycles wait and leave on the verge on the side of the deck's bicycle rail. The queue head waits 10 m up the pad, where each mover can line up with its deck lane before the ramp.
 - **No overlaps.** Vehicles in a line keep their gap; no vehicle passes through another, a person, the crew, or a hauler's rope station.
 
 ### 4.3 Timing
 
 - Everything is a pure function of the crossing clock and the era, as the crew is now (`src/ancon/crew.ts`). Same clock → same picture.
-- `load` and `unload` get longer only where the load needs it: a per-era timing, computed from the drive-on and drive-off plan, capped at 50 s each, never shorter than today's (load 20 s, unload 16 s). An era whose plan fits in today's timings keeps them.
+- `load` and `unload` get longer where there is a load: a per-era timing, computed from the drive-on and drive-off plan, capped at 50 s each, never shorter than today's (load 20 s, unload 16 s). Passengers walk on after the load has parked and off after it has left (ruling 2026-09-29), so every era with a load gets a longer stop; an era without a load keeps today's timings.
 - Everything that reads `CROSSING_TIMINGS` today (`crossing.ts`, `crew.ts`, `rideCamera.ts`, the URL clock) takes the era's timings. Crew and passenger schedules move with the longer stop.
 
 ## 5. People
