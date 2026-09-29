@@ -24,10 +24,10 @@ function stamp(data: Uint8Array, ch: number, x0: number, z0: number, x1: number,
 }
 
 function segment(data: Uint8Array, [ax, az]: XZ, [bx, bz]: XZ, half: number) {
-  const r = half + MASK.soft, dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+  const soft = Math.min(MASK.soft, half), r = half + soft, dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
   stamp(data, 0, Math.min(ax, bx) - r, Math.min(az, bz) - r, Math.max(ax, bx) + r, Math.max(az, bz) + r, (x, z) => {
     const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / l2));
-    return 1 - smooth(half - MASK.soft, half + MASK.soft, Math.hypot(x - ax - t * dx, z - az - t * dz));
+    return 1 - smooth(half - soft, half + soft, Math.hypot(x - ax - t * dx, z - az - t * dz));
   });
 }
 

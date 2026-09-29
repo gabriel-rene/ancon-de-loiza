@@ -34,3 +34,9 @@ Spec: `docs/superpowers/specs/2026-09-28-phase-4a-ferry-place-design.md`. Plan: 
 
 - The 5 `station` shots time out in Playwright (swiftshader software GPU: the close water reflection is too slow for 30 frames in 90 s). The `bridge` shots pass.
 - Ruling: the station shots are taken with the real GPU instead: `PORT=4173 node scripts/dev/shot.mjs "?era=…&cam=station&…&freeze=1&q=medium" tests/snapshots/<dir>/<name>.png 2000`, against `npm run preview`. The before set was made this way. Task 11 does the same for the after set.
+
+## Task 10
+
+- Station corners passed the clearing (22 m) and dry-ground test for all 8 eras with the existing `stationLayout` numbers; no `a`/`v` shifts were needed and `LANDING_CLEARING` is unchanged.
+- Ground mask: soft edge of a road segment is clamped to its half-width (`soft = min(MASK.soft, half)`) so 1.5 m paths keep a firm centre.
+- Budget per era (draw calls / triangles): 1840 3/630, 1900 3/630, 1925 3/786, 1935 3/1530, 1959 3/1530, 1975 5/1870, 1984 5/4144, 1986 4/4172.
