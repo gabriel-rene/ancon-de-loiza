@@ -115,7 +115,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
     const blocks = survival > 0 ? findBlocks(pf, masksFor(pf)) : [];
-    const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival), inside: insideBlocks(blocks) } : undefined;
+    const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival).filter((p) => !inTown(p.x, p.z)), inside: insideBlocks(blocks) } : undefined;
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip, planted });
     for (const t of town.plazaTrees) {
       nearSet[t.species].push({ x: t.x, y: sampleField(pf, pf.height, t.x, t.z), z: t.z, rot: t.rot, scale: t.scale, variant: t.variant });
@@ -144,7 +144,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
     return { sets: out, pf, nearCount };
-  }), [key, near, far, skip, town]);
+  }), [key, near, far, skip, town, inTown]);
 
   // Near trunk discs for ground cover (reseat only moves y, so x/z/scale match the placement run).
   const trunks = useMemo(() => {
