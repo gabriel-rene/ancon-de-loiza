@@ -4,7 +4,7 @@
 
 **Goal:** Per era, the ferry's load (cars, ox and cane carts, a led horse, pushed bicycles) waits in a line at the far landing, drives on at each dock stop, rides across on the deck and drives off up the road; in 1986, cars cross the open bridge.
 
-**Architecture:** A new `src/traffic/` folder, pure units first: `models.ts` (sizes), `plan.ts` (which movers ride each leg and where they park), `trip.ts` (speed profiles), `env.ts` (the era's docks, frames and routes), `schedule.ts` (when each mover queues, boards and leaves; the era's dock timings), `motion.ts` (a mover's contact points and model matrix at a clock). Geometry: `carKit.ts`, `animals.ts`. Rendering: `TrafficSet.ts` (instanced meshes, driven from the ferry's `useFrame`, people drawn in the existing crew figure batch) and `BridgeTraffic.tsx`. The crossing clock gets per-era timings (`VesselSpec.timings`), and the crew makes room for the load (`crew.ts`). Everything is a pure function of era + crossing clock.
+**Architecture:** A new `src/traffic/` folder, pure units first: `models.ts` (sizes), `plan.ts` (which movers ride each leg and where they park), `trip.ts` (speed profiles), `env.ts` (the era's docks, frames and routes), `schedule.ts` (when each mover queues, boards and leaves; the era's dock timings), `motion.ts` (a mover's contact points and model matrix at a clock). Geometry: `carKit.ts`, `animals.ts`. Rendering: `TrafficSet.ts` (instanced meshes, driven from the ferry's `useFrame`, people drawn in the existing crew figure batch) and `BridgeTrafficMesh.tsx`. The crossing clock gets per-era timings (`VesselSpec.timings`), and the crew makes room for the load (`crew.ts`). Everything is a pure function of era + crossing clock.
 
 **Tech Stack:** three 0.186, R3F 9, zustand, vitest, Playwright.
 
@@ -54,7 +54,7 @@ src/traffic/TrafficSet.ts (+ test)                  instanced meshes, people, bu
 src/ancon/CrewSet.ts                                extra figure slots for the load's people
 src/ancon/Ancon.tsx                                 mounts TrafficSet, era timings
 src/traffic/bridgeTraffic.ts (+ test)               1986 bridge routes and cars (new)
-src/traffic/BridgeTraffic.tsx                       1986 bridge meshes (new)
+src/traffic/BridgeTrafficMesh.tsx                       1986 bridge meshes (new)
 src/quality.ts                                      traffic.bridgeCars per tier
 src/scene/World.tsx                                 mounts <BridgeTraffic>
 ```
@@ -169,7 +169,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 The crossing clock reads one global `CROSSING_TIMINGS`. 4c lengthens the dock stop in busy eras, so the timings move onto `VesselSpec`. This task only moves them; every era still uses today's values.
 
 **Files:**
-- Modify: `src/ancon/crossing.ts:9-11`, `src/ancon/spec.ts`, `src/ancon/pose.ts:55`, `src/ancon/rideCamera.ts:12,101`, `src/ancon/crew.ts` (all `T.` / `MOVE_END` / `LEAVE0` uses), `src/ancon/Ancon.tsx`, `src/state/store.ts`, `src/state/store.test.ts`
+- Modify: `src/ancon/crossing.ts:11`, `src/ancon/spec.ts`, `src/ancon/pose.ts:55`, `src/ancon/rideCamera.ts:101`, `src/ancon/crew.ts` (all `T.` / `MOVE_END` / `LEAVE0` uses), `src/ancon/Ancon.tsx`, `src/state/store.ts`, `src/state/store.test.ts`
 - Test: `src/ancon/crew.test.ts`, `src/ancon/rideCamera.test.ts`, `src/ancon/crossing.test.ts`
 
 **Interfaces:**
@@ -182,6 +182,18 @@ The crossing clock reads one global `CROSSING_TIMINGS`. 4c lengthens the dock st
 
 - [ ] **Step 1: Write the failing tests**
 
+In `src/ancon/crossing.test.ts`, replace:
+
+```ts
+import { advanceClock, createCrossingState, CROSSING_TIMINGS as T, crossingState, legDuration, mooredState, PHASES } from './crossing';
+```
+
+with:
+
+```ts
+import { advanceClock, createCrossingState, CROSSING_TIMINGS, CROSSING_TIMINGS as T, crossingState, legDuration, mooredState, PHASES } from './crossing';
+```
+
 Append to `src/ancon/crossing.test.ts`:
 
 ```ts
@@ -192,8 +204,6 @@ test('the default start is 8 s before cast-off for any timings', () => {
   expect(defaultCrossingStart({ ...CROSSING_TIMINGS, load: 45 })).toBe(37);
 });
 ```
-
-(Add `CROSSING_TIMINGS` to that file's existing import from `./crossing` if missing.)
 
 Append to `src/ancon/crew.test.ts`:
 
@@ -220,6 +230,18 @@ describe('per-era timings', () => {
 });
 ```
 
+In `src/ancon/rideCamera.test.ts`, replace:
+
+```ts
+import { CROSSING_TIMINGS as T, legDuration } from './crossing';
+```
+
+with:
+
+```ts
+import { CROSSING_TIMINGS, CROSSING_TIMINGS as T, legDuration } from './crossing';
+```
+
 Append to `src/ancon/rideCamera.test.ts`:
 
 ```ts
@@ -231,8 +253,6 @@ test('rideYaw follows the timings it is given', () => {
 });
 ```
 
-(Import `CROSSING_TIMINGS`, `legDuration` from `./crossing` if that file does not already.)
-
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `npx vitest run src/ancon/crossing.test.ts src/ancon/crew.test.ts src/ancon/rideCamera.test.ts`
@@ -240,75 +260,322 @@ Expected: FAIL — `defaultCrossingStart` / `moveEnd` not exported; `vesselSpec`
 
 - [ ] **Step 3: Move the timings**
 
-`src/ancon/crossing.ts` (replace line 11):
+Every edit below is exact; together they are the whole change (`tsc` reports nothing else).
+
+In `src/ancon/crossing.ts`, replace:
 
 ```ts
-/** Default crossing clock at page load: 8 s before cast-off, so the first thing seen is the ferry leaving. */
+export const DEFAULT_CROSSING_START = 12;
+```
+
+with:
+
+```ts
 export const defaultCrossingStart = (T: CrossingTimings) => T.load - 8;
 export const DEFAULT_CROSSING_START = defaultCrossingStart(CROSSING_TIMINGS);
 ```
 
-`src/ancon/spec.ts`:
+In `src/ancon/spec.ts`, replace:
 
 ```ts
+import type { ClothingStyle, Era, Propulsion, VesselKind } from '../data/eras';
+```
+
+with:
+
+```ts
+import type { ClothingStyle, Era, Propulsion, VesselKind } from '../data/eras';
 import { CROSSING_TIMINGS, type CrossingTimings } from './crossing';
-// VesselSpec gains:
-  /** This era's crossing phase lengths (4c: longer dock stops where the load needs them, src/traffic/schedule.ts). */
-  timings: CrossingTimings;
-// vesselSpec:
-export function vesselSpec(era: Era, timings: CrossingTimings = CROSSING_TIMINGS): VesselSpec {
-  const a = era.ancon;
-  return {
-    /* …existing fields… */
-    moored: a.propulsion.value === 'moored', timings,
-  };
+```
+
+In `src/ancon/spec.ts`, replace:
+
+```ts
+  moored: boolean;
 }
 ```
 
-`src/ancon/pose.ts:55`: `if (spec.moored) mooredState(st); else crossingState(clock, st, spec.timings);`
+with:
 
-`src/ancon/rideCamera.ts:101`: `rideView(pose, ctx.layout, rideYaw(pose.clock, ctx.spec.moored, ctx.spec.timings), this.pos, this.target);`
+```ts
+  moored: boolean;
+  /** This era's crossing phase lengths (4c: longer dock stops where the load needs them, src/traffic/schedule.ts). */
+  timings: CrossingTimings;
+}
+```
 
-`src/ancon/crew.ts`:
+In `src/ancon/spec.ts`, replace:
 
-- Change the import to `import { type CrossingState, type CrossingTimings } from './crossing';`.
-- Replace `export const MOVE_END = …` with:
+```ts
+export function vesselSpec(era: Era): VesselSpec {
+```
+
+with:
+
+```ts
+export function vesselSpec(era: Era, timings: CrossingTimings = CROSSING_TIMINGS): VesselSpec {
+```
+
+In `src/ancon/spec.ts`, replace:
+
+```ts
+moored: a.propulsion.value === 'moored',
+```
+
+with:
+
+```ts
+moored: a.propulsion.value === 'moored', timings,
+```
+
+In `src/ancon/pose.ts`, replace:
+
+```ts
+else crossingState(clock, st);
+```
+
+with:
+
+```ts
+else crossingState(clock, st, spec.timings);
+```
+
+In `src/ancon/rideCamera.ts`, replace:
+
+```ts
+rideYaw(pose.clock, ctx.spec.moored)
+```
+
+with:
+
+```ts
+rideYaw(pose.clock, ctx.spec.moored, ctx.spec.timings)
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+import { CROSSING_TIMINGS as T, type CrossingState } from './crossing';
+```
+
+with:
+
+```ts
+import { type CrossingState, type CrossingTimings } from './crossing';
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+/** Seconds into a leg when unloading starts. */
+export const MOVE_END = T.load + T.castOff + T.cross + T.dock;
+```
+
+with:
 
 ```ts
 /** Seconds into a leg when unloading starts. */
 export const moveEnd = (T: CrossingTimings) => T.load + T.castOff + T.cross + T.dock;
 ```
 
-- `BOARD0, BOARD_GAP, LEAVE0, FILE_GAP` line becomes (leave times are now relative to unload start):
+In `src/ancon/crew.ts`, replace:
+
+```ts
+/** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start; spacing in single file (m). */
+export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = MOVE_END + 0.3, FILE_GAP = 0.8;
+```
+
+with:
 
 ```ts
 /** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start (s after unload starts); spacing in single file (m). */
 export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = 0.3, FILE_GAP = 0.8;
 ```
 
-  `PassengerWalk` doc: `leave` = "seconds after unload starts". `planWalks` keeps `let te = LEAVE0 + lat;` unchanged (it is now relative).
-- In `poler`, `helmsman`, `polerWalkStart`, `helmWalkStart`, `passenger`: take `T` from the context — `const T = spec.timings, MOVE_END = moveEnd(T);` at the top of each function body (pass `spec` into `helmWalkStart(L, T)` / `polerWalkStart(spec, L)` as needed; `helmsman` and `passenger` already get the `ActorCtx`, destructure `spec` from it).
-- In `passenger`: `const l0 = moveEnd(spec.timings) + w.leave[k], lc = …` (was `w.leave[k]`).
-- `helmWalkStart`:
+In `src/ancon/crew.ts`, replace:
+
+```ts
+function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+```
+
+with:
+
+```ts
+function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L) : MOVE_END) + 0.5;
+```
+
+with:
+
+```ts
+const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L, spec.timings) : moveEnd(spec.timings)) + 0.5;
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const helmWalkStart = (L: DeckLayout) => MOVE_END + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
+```
+
+with:
 
 ```ts
 const helmWalkStart = (L: DeckLayout, T: CrossingTimings) => moveEnd(T) + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
 ```
 
-`src/state/store.ts`: `crossingStart: number | null;` in `AppState`; default `crossingStart: null`. Remove the `DEFAULT_CROSSING_START` import.
-
-`src/ancon/Ancon.tsx`:
+In `src/ancon/crew.ts`, replace:
 
 ```ts
+function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+```
+
+with:
+
+```ts
+function helmsman(st: CrossingState, clock: number, { spec, layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const t0 = helmWalkStart(L), d =
+```
+
+with:
+
+```ts
+const t0 = helmWalkStart(L, T), d =
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+function passenger(a: Actor, st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
+```
+
+with:
+
+```ts
+function passenger(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const l0 = w.leave[k], lc
+```
+
+with:
+
+```ts
+const l0 = MOVE_END + w.leave[k], lc
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+to the spot; leaving, the reverse toward the arrival end. Start times (s into the leg) per travel direction
+```
+
+with:
+
+```ts
+to the spot; leaving, the reverse toward the arrival end. Start times per travel direction (boarding: s into the leg; leaving: s after unload starts)
+```
+
+In `src/state/store.ts`, replace:
+
+```ts
+import { DEFAULT_CROSSING_START } from '../ancon/crossing';
+```
+
+with:
+
+```ts
+
+```
+
+In `src/state/store.ts`, replace:
+
+```ts
+crossingStart: number; crossingSpeed
+```
+
+with:
+
+```ts
+crossingStart: number | null; crossingSpeed
+```
+
+In `src/state/store.ts`, replace:
+
+```ts
+crossingStart: DEFAULT_CROSSING_START,
+```
+
+with:
+
+```ts
+crossingStart: null,
+```
+
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+import { advanceClock } from './crossing';
+```
+
+with:
+
+```tsx
 import { advanceClock, defaultCrossingStart } from './crossing';
-// …
-  const clock = useRef(start ?? defaultCrossingStart(spec.timings));
+```
+
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+const clock = useRef(start);
+  useEffect(() => { clock.current = start; }, [start]);
+```
+
+with:
+
+```tsx
+const clock = useRef(start ?? defaultCrossingStart(spec.timings));
   useEffect(() => { clock.current = start ?? defaultCrossingStart(spec.timings); }, [start]);   // era switches keep the running clock (as before)
 ```
 
-`src/state/store.test.ts`: line 14 → `expect(s.crossingStart).toBeNull();`; line 19 → `crossingState(useStore.getState().crossingStart ?? DEFAULT_CROSSING_START, createCrossingState())`.
+In `src/state/store.test.ts`, replace:
 
-Fix every other compile error `tsc` reports from `MOVE_END` / `T` (tests that imported `CROSSING_TIMINGS as T` keep working — default timings are unchanged).
+```ts
+expect(s.crossingStart).toBe(DEFAULT_CROSSING_START);
+```
+
+with:
+
+```ts
+expect(s.crossingStart).toBeNull();
+```
+
+In `src/state/store.test.ts`, replace:
+
+```ts
+crossingState(useStore.getState().crossingStart, createCrossingState())
+```
+
+with:
+
+```ts
+crossingState(useStore.getState().crossingStart ?? DEFAULT_CROSSING_START, createCrossingState())
+```
 
 - [ ] **Step 4: Run all tests and the type check**
 
@@ -447,6 +714,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/traffic/models.ts`, `src/traffic/models.test.ts`, `src/traffic/plan.ts`, `src/traffic/plan.test.ts`
 
+**Preflight rulings applied:** B1 (the boarding-order test compares body centres, not the contact-midpoint origin), B2 (a one-poler deck checks only the poler's side), B3 (a bicycle's pusher walks on its outboard side whichever way it faces), R3 (an animal's `front` reaches its drawn muzzle, about 1.0 m past the front hooves; the 1925 platform still fits), N2 (`PAINT` exported for the bridge cars).
+
 **Interfaces:**
 - Consumes: `LegRule`, `CarModel`, `AnimalLoad` (Task 3); `VesselSpec`, `DeckLayout`, `CAR_SLOT`, `seatAnchors`, `SeatAnchor` (`src/ancon`); `hash3` (`src/vegetation/rng.ts`). (Looks for the load's people are per figure slot, Task 12, not per mover.)
 - Produces (`models.ts`):
@@ -454,7 +723,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```ts
 export type MoverKind = CarModel | AnimalLoad | 'bicycle';
 export interface MoverDims { length: number; width: number; height: number; wheelbase: number; front: number; wheelR: number; track: number }
-export const DIMS: Record<MoverKind, MoverDims>;
+export const DIMS: Record<MoverKind, MoverDims>;              // oxCart 5.8 m, caneCart 6.0 m, horse 2.65 m (front 1.0)
 export const rearOverhang: (d: MoverDims) => number;          // length − front − wheelbase
 export const isCar: (k: MoverKind) => k is CarModel;
 export const isAnimal: (k: MoverKind) => k is AnimalLoad;
@@ -472,14 +741,15 @@ export interface Mover {
   people: MoverPerson[];
 }
 export const travelOf: (leg: number) => 1 | -1;              // even legs +1 (east → west)
+export const PAINT: Record<number, number[]>;                // period paint per era (the 1986 bridge cars use PAINT[1984])
 export function legMovers(rules: readonly LegRule[], spec: VesselSpec, L: DeckLayout, seats: readonly SeatAnchor[], era: number, leg: number): Mover[];
 export function footprint(m: Mover, travel: 1 | -1, pad?: number): [number, number, number, number];   // parked, deck-local [x0, x1, z0, z1], people included
-export const ATTEND_AHEAD = 0.55, ATTEND_SIDE = 0.35, BIKE_RAIL = 0.75;
+export const ATTEND_AHEAD = 0.55, ATTEND_SIDE = 0.35, BIKE_RAIL = 0.75, BIKE_PUSH = 0.45;
 ```
 
 - [ ] **Step 1: Write the failing tests**
 
-`src/traffic/models.test.ts`:
+Create `src/traffic/models.test.ts`:
 
 ```ts
 import { expect, test } from 'vitest';
@@ -511,19 +781,22 @@ test('carts clear the polers on the narrow colonial barge (half width ≤ 0.8 m)
 });
 ```
 
-`src/traffic/plan.test.ts`:
+Create `src/traffic/plan.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
 import { ERAS, getEra, type EraId } from '../data/eras';
 import { seatAnchors } from '../ancon/seats';
 import { deckLayout, vesselSpec } from '../ancon/spec';
+import { rearOverhang, type MoverDims } from './models';
 import { footprint, legMovers, travelOf } from './plan';
 
 const planFor = (id: EraId, leg: number) => {
   const era = getEra(id), spec = vesselSpec(era), L = deckLayout(spec);
   return { spec, L, movers: legMovers(era.ancon.load.value, spec, L, seatAnchors(spec, L), Number(id), leg) };
 };
+/** Body centre along x' (the parked origin is the contact midpoint, which sits off-centre by (front − rear) / 2). */
+const centre = (x: number, d: MoverDims) => x + (d.front - rearOverhang(d)) / 2;
 const overlap = (a: number[], b: number[]) => a[0] < b[1] && b[0] < a[1] && a[2] < b[3] && b[2] < a[3];
 
 describe('legMovers', () => {
@@ -556,7 +829,7 @@ describe('legMovers', () => {
   test('boarding order: the farthest from the entry end first', () => {
     for (const id of ['1959', '1975', '1984'] as const) {
       const cars = planFor(id, 0).movers.filter((m) => m.kind !== 'bicycle');
-      for (let k = 1; k < cars.length; k++) expect(cars[k].park.x).toBeLessThanOrEqual(cars[k - 1].park.x + 1e-9);
+      for (let k = 1; k < cars.length; k++) expect(centre(cars[k].park.x, cars[k].dims)).toBeLessThanOrEqual(centre(cars[k - 1].park.x, cars[k - 1].dims) + 1e-9);
       expect(cars.map((m) => m.order)).toEqual(cars.map((_, k) => k));
     }
   });
@@ -574,8 +847,10 @@ describe('legMovers', () => {
         const hx = -tr * (L.halfLength - 0.5), helm = [hx - 0.25, hx + 0.25, -0.25, 0.25];
         for (const f of fps) expect(overlap(f, helm), e.id).toBe(false);
       }
-      if (spec.propulsion === 'poles') for (const f of fps) {   // polers walk the side lanes (r 0.25)
-        expect(Math.max(Math.abs(f[2]), Math.abs(f[3])), e.id).toBeLessThanOrEqual(L.halfBeam - 0.45 - 0.25 + 1e-9);
+      if (spec.propulsion === 'poles') for (const f of fps) {   // polers walk the side lanes (r 0.25); one poler walks side +z only
+        const lane = L.halfBeam - 0.45 - 0.25 + 1e-9;
+        expect(f[3], e.id).toBeLessThanOrEqual(lane);
+        if (spec.crew >= 2) expect(-f[2], e.id).toBeLessThanOrEqual(lane);
       }
     }
   });
@@ -589,6 +864,8 @@ Expected: FAIL — modules missing.
 
 - [ ] **Step 3: Write `models.ts`**
 
+Create `src/traffic/models.ts`:
+
 ```ts
 import type { AnimalLoad, CarModel } from '../data/eras';
 import { CAR_SLOT } from '../ancon/spec';
@@ -598,7 +875,8 @@ export type MoverKind = CarModel | AnimalLoad | 'bicycle';
 /**
  * Sizes (m). Two contact points carry every mover: axles for cars, carts and bicycles (a cart's front contact is
  * its oxen's front hooves, its rear the cart axle), hoof pairs for a horse. `front`: nose ahead of the front contact;
- * `track`: half the distance between left and right wheels (0 on a bicycle). All inferred period types (L), sized
+ * `track`: half the distance between left and right wheels (0 on a bicycle). Animals: `front` reaches the
+ * drawn muzzle (src/traffic/animals.ts, about 0.93 m ahead of the front hooves). All inferred period types (L), sized
  * for the 4.4 m deck slots.
  */
 export interface MoverDims { length: number; width: number; height: number; wheelbase: number; front: number; wheelR: number; track: number }
@@ -613,9 +891,9 @@ export const DIMS: Record<MoverKind, MoverDims> = {
   tvVan: { length: 4.1, width: 1.9, height: 2.05, wheelbase: 2.5, front: 0.55, wheelR: 0.36, track: 0.78 },
   sedan80: { length: 4.1, width: 1.8, height: 1.36, wheelbase: 2.55, front: 0.8, wheelR: 0.32, track: 0.74 },
   compact80: { length: 3.95, width: 1.63, height: 1.38, wheelbase: 2.37, front: 0.72, wheelR: 0.3, track: 0.68 },
-  oxCart: { length: 5.2, width: 1.55, height: 1.6, wheelbase: 3.6, front: 0.4, wheelR: 0.7, track: 0.72 },
-  caneCart: { length: 5.4, width: 1.6, height: 2.1, wheelbase: 3.7, front: 0.4, wheelR: 0.72, track: 0.74 },
-  horse: { length: 2.4, width: 0.6, height: 1.6, wheelbase: 1.2, front: 0.75, wheelR: 0, track: 0.18 },
+  oxCart: { length: 5.8, width: 1.55, height: 1.6, wheelbase: 3.6, front: 1.0, wheelR: 0.7, track: 0.72 },
+  caneCart: { length: 6.0, width: 1.6, height: 2.1, wheelbase: 3.7, front: 1.0, wheelR: 0.72, track: 0.74 },
+  horse: { length: 2.65, width: 0.6, height: 1.6, wheelbase: 1.2, front: 1.0, wheelR: 0, track: 0.18 },
   bicycle: { length: 1.75, width: 0.55, height: 1.05, wheelbase: 1.08, front: 0.34, wheelR: 0.34, track: 0 },
 };
 export const rearOverhang = (d: MoverDims) => d.length - d.front - d.wheelbase;
@@ -625,6 +903,8 @@ export const isAnimal = (k: MoverKind): k is AnimalLoad => k === 'oxCart' || k =
 ```
 
 - [ ] **Step 4: Write `plan.ts`**
+
+Create `src/traffic/plan.ts`:
 
 ```ts
 import type { SeatAnchor } from '../ancon/seats';
@@ -650,13 +930,14 @@ export interface Mover {
 
 /** Leg n runs east → west (+1) when even. */
 export const travelOf = (leg: number): 1 | -1 => (((leg % 2) + 2) % 2 === 0 ? 1 : -1);
-/** Attendant ahead of the animal's nose (m); beside it (gap to the flank, m); bicycles ride this far inboard of the rope line. */
-export const ATTEND_AHEAD = 0.55, ATTEND_SIDE = 0.35, BIKE_RAIL = 0.75;
+/** Attendant ahead of the animal's nose (m); beside it (gap to the flank, m); bicycles ride this far inboard of the rope line;
+ * a bicycle's pusher walks this far to its outboard side (deck −z, whichever way it faces). */
+export const ATTEND_AHEAD = 0.55, ATTEND_SIDE = 0.35, BIKE_RAIL = 0.75, BIKE_PUSH = 0.45;
 /** Margins: the helmsman's disc (0.25) + 0.15 at the trailing end; 0.2 at the leading end. */
 const TRAIL_CLEAR = 0.5 + 0.25 + 0.15, LEAD_CLEAR = 0.2;
 
 /** Period paint (inferred L): dark before 1950, pastels and two-tones in 1959, bold solids and white in 1975–86. */
-const PAINT: Record<number, number[]> = {
+export const PAINT: Record<number, number[]> = {
   1925: [0x1b1b1b, 0x23262b, 0x2e3a2f],
   1935: [0x1c1c1c, 0x2d3440, 0x3b2f2a, 0x33402f],
   1959: [0x7fa3b8, 0xd9d2c0, 0xb8453a, 0x6e8f6a, 0xe0c890, 0x2f3b52],
@@ -708,7 +989,7 @@ export function legMovers(rules: readonly LegRule[], spec: VesselSpec, L: DeckLa
     for (let b = 0; b < rule.bicycles; b++) {
       const centre = last - b * (d.length + 0.6) + 0.5;
       add('bicycle', { x: origin(d, centre), z: -(L.ropeZ - BIKE_RAIL) }, pick(BIKES, r01(era, leg, 40 + b, 4)),
-        [person('attendant', [d.wheelbase / 2 - 0.4, 0, -0.45])]);
+        [person('attendant', [d.wheelbase / 2 - 0.4, 0, -travelOf(leg) * BIKE_PUSH])]);   // model −z faces deck −z only when travel is +1
     }
   }
   return out;
@@ -734,7 +1015,7 @@ Note the bicycle row: 1984 has 4 rows → `last = −6.6` (the entry-side row's 
 - [ ] **Step 5: Run the tests**
 
 Run: `npx vitest run src/traffic`
-Expected: PASS. If the "clear of each other" check fails for 1984 bicycles, move their `centre` further toward −x' in 0.2 m steps until it passes and note the value in the rulings note.
+Expected: PASS (verified in a scratch copy).
 
 - [ ] **Step 6: Commit**
 
@@ -752,8 +1033,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/traffic/trip.ts`, `src/traffic/trip.test.ts`, `src/traffic/env.ts`, `src/traffic/env.test.ts`, `src/traffic/testing.ts`
 
+**Preflight rulings applied:** B4/B9a (both story roads run 10–15 m beside their pad, so the lanes leave the road 28 m inland and run diagonally to the pad top: an S-bend, no hairpin; the test checks where the lanes meet the pad instead of the road end), B9b (roads keep right: the waiting line in the right-hand lane, leaving movers in the other lane, offset sideways along road and pad connectors with mitred corners), R1 (the queue head waits 10 m up the pad; each mover lines up with its deck lane at a lead-in point one wheelbase before the apron point), B13 (a leaving mover runs straight until its tail is 1 m past the apron tip), B5 (bicycles have their own verge lines on the side of the deck's bicycle rail: they wait there and leave further out, so they never cross the car lanes), N2 (`offsetRight` is shared with the bridge lanes).
+
 **Interfaces:**
-- Consumes: `PoseContext`, `makePoseContext` (`src/ancon/pose.ts`); `LandingPad`, `PAD`, `padPoint`, `padFrame` (`src/terrain/landingPads.ts`); `landingPadsFor` (`src/terrain/placementFields.ts`); `landingTop` (`src/infrastructure/landing.ts`); `eraRoads`, `StoryRoad` (`src/infrastructure/roads.ts`); `ROAD_LIFT` (`src/infrastructure/roadStrip.ts`); `Mover`, `travelOf` (Task 4).
+- Consumes: `PoseContext` (`src/ancon/pose.ts`); `LandingPad`, `PAD`, `padPoint`, `padFrame` (`src/terrain/landingPads.ts`); `landingPadsFor` (`src/terrain/placementFields.ts`); `eraRoads` (`src/infrastructure/roads.ts`); `Mover`, `travelOf` (Task 4); `rearOverhang` (Task 4).
 - Produces (`trip.ts`):
 
 ```ts
@@ -775,7 +1058,10 @@ export const worldToDeck: (f: DockFrame, wx: number, wz: number) => [number, num
 export interface Polyline { pts: XZ[]; cum: number[]; len: number }
 export function polyline(pts: readonly XZ[]): Polyline;
 export function pointAt(p: Polyline, s: number, out: [number, number]): [number, number];
-export interface BankRoads { inRoad: XZ[]; outRoad: XZ[] }                       // world XZ, inbound far→near (right-hand side), outbound near→far
+export function offsetRight(pts: readonly XZ[], off: number | readonly number[]): XZ[];   // mitred; per-vertex offsets allowed
+export const PAD_KEEP = 2.5, QUEUE_A = 10, ROAD_LEAVE = 28, CAR_ROAD = 110, ANIMAL_ROAD = 60, VERGE_WAIT = 2, VERGE_LEAVE = 3.2;
+export const LEAD = 1.5, RUN_OUT = 1;
+export interface BankRoads { inRoad: XZ[]; outRoad: XZ[]; waitVerge: XZ[]; leaveVerge: XZ[]; padPart: number; railV: 1 | -1 }
 export interface DockEnv {
   era: Era; spec: VesselSpec; layout: DeckLayout; ctx: PoseContext; seats: SeatAnchor[];
   pads: [LandingPad, LandingPad]; look: LandingLook; frames: [DockFrame, DockFrame];   // east, west
@@ -785,17 +1071,19 @@ export interface DockEnv {
 export function dockEnv(era: Era, ctx: PoseContext, groundAt: (x: number, z: number) => number): DockEnv;
 export const departFrame: (env: DockEnv, leg: number) => DockFrame;   // east for travel +1
 export const arriveFrame: (env: DockEnv, leg: number) => DockFrame;
-export const PAD_KEEP = 2.5, QUEUE_A = 3.5, CAR_ROAD = 110, ANIMAL_ROAD = 60;
-export function boardPath(env: DockEnv, m: Mover, roadLen: number): Polyline;   // s = front contact; starts with the rear contact at the road end
+export const roadsOf: (env: DockEnv, f: DockFrame) => BankRoads;
+export function boardPath(env: DockEnv, m: Mover, roadLen: number): Polyline;   // s = front contact; starts with the rear contact roadLen m up the road
 export function leavePath(env: DockEnv, m: Mover, roadLen: number): Polyline;   // starts at the parked rear contact
-export const queueHeadS: (env: DockEnv, path: Polyline) => number;              // arc length (front contact) of the queue head at pad a = QUEUE_A
+export const queueHeadS: (path: Polyline) => number;      // boarding path: the queue head (pad a = QUEUE_A)
+export const leaveRoadS: (path: Polyline) => number;      // leaving path: the pad top (road speed from here)
+export const leaveOffDeckS: (path: Polyline) => number;   // leaving path: tail RUN_OUT m past the apron tip
 ```
 
 - Produces (`testing.ts`): `envFor(id: EraId): DockEnv` (placement fields, the era's pads, `sampleField` ground).
 
 - [ ] **Step 1: Write the failing tests**
 
-`src/traffic/trip.test.ts`:
+Create `src/traffic/trip.test.ts`:
 
 ```ts
 import { expect, test } from 'vitest';
@@ -826,12 +1114,12 @@ test('a non-stopping trip keeps its end speed; tripTimeAt inverts tripAt', () =>
 });
 ```
 
-`src/traffic/env.test.ts`:
+Create `src/traffic/env.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
-import { PAD, padFrame } from '../terrain/landingPads';
-import { deckToWorld, polyline, pointAt, worldToDeck, CAR_ROAD, PAD_KEEP, QUEUE_A, boardPath, leavePath, queueHeadS, departFrame, arriveFrame } from './env';
+import { padFrame } from '../terrain/landingPads';
+import { deckToWorld, polyline, pointAt, worldToDeck, CAR_ROAD, PAD_KEEP, QUEUE_A, VERGE_LEAVE, VERGE_WAIT, boardPath, leavePath, queueHeadS, departFrame, arriveFrame, roadsOf } from './env';
 import { legMovers, travelOf } from './plan';
 import { envFor } from './testing';
 
@@ -847,33 +1135,43 @@ describe('frames', () => {
 });
 
 describe('routes', () => {
-  test('inbound roads keep right, both are long enough, and end next to the pad top', () => {
+  test('roads keep right, are long enough, and meet the pad at the queue head', () => {
     for (const id of ['1840', '1975'] as const) {
       const env = envFor(id);
       env.roads.forEach((r, i) => {
         const pad = env.pads[i], inL = polyline(r.inRoad), outL = polyline(r.outRoad);
-        expect(inL.len).toBeGreaterThanOrEqual(CAR_ROAD - 1); expect(outL.len).toBeGreaterThanOrEqual(CAR_ROAD - 1);
-        const [a, v] = padFrame(pad, ...(r.inRoad[r.inRoad.length - 1] as [number, number]));
-        expect(Math.abs(a - PAD.length)).toBeLessThan(12);
-        // right-hand traffic: inbound runs on the −lateral side of the outbound one near the pad
-        const [, vOut] = padFrame(pad, ...(r.outRoad[0] as [number, number]));
-        expect(v).toBeLessThan(vOut);
+        expect(inL.len - r.padPart).toBeGreaterThanOrEqual(CAR_ROAD); expect(outL.len - r.padPart).toBeGreaterThanOrEqual(CAR_ROAD);
+        const pf = (p: readonly [number, number]) => padFrame(pad, p[0], p[1]);
+        const [qa, qv] = pf(r.inRoad[r.inRoad.length - 1]), [oa, ov] = pf(r.outRoad[0]);
+        expect(qa).toBeCloseTo(QUEUE_A, 6); expect(qv).toBeCloseTo(-PAD_KEEP, 6);
+        expect(oa).toBeCloseTo(QUEUE_A, 6); expect(ov).toBeCloseTo(PAD_KEEP, 6);
+        // On the road the outbound lane lies to the left of the inbound direction (right-hand traffic).
+        const a = r.inRoad[1], b = r.inRoad[2], o = r.outRoad[r.outRoad.length - 3];
+        const cross = (b[0] - a[0]) * (o[1] - a[1]) - (b[1] - a[1]) * (o[0] - a[0]);   // > 0: o is right of a→b (x east, z south)
+        expect(cross).toBeLessThan(0);
+        // Bicycles wait and leave on the verge on the side of the deck's bicycle rail, leaving outside the waiting ones.
+        expect(pf(r.waitVerge[r.waitVerge.length - 1])[1]).toBeCloseTo(r.railV * (PAD_KEEP + VERGE_WAIT), 6);
+        expect(pf(r.leaveVerge[0])[1]).toBeCloseTo(r.railV * (PAD_KEEP + VERGE_LEAVE), 6);
       });
     }
   });
 
   test('a boarding path ends at the parked front contact; a leaving path starts at the parked rear contact', () => {
-    const env = envFor('1984'), leg = 0, tr = travelOf(leg);
-    for (const m of legMovers(env.era.ancon.load.value, env.spec, env.layout, env.seats, 1984, leg)) {
-      const b = boardPath(env, m, CAR_ROAD), end = pointAt(b, b.len, [0, 0]);
-      const [x, z] = worldToDeck(departFrame(env, leg), end[0], end[1]);
-      expect(x).toBeCloseTo(tr * (m.park.x + m.dims.wheelbase / 2), 6); expect(z).toBeCloseTo(m.park.z, 6);
-      const l = leavePath(env, m, CAR_ROAD), start = pointAt(l, 0, [0, 0]);
-      const [x2, z2] = worldToDeck(arriveFrame(env, leg), start[0], start[1]);
-      expect(x2).toBeCloseTo(tr * (m.park.x - m.dims.wheelbase / 2), 6); expect(z2).toBeCloseTo(m.park.z, 6);
-      // the queue head waits QUEUE_A m inland on the inbound side
-      const q = pointAt(b, queueHeadS(env, b), [0, 0]), [qa, qv] = padFrame(departFrame(env, leg).pad, q[0], q[1]);
-      expect(qa).toBeCloseTo(QUEUE_A, 1); expect(qv).toBeCloseTo(-PAD_KEEP, 1);
+    const env = envFor('1984');
+    for (const leg of [0, 1]) {
+      const tr = travelOf(leg);
+      for (const m of legMovers(env.era.ancon.load.value, env.spec, env.layout, env.seats, 1984, leg)) {
+        const b = boardPath(env, m, CAR_ROAD), end = pointAt(b, b.len, [0, 0]);
+        const [x, z] = worldToDeck(departFrame(env, leg), end[0], end[1]);
+        expect(x).toBeCloseTo(tr * (m.park.x + m.dims.wheelbase / 2), 6); expect(z).toBeCloseTo(m.park.z, 6);
+        const l = leavePath(env, m, CAR_ROAD), start = pointAt(l, 0, [0, 0]);
+        const [x2, z2] = worldToDeck(arriveFrame(env, leg), start[0], start[1]);
+        expect(x2).toBeCloseTo(tr * (m.park.x - m.dims.wheelbase / 2), 6); expect(z2).toBeCloseTo(m.park.z, 6);
+        // the queue head waits QUEUE_A m inland, in the right-hand lane (bicycles: on the verge, rail side)
+        const f = departFrame(env, leg), q = pointAt(b, queueHeadS(b), [0, 0]), [qa, qv] = padFrame(f.pad, q[0], q[1]);
+        const v = m.kind === 'bicycle' ? roadsOf(env, f).railV * (PAD_KEEP + VERGE_WAIT) : -PAD_KEEP;
+        expect(qa).toBeCloseTo(QUEUE_A, 6); expect(qv).toBeCloseTo(v, 6);
+      }
     }
   });
 });
@@ -885,6 +1183,8 @@ Run: `npx vitest run src/traffic/trip.test.ts src/traffic/env.test.ts`
 Expected: FAIL — modules missing.
 
 - [ ] **Step 3: Write `trip.ts`**
+
+Create `src/traffic/trip.ts`:
 
 ```ts
 /**
@@ -933,7 +1233,7 @@ export function tripTimeAt(t: Trip, s: number): number {
 
 - [ ] **Step 4: Write `env.ts` and `testing.ts`**
 
-`src/traffic/env.ts`:
+Create `src/traffic/env.ts`:
 
 ```ts
 import type { PoseContext } from '../ancon/pose';
@@ -946,6 +1246,7 @@ import { eraRoads } from '../infrastructure/roads';
 import { PAD, padFrame, padPoint, type LandingPad } from '../terrain/landingPads';
 import { landingPadsFor } from '../terrain/placementFields';
 import { travelOf, type Mover } from './plan';
+import { rearOverhang } from './models';
 
 export type XZ = readonly [number, number];
 const G = geo as unknown as GeoBundle;
@@ -981,24 +1282,49 @@ export function pointAt(p: Polyline, s: number, out: [number, number]): [number,
   out[0] = a[0] + (b[0] - a[0]) * u; out[1] = a[1] + (b[1] - a[1]) * u;
   return out;
 }
+/**
+ * A polyline offset to the right of its own direction (right of (dx, dz) is (−dz, dx)) by `off` m, one value per
+ * vertex or one for all (negative = left). Corners are mitred, so the offset lane stays parallel to the line (the
+ * mitre is capped at 3× the offset). Shared with the bridge lanes (src/traffic/bridgeTraffic.ts).
+ */
+export function offsetRight(pts: readonly XZ[], off: number | readonly number[]): XZ[] {
+  const n = pts.length, right = (i: number): [number, number] => {   // right normal of segment i → i + 1
+    const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l];
+  };
+  return pts.map((p, i) => {
+    const o = typeof off === 'number' ? off : off[i];
+    const n1 = right(Math.max(0, i - 1)), n2 = right(Math.min(n - 2, i));
+    let mx = n1[0] + n2[0], mz = n1[1] + n2[1];
+    const ml = Math.hypot(mx, mz);
+    if (ml < 1e-6) { mx = n1[0]; mz = n1[1]; } else { mx /= ml; mz /= ml; }
+    const k = o / Math.max(1 / 3, mx * n1[0] + mz * n1[1]);
+    return [p[0] + mx * k, p[1] + mz * k] as const;
+  });
+}
 
-/** Road side offsets and lengths (inferred L): inbound keeps right, width/4 off the centre line; pad lanes ±PAD_KEEP. */
-export const PAD_KEEP = 2.5, QUEUE_A = 3.5, CAR_ROAD = 110, ANIMAL_ROAD = 60;
-export interface BankRoads { inRoad: XZ[]; outRoad: XZ[] }
+/**
+ * Routes (inferred L). Roads keep right (spec 4c §4.2, B9b ruling): the waiting line and every mover driving on use
+ * the right-hand lane of the inbound direction, movers driving off the other lane. Lanes sit `width / 4` off a story
+ * road's centre line and PAD_KEEP off the pad's axis. Both story roads run beside their pad, 10–15 m to one side, so
+ * the lanes leave the road where it is ROAD_LEAVE m inland (pad frame a), run diagonally to the pad top and down the
+ * pad's axis to the queue head (a = QUEUE_A): a gentle S-bend, no hairpin. Bicycles are pushed along the verge on the side of the deck's bicycle rail, so they never cross the
+ * car lanes: they wait VERGE_WAIT m outside the lanes and leave VERGE_LEAVE m outside them (past the next leg's
+ * waiting bicycles). Cars spawn and go away CAR_ROAD m up the road (measured from its pad end), animals and bicycles
+ * ANIMAL_ROAD m.
+ */
+export const PAD_KEEP = 2.5, QUEUE_A = 10, ROAD_LEAVE = 28, CAR_ROAD = 110, ANIMAL_ROAD = 60, VERGE_WAIT = 2, VERGE_LEAVE = 3.2;
+/** The boarding line's point just off the apron tip (m past `reach`); a leaving mover runs straight until its tail is RUN_OUT m past the apron tip. */
+export const LEAD = 1.5, RUN_OUT = 1;
+/** One bank's lanes, world XZ. `inRoad`/`waitVerge` run far → queue head; `outRoad`/`leaveVerge` run pad → far. `padPart`: length of the pad part (where the lanes leave the road → queue head), measured on the centre line. */
+export interface BankRoads { inRoad: XZ[]; outRoad: XZ[]; waitVerge: XZ[]; leaveVerge: XZ[]; padPart: number; railV: 1 | -1 }
 export interface DockEnv {
   era: Era; spec: VesselSpec; layout: DeckLayout; ctx: PoseContext; seats: SeatAnchor[];
-  pads: [LandingPad, LandingPad]; look: LandingLook; frames: [DockFrame, DockFrame];
+  pads: [LandingPad, LandingPad]; look: LandingLook; frames: [DockFrame, DockFrame];   // east, west
   roads: [BankRoads, BankRoads];
   groundAt: (x: number, z: number) => number;
 }
 
-/** A polyline offset `off` m to the right of its own direction (right of (dx, dz) is (−dz, dx)). */
-function offsetRight(pts: readonly XZ[], off: number): XZ[] {
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    return [p[0] + (-(b[1] - a[1]) / l) * off, p[1] + ((b[0] - a[0]) / l) * off] as const;
-  });
-}
 /** The first `len` m of `pts` measured from its end nearest `near` (returned far → near). */
 function nearestRun(pts: readonly XZ[], near: XZ, len: number): XZ[] {
   const d0 = Math.hypot(pts[0][0] - near[0], pts[0][1] - near[1]), d1 = Math.hypot(pts[pts.length - 1][0] - near[0], pts[pts.length - 1][1] - near[1]);
@@ -1013,6 +1339,42 @@ function nearestRun(pts: readonly XZ[], near: XZ, len: number): XZ[] {
   return out.reverse();   // far → near
 }
 
+/** Pad side (±1, pad frame v) of the deck's −z rail (where the bicycles ride) with the ferry docked at `f`. */
+function railSide(f: DockFrame): 1 | -1 {
+  const [x0, z0] = deckToWorld(f, 0, 0), [x1, z1] = deckToWorld(f, 0, -1);
+  return padFrame(f.pad, x1, z1)[1] - padFrame(f.pad, x0, z0)[1] > 0 ? 1 : -1;
+}
+
+/** The road (far → near) cut where it first comes within ROAD_LEAVE m of the shore along the pad's axis (pad frame a). */
+function cutRoad(run: readonly XZ[], pad: LandingPad): XZ[] {
+  const out: XZ[] = [run[0]];
+  for (let k = 1; k < run.length; k++) {
+    const a0 = padFrame(pad, run[k - 1][0], run[k - 1][1])[0], a1 = padFrame(pad, run[k][0], run[k][1])[0];
+    if (a1 < ROAD_LEAVE && a0 >= ROAD_LEAVE) {
+      const u = (a0 - ROAD_LEAVE) / (a0 - a1);
+      out.push([run[k - 1][0] + (run[k][0] - run[k - 1][0]) * u, run[k - 1][1] + (run[k][1] - run[k - 1][1]) * u]);
+      return out;
+    }
+    out.push(run[k]);
+  }
+  return out;
+}
+
+function bankRoads(r: { points: readonly XZ[]; width: number }, f: DockFrame): BankRoads {
+  const pad = f.pad, run = cutRoad(nearestRun(r.points, pad.shore, CAR_ROAD + 60), pad), end = run[run.length - 1];
+  const centre: XZ[] = [...run, padPoint(pad, PAD.length, 0), padPoint(pad, QUEUE_A, 0)];
+  const keep = centre.map((_, i) => (i < run.length ? r.width / 4 : PAD_KEEP)), rev = [...centre].reverse(), keepRev = [...keep].reverse();
+  const railV = railSide(f);
+  const padPart = Math.hypot(centre[run.length][0] - end[0], centre[run.length][1] - end[1]) + (PAD.length - QUEUE_A);
+  return {
+    inRoad: offsetRight(centre, keep), outRoad: offsetRight(rev, keepRev),
+    // Right of the inbound direction is pad side −1, right of the outbound direction pad side +1.
+    waitVerge: offsetRight(centre, keep.map((k) => -railV * (k + VERGE_WAIT))),
+    leaveVerge: offsetRight(rev, keepRev.map((k) => railV * (k + VERGE_LEAVE))),
+    padPart, railV,
+  };
+}
+
 export function dockEnv(era: Era, ctx: PoseContext, groundAt: (x: number, z: number) => number): DockEnv {
   const bank = era.river.bankOffset.value, pads = landingPadsFor(bank), spec = ctx.spec, layout = ctx.layout;
   const frames: [DockFrame, DockFrame] = [
@@ -1021,18 +1383,14 @@ export function dockEnv(era: Era, ctx: PoseContext, groundAt: (x: number, z: num
   ];
   const story = eraRoads(G, era).story;
   const road = (id: 'escobar' | 'antigua') => story.find((r) => r.id === id)!;
-  const bankRoads = (r: { points: XZ[]; width: number }, pad: LandingPad): BankRoads => {
-    const run = nearestRun(r.points, pad.shore, CAR_ROAD + 20), keep = r.width / 4;
-    return { inRoad: offsetRight(run, keep), outRoad: offsetRight([...run].reverse(), keep) };
-  };
   return {
     era, spec, layout, ctx, seats: seatAnchors(spec, layout), pads, look: era.infrastructure.landing.value, frames,
-    roads: [bankRoads(road('escobar'), pads[0]), bankRoads(road('antigua'), pads[1])], groundAt,
+    roads: [bankRoads(road('escobar'), frames[0]), bankRoads(road('antigua'), frames[1])], groundAt,
   };
 }
 export const departFrame = (env: DockEnv, leg: number) => env.frames[travelOf(leg) > 0 ? 0 : 1];
 export const arriveFrame = (env: DockEnv, leg: number) => env.frames[travelOf(leg) > 0 ? 1 : 0];
-const roadsOf = (env: DockEnv, f: DockFrame) => env.roads[f.side === 'east' ? 0 : 1];
+export const roadsOf = (env: DockEnv, f: DockFrame) => env.roads[f.side === 'east' ? 0 : 1];
 
 /** The last `len` m of a polyline (its start trimmed, the cut point interpolated). */
 function tail(pts: readonly XZ[], len: number): XZ[] {
@@ -1049,33 +1407,41 @@ function head(pts: readonly XZ[], len: number): XZ[] {
 }
 
 /**
- * Boarding route (world XZ), for the FRONT contact: the inbound road (its last `roadLen` m, keeping right) → pad top
- * on the inbound side → the queue head (a = QUEUE_A) → into the mover's lane just off the water (a = 1.5) → along the
- * lane over the apron and the deck to its parked front contact. Starts one wheelbase back so the rear contact has
- * road under it at spawn.
+ * Boarding route (world XZ), for the FRONT contact: the inbound lane (cars and animals) or the waiting verge
+ * (bicycles), from `roadLen` m up the road to the queue head on the pad (a = QUEUE_A) → a lead-in point in line
+ * with the mover's deck lane, one wheelbase before the apron point (so the whole mover is straight before the ramp)
+ * → the apron point LEAD m off the apron tip → along the lane to its parked front contact. Starts one wheelbase
+ * further back so the rear contact has road under it at spawn.
  */
 export function boardPath(env: DockEnv, m: Mover, roadLen: number): Polyline {
-  const f = departFrame(env, m.leg), tr = travelOf(m.leg), pad = f.pad, L = env.layout, r = roadsOf(env, f);
-  const lane = m.park.z, fx = tr * (m.park.x + m.dims.wheelbase / 2);
-  const [ex, ez] = deckToWorld(f, -tr * (L.reach + 1.5), lane);   // in line with the lane, just off the apron / bow
-  const pts: XZ[] = [
-    ...tail(r.inRoad, roadLen + m.dims.wheelbase),
-    padPoint(pad, PAD.length, -PAD_KEEP), padPoint(pad, QUEUE_A, -PAD_KEEP), [ex, ez], deckToWorld(f, fx, lane),
-  ];
-  return polyline(pts);
+  const f = departFrame(env, m.leg), tr = travelOf(m.leg), L = env.layout, r = roadsOf(env, f), wb = m.dims.wheelbase;
+  const lane = m.park.z, fx = tr * (m.park.x + wb / 2), line = m.kind === 'bicycle' ? r.waitVerge : r.inRoad;
+  return polyline([
+    ...tail(line, roadLen + r.padPart + wb),
+    deckToWorld(f, -tr * (L.reach + LEAD + wb), lane), deckToWorld(f, -tr * (L.reach + LEAD), lane), deckToWorld(f, fx, lane),
+  ]);
 }
-/** Leaving route: parked rear contact → along the lane off the leading end → the outbound side of the pad → the outbound road. */
+/**
+ * Leaving route: parked rear contact → straight along the lane until the tail is RUN_OUT m past the apron tip → the
+ * outbound lane (bicycles: the leaving verge) from the pad's queue-head level out to `roadLen` m up the road.
+ */
 export function leavePath(env: DockEnv, m: Mover, roadLen: number): Polyline {
-  const f = arriveFrame(env, m.leg), tr = travelOf(m.leg), pad = f.pad, L = env.layout, r = roadsOf(env, f);
-  const lane = m.park.z, rx = tr * (m.park.x - m.dims.wheelbase / 2);
-  const [ex, ez] = deckToWorld(f, tr * (L.reach + 1.5), lane);
-  return polyline([deckToWorld(f, rx, lane), [ex, ez], padPoint(pad, 6, PAD_KEEP), padPoint(pad, PAD.length, PAD_KEEP), ...head(r.outRoad, roadLen)]);
+  const f = arriveFrame(env, m.leg), tr = travelOf(m.leg), L = env.layout, r = roadsOf(env, f), d = m.dims;
+  const lane = m.park.z, rx = tr * (m.park.x - d.wheelbase / 2), line = m.kind === 'bicycle' ? r.leaveVerge : r.outRoad;
+  return polyline([
+    deckToWorld(f, rx, lane), deckToWorld(f, tr * (L.reach + RUN_OUT + d.wheelbase + rearOverhang(d)), lane),
+    ...head(line, roadLen + r.padPart),
+  ]);
 }
-/** Arc length (front contact) of the queue head on a boarding path: its third-last point (pad a = QUEUE_A, inbound side; see boardPath). */
-export const queueHeadS = (_env: DockEnv, path: Polyline) => path.cum[path.pts.length - 3];
+/** Arc length (front contact) of the queue head on a boarding path: its fourth-last point (see boardPath). */
+export const queueHeadS = (path: Polyline) => path.cum[path.pts.length - 4];
+/** Arc length on a leaving path where the mover leaves the pad for the road (its pad top; see leavePath): road speed from here. */
+export const leaveRoadS = (path: Polyline) => path.cum[3];
+/** Arc length on a leaving path where the mover's tail is RUN_OUT m past the apron tip (off the deck). */
+export const leaveOffDeckS = (path: Polyline) => path.cum[1];
 ```
 
-`src/traffic/testing.ts`:
+Create `src/traffic/testing.ts`:
 
 ```ts
 // Shared test fixtures for src/traffic (imported by *.test.ts only).
@@ -1093,7 +1459,7 @@ export const envFor = (id: EraId) => {
 - [ ] **Step 5: Run the tests**
 
 Run: `npx vitest run src/traffic`
-Expected: PASS. If the "end next to the pad top" check fails (road end > 12 m from the pad top), print the distances and widen the bound to the measured value + 2 m — the connector segment to the pad top is straight either way — and note it in the rulings note.
+Expected: PASS (verified in a scratch copy).
 
 - [ ] **Step 6: Commit**
 
@@ -1110,45 +1476,48 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/traffic/schedule.ts`, `src/traffic/schedule.test.ts`
-- Modify: `src/ancon/Ancon.tsx` (spec from `eraTimings`)
+- Modify: `src/ancon/Ancon.tsx` (spec from `eraTimings`), `docs/superpowers/specs/2026-09-29-phase-4c-traffic-design.md` (§4.2 speeds and lanes, §4.3)
+
+**Preflight rulings applied:** R4 (ramps and deck 2 m/s by the spec, but the lowest speed ≤ 3 m/s that keeps every stop within 50 s is 2.8 m/s, so `SPEED.deck = 2.8`; horse and bicycles 1.3 m/s, oxen 0.9 m/s), B5 (bicycles leave in their own chain), B6 (spawns timed back from the docking deadline, each mover never catching the one ahead), B7 (places in line are measured back from each path's own queue head; the queue test compares those), R5 (passengers stay serial; spec §4.3 amended in Step 5), R8 (`eraTimings` takes the placement fields and is memoised per era), N5 (one pass of an even leg cycle: each rule runs one way).
 
 **Interfaces:**
-- Consumes: Tasks 4–5; `moveEnd` (Task 2); `CROSSING_TIMINGS`, `legDuration` (`src/ancon/crossing.ts`).
+- Consumes: Tasks 4–5; `CROSSING_TIMINGS`, `legDuration` (`src/ancon/crossing.ts`).
 - Produces:
 
 ```ts
-export const SPEED = { deck: 3, road: 5.5, animal: 0.9, bike: 1.3, accel: 1 };
-export const BOARD_START = 1, ASHORE_START = 3.2, BOARD_STAGGER = 0.8, OFF_START = 0.5, OFF_GAP = 1.1, QUEUE_GAP = 1.5, SPAWN_AFTER = 10, SPAWN_GAP = 7, PAX_LOAD = 20, PAX_UNLOAD = 16, MAX_STOP = 50;
+export const SPEED = { deck: 2.8, road: 5.5, oxen: 0.9, walk: 1.3, accel: 1 };
+export const BOARD_START = 1, ASHORE_START = 3.2, BOARD_STAGGER = 0.8, OFF_START = 0.5, OFF_GAP = 1.1, QUEUE_GAP = 1.5;
+export const SPAWN_AFTER = 10, SPAWN_MIN = 1, SPAWN_STEP = 0.25, QUEUE_MARGIN = 5, PAX_LOAD = 20, PAX_UNLOAD = 16, MAX_STOP = 50;
 export interface MoverSched {
   m: Mover; board: Polyline; leave: Polyline;
-  spawn: Trip;          // times relative to the mover's own leg start (negative: during the previous leg)
-  boardTrip: Trip;
-  leave1: Trip; leave2: Trip;   // times relative to unload start (moveEnd)
-  boardEnd: number;     // parked, s into the leg
-  offDeck: number;      // tail past the deck end, s after unload start
-  gone: number;         // at the road end, s after unload start
+  spawn: Trip; boardTrip: Trip;      // times relative to the mover's own leg start (negative: during the previous leg)
+  leave1: Trip; leave2: Trip;        // times relative to unload start (moveEnd)
+  queueS: number; queueBack: number; // queue head arc length on `board`; metres behind it in line
+  boardEnd: number;                  // parked, s into the leg
+  offDeck: number;                   // tail past the deck end, s after unload start
+  gone: number;                      // at the road end, s after unload start
 }
 /** What the crew needs from a leg's load (src/ancon/crew.ts). */
 export interface DeckLoad { rects: [number, number, number, number][]; boardEnd: number; offEnd: number; helmAshore: boolean }
 export interface LegPlan { leg: number; movers: MoverSched[]; load: DeckLoad }
 export function planLeg(env: DockEnv, leg: number): LegPlan;
 export const EMPTY_LOAD: DeckLoad;
-export function eraTimings(era: Era): CrossingTimings;     // worst case over the era's cycle, both directions
+export function eraTimings(era: Era, fields?: WorldFields): CrossingTimings;   // memoised per era
 export class LegCache { constructor(env: DockEnv); get(leg: number): LegPlan }   // keeps the last 4 legs
 ```
 
+Resulting dock stops (load / unload, s): 1840 43/27, 1900 43/27, 1925 43/27, 1935 30/22, 1959 39/33, 1975 45/41, 1984 50/49, 1986 20/16 (today's).
+
 - [ ] **Step 1: Write the failing tests**
 
-`src/traffic/schedule.test.ts`:
+Create `src/traffic/schedule.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
 import { CROSSING_TIMINGS, legDuration } from '../ancon/crossing';
-import { moveEnd } from '../ancon/crew';
 import { ERAS, getEra, type EraId } from '../data/eras';
 import { tripAt, tripDuration } from './trip';
-import { eraTimings, LegCache, MAX_STOP, planLeg, QUEUE_GAP } from './schedule';
-import { pointAt } from './env';
+import { eraTimings, LegCache, MAX_STOP, planLeg, QUEUE_GAP, type MoverSched } from './schedule';
 import { rearOverhang } from './models';
 import { envFor } from './testing';
 
@@ -1163,6 +1532,7 @@ describe('eraTimings', () => {
     }
     expect(eraTimings(getEra('1986'))).toEqual(CROSSING_TIMINGS);
     expect(eraTimings(getEra('1984')).load).toBeGreaterThan(CROSSING_TIMINGS.load);
+    expect(eraTimings(getEra('1975'))).toBe(eraTimings(getEra('1975')));   // memoised
   });
 });
 
@@ -1183,15 +1553,17 @@ describe('planLeg', () => {
     }
   });
 
-  test('the waiting line keeps its gaps and its head at the queue point', () => {
-    const env = envT('1984'), p = planLeg(env, 2), pt = { s: 0, v: 0 };
-    const q = p.movers.map((s) => s.spawn.s1);
-    for (let k = 1; k < q.length; k++) {
-      const a = p.movers[k - 1].m.dims, b = p.movers[k].m.dims;
-      // front-to-front spacing ≥ leader's wheelbase + rear overhang + gap + follower's front
-      expect(q[k - 1] - q[k]).toBeGreaterThanOrEqual(a.wheelbase + rearOverhang(a) + QUEUE_GAP + b.front - 1e-6);
+  test('the waiting line keeps its gaps and its head at the queue point when the ferry docks', () => {
+    const env = envT('1984'), T = env.spec.timings, p = planLeg(env, 2), pt = { s: 0, v: 0 }, dock = -T.unload - T.dock;
+    const back = (s: MoverSched) => s.queueS - tripAt(s.spawn, dock, pt).s;
+    for (const line of [p.movers.filter((s) => s.m.kind !== 'bicycle'), p.movers.filter((s) => s.m.kind === 'bicycle')]) {
+      expect(back(line[0])).toBeCloseTo(0, 6);
+      for (let k = 1; k < line.length; k++) {
+        const a = line[k - 1].m.dims, b = line[k].m.dims;
+        // front-to-front spacing ≥ leader's wheelbase + rear overhang + gap + follower's front
+        expect(back(line[k]) - back(line[k - 1])).toBeGreaterThanOrEqual(a.wheelbase + rearOverhang(a) + QUEUE_GAP + b.front - 1e-6);
+      }
     }
-    expect(tripAt(p.movers[0].spawn, 0, pt).s).toBeCloseTo(p.movers[0].spawn.s1, 6);
   });
 
   test('cache returns the same plan object for the same leg', () => {
@@ -1209,42 +1581,81 @@ Expected: FAIL — module missing.
 
 - [ ] **Step 3: Write `schedule.ts`**
 
+Create `src/traffic/schedule.ts`:
+
 ```ts
 import { CROSSING_TIMINGS, legDuration, type CrossingTimings } from '../ancon/crossing';
 import { makePoseContext } from '../ancon/pose';
 import { crossingGeometry } from '../ancon/geometry';
 import { vesselSpec } from '../ancon/spec';
-import type { Era } from '../data/eras';
+import type { Era, EraId } from '../data/eras';
+import type { WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
-import { ANIMAL_ROAD, boardPath, CAR_ROAD, dockEnv, leavePath, queueHeadS, type DockEnv, type Polyline } from './env';
+import { ANIMAL_ROAD, boardPath, CAR_ROAD, dockEnv, leaveOffDeckS, leavePath, leaveRoadS, queueHeadS, type DockEnv, type Polyline } from './env';
 import { isAnimal, rearOverhang } from './models';
 import { footprint, legMovers, travelOf, type Mover } from './plan';
-import { tripDuration, tripEndSpeed, tripTimeAt, type Trip } from './trip';
+import { tripAt, tripDuration, tripEndSpeed, tripTimeAt, type Trip, type TripPoint } from './trip';
 
-/** Speeds (m/s) and acceleration (m/s²), inferred (L): cars 3 on the landing and deck, 5.5 on the road; oxen 0.9; bicycles pushed at 1.3. */
-export const SPEED = { deck: 3, road: 5.5, animal: 0.9, bike: 1.3, accel: 1 };
 /**
- * Dock stop (s): boarding starts BOARD_START into the leg (ASHORE_START when the helmsman first steps ashore),
- * each next mover BOARD_STAGGER later; leaving starts OFF_START after unload starts, each next mover when the one
- * ahead is its length + OFF_GAP m ahead. The queue: QUEUE_GAP m nose to tail; the first mover spawns SPAWN_AFTER s
- * after the previous leg's cast-off ends, the next ones SPAWN_GAP s apart. Passengers need PAX_LOAD / PAX_UNLOAD s
- * after the load (Phase 3's whole stop). A stop is at most MAX_STOP s.
+ * Speeds (m/s) and acceleration (m/s²), inferred (L; spec 4c §4.2): oxen 0.9, a led horse and pushed bicycles 1.3
+ * (walking), cars up to 5.5 on the road. `deck` (ramps, pad and deck) is 2.8, not the spec's 2: the lowest speed
+ * ≤ 3 m/s (0.1 steps) that keeps every era's dock stop within MAX_STOP — at 2 m/s the 1984 load takes 57 s, at 2.7 m/s
+ * 51 s (ruling R4; spec 4c §4.2 amended, rulings note).
+ */
+export const SPEED = { deck: 2.8, road: 5.5, oxen: 0.9, walk: 1.3, accel: 1 };
+/**
+ * Dock stop (s): boarding starts BOARD_START into the leg (ASHORE_START when the helmsman first steps ashore), each
+ * next mover BOARD_STAGGER later (bicycles board along the rail, beside the cars).
+ * Leaving starts OFF_START after unload starts; each next car when the one ahead is its length + OFF_GAP m ahead;
+ * bicycles run their own chain, along the rail and out on the verge (src/traffic/env.ts), beside the cars. The queue:
+ * QUEUE_GAP m nose to tail; spawns are timed so each mover reaches its place in line QUEUE_MARGIN s before the ferry
+ * docks, never before SPAWN_AFTER s after the previous leg's cast-off, and no mover catches up with the one ahead
+ * (checked every SPAWN_STEP s; at least SPAWN_MIN s apart). Passengers need PAX_LOAD / PAX_UNLOAD s after the load
+ * (Phase 3's whole stop). A stop is at most MAX_STOP s.
  */
 export const BOARD_START = 1, ASHORE_START = 3.2, BOARD_STAGGER = 0.8, OFF_START = 0.5, OFF_GAP = 1.1, QUEUE_GAP = 1.5;
-export const SPAWN_AFTER = 10, SPAWN_GAP = 7, PAX_LOAD = 20, PAX_UNLOAD = 16, MAX_STOP = 50;
+export const SPAWN_AFTER = 10, SPAWN_MIN = 1, SPAWN_STEP = 0.25, QUEUE_MARGIN = 5, PAX_LOAD = 20, PAX_UNLOAD = 16, MAX_STOP = 50;
 
 export interface MoverSched {
   m: Mover; board: Polyline; leave: Polyline;
-  spawn: Trip; boardTrip: Trip; leave1: Trip; leave2: Trip;
+  /** Queue: times relative to the mover's own leg start (negative: during the previous leg). */
+  spawn: Trip; boardTrip: Trip;
+  /** Leaving: times relative to unload start (moveEnd). */
+  leave1: Trip; leave2: Trip;
+  /** Arc length (front contact) of the queue head on `board`; the mover waits `queueBack` m behind it. */
+  queueS: number; queueBack: number;
+  /** Parked (s into the leg); tail past the deck end, at the road end (s after unload starts). */
   boardEnd: number; offDeck: number; gone: number;
 }
+/** What the crew needs from a leg's load (src/ancon/crew.ts). */
 export interface DeckLoad { rects: [number, number, number, number][]; boardEnd: number; offEnd: number; helmAshore: boolean }
 export interface LegPlan { leg: number; movers: MoverSched[]; load: DeckLoad }
 export const EMPTY_LOAD: DeckLoad = { rects: [], boardEnd: 0, offEnd: 0, helmAshore: false };
 
-const vmaxOf = (m: Mover) => (isAnimal(m.kind) ? SPEED.animal : m.kind === 'bicycle' ? SPEED.bike : SPEED.deck);
-const roadVmax = (m: Mover) => (isAnimal(m.kind) ? SPEED.animal : m.kind === 'bicycle' ? SPEED.bike : SPEED.road);
-const roadLen = (m: Mover) => (isAnimal(m.kind) || m.kind === 'bicycle' ? ANIMAL_ROAD : CAR_ROAD);
+const isBike = (m: Mover) => m.kind === 'bicycle';
+const walks = (m: Mover) => m.kind === 'horse' || isBike(m);
+const deckVmax = (m: Mover) => (walks(m) ? SPEED.walk : isAnimal(m.kind) ? SPEED.oxen : SPEED.deck);
+const roadVmax = (m: Mover) => (walks(m) ? SPEED.walk : isAnimal(m.kind) ? SPEED.oxen : SPEED.road);
+const roadLen = (m: Mover) => (isAnimal(m.kind) || isBike(m) ? ANIMAL_ROAD : CAR_ROAD);
+/** Front-to-front spacing (m) of `m` waiting behind `ahead`. */
+const spacing = (ahead: Mover, m: Mover) => ahead.dims.wheelbase + rearOverhang(ahead.dims) + QUEUE_GAP + m.dims.front;
+const _tp: TripPoint = { s: 0, v: 0 };
+/** Distance (m) of the front contact behind the queue head at time t. */
+const behind = (s: MoverSched, t: number) => s.queueS - tripAt(s.spawn, t, _tp).s;
+
+/**
+ * Earliest spawn (relative) for `s` behind `ahead` in the same line: at least SPAWN_MIN s after it and never
+ * closer than their spacing, sampled every SPAWN_STEP s until `s` stops.
+ */
+function spawnAfter(ahead: MoverSched, s: MoverSched): number {
+  const gap = spacing(ahead.m, s.m) - 1e-6, dur = tripDuration(s.spawn);
+  for (let t0 = ahead.spawn.t0 + SPAWN_MIN; ; t0 += SPAWN_STEP) {
+    s.spawn.t0 = t0;
+    let ok = true;
+    for (let t = t0; t <= t0 + dur + SPAWN_STEP; t += SPAWN_STEP) if (behind(s, t) - behind(ahead, t) < gap) { ok = false; break; }
+    if (ok) return t0;
+  }
+}
 
 /** One leg's schedule. Times: queue/board relative to the leg's start, leaving relative to unload start. Pure. */
 export function planLeg(env: DockEnv, leg: number): LegPlan {
@@ -1253,32 +1664,48 @@ export function planLeg(env: DockEnv, leg: number): LegPlan {
   if (!movers.length) return { leg, movers: [], load: EMPTY_LOAD };
   const helmAshore = spec.helmsman;
   const out: MoverSched[] = [];
-  let queueFront = Infinity, prev: Mover | null = null;
-  // Queue + boarding, in boarding order.
-  movers.forEach((m, k) => {
-    const board = boardPath(env, m, roadLen(m)), leave = leavePath(env, m, roadLen(m)), head = queueHeadS(env, board);
-    const sq = prev ? queueFront - (prev.dims.wheelbase + rearOverhang(prev.dims) + QUEUE_GAP + m.dims.front) : head;
-    queueFront = sq; prev = m;
-    const spawn: Trip = { t0: -Lg + T.load + T.castOff + SPAWN_AFTER + k * SPAWN_GAP, s0: m.dims.wheelbase, s1: sq, v0: 0, vmax: roadVmax(m), accel: SPEED.accel, stop: true };
-    const t0 = (helmAshore ? ASHORE_START : BOARD_START) + k * BOARD_STAGGER;
-    const boardTrip: Trip = { t0, s0: sq, s1: board.len, v0: 0, vmax: vmaxOf(m), accel: SPEED.accel, stop: true };
-    out.push({ m, board, leave, spawn, boardTrip, leave1: undefined!, leave2: undefined!, boardEnd: t0 + tripDuration(boardTrip) + 0.5, offDeck: 0, gone: 0 });
+  // The waiting line (lane) and the bicycles (verge), each in boarding order: places measured back from the head.
+  const lastOf: { lane?: MoverSched; verge?: MoverSched } = {};
+  for (const m of movers) {
+    const board = boardPath(env, m, roadLen(m)), leave = leavePath(env, m, roadLen(m)), queueS = queueHeadS(board);
+    const key = isBike(m) ? 'verge' : 'lane', ahead = lastOf[key];
+    const queueBack = ahead ? ahead.queueBack + spacing(ahead.m, m) : 0;
+    const s: MoverSched = {
+      m, board, leave, queueS, queueBack,
+      spawn: { t0: 0, s0: m.dims.wheelbase, s1: queueS - queueBack, v0: 0, vmax: roadVmax(m), accel: SPEED.accel, stop: true },
+      boardTrip: undefined!, leave1: undefined!, leave2: undefined!, boardEnd: 0, offDeck: 0, gone: 0,
+    };
+    if (ahead) s.spawn.t0 = spawnAfter(ahead, s);
+    lastOf[key] = s; out.push(s);
+  }
+  // Spawn as early as SPAWN_AFTER s after the previous leg's cast-off, later only if everyone still arrives in time.
+  const first = -Lg + T.load + T.castOff + SPAWN_AFTER, due = -T.unload - T.dock - QUEUE_MARGIN;
+  const shift = Math.min(first, due - Math.max(...out.map((s) => s.spawn.t0 + tripDuration(s.spawn))));
+  for (const s of out) s.spawn.t0 += shift;
+  // Boarding, BOARD_STAGGER apart in boarding order.
+  const start = helmAshore ? ASHORE_START : BOARD_START;
+  out.forEach((s, k) => {
+    const t0 = start + k * BOARD_STAGGER;
+    s.boardTrip = { t0, s0: s.spawn.s1, s1: s.board.len, v0: 0, vmax: deckVmax(s.m), accel: SPEED.accel, stop: true };
+    s.boardEnd = t0 + tripDuration(s.boardTrip) + 0.5;
   });
-  // Leaving: nearest the leading end first (largest x'), each next when the one ahead is its length + OFF_GAP ahead.
-  const order = [...out].sort((a, b) => b.m.park.x - a.m.park.x || a.m.park.z - b.m.park.z);
-  let t = OFF_START;
-  order.forEach((s, i) => {
-    const m = s.m, wb = m.dims.wheelbase;
-    // s is the FRONT contact; the leaving path starts at the rear contact, so the front starts at s = wb.
-    const padTop = s.leave.cum[3];   // [rear, off-deck point, pad a=6, pad top, …]
-    s.leave1 = { t0: t, s0: wb, s1: padTop, v0: 0, vmax: vmaxOf(m), accel: SPEED.accel, stop: false };
-    s.leave2 = { t0: t + tripDuration(s.leave1), s0: padTop, s1: s.leave.len, v0: tripEndSpeed(s.leave1), vmax: roadVmax(m), accel: SPEED.accel, stop: false };
-    // Off the deck: the tail passes the deck end + 1 m. Tail = front − wb − rear overhang; deck end on the path = cum[1] − 1.5 (the point is 1.5 m past the apron tip).
-    const exitS = s.leave.cum[1] - 1.5 + 1 + wb + rearOverhang(m.dims);
-    s.offDeck = tripTimeAt(s.leave1, Math.min(exitS, padTop));
-    s.gone = s.leave2.t0 + tripDuration(s.leave2);
-    if (i + 1 < order.length) t = tripTimeAt(s.leave1, Math.min(padTop, wb + m.dims.length + OFF_GAP));
-  });
+  // Leaving: nearest the leading end first (largest x'), each next when the one ahead is its length + OFF_GAP along;
+  // cars and animals in one chain, bicycles in their own (rail and verge).
+  const chain = (list: MoverSched[]) => {
+    let t = OFF_START;
+    list.forEach((s, i) => {
+      const m = s.m, wb = m.dims.wheelbase, road = leaveRoadS(s.leave);
+      // s is the FRONT contact; the leaving path starts at the rear contact, so the front starts at s = wb.
+      s.leave1 = { t0: t, s0: wb, s1: road, v0: 0, vmax: deckVmax(m), accel: SPEED.accel, stop: false };
+      s.leave2 = { t0: t + tripDuration(s.leave1), s0: road, s1: s.leave.len, v0: tripEndSpeed(s.leave1), vmax: roadVmax(m), accel: SPEED.accel, stop: false };
+      s.offDeck = tripTimeAt(s.leave1, leaveOffDeckS(s.leave));
+      s.gone = s.leave2.t0 + tripDuration(s.leave2);
+      if (i + 1 < list.length) t = tripTimeAt(s.leave1, Math.min(road, wb + m.dims.length + OFF_GAP));
+    });
+  };
+  const byLead = (a: MoverSched, b: MoverSched) => b.m.park.x - a.m.park.x || a.m.park.z - b.m.park.z;
+  chain(out.filter((s) => !isBike(s.m)).sort(byLead));
+  chain(out.filter((s) => isBike(s.m)).sort(byLead));
   const rects = out.map((s) => footprint(s.m, tr));
   return {
     leg, movers: out,
@@ -1297,43 +1724,98 @@ export class LegCache {
   }
 }
 
+const TIMINGS = new Map<EraId, CrossingTimings>();
 /**
  * The era's dock timings (spec 4c §4.3): load = PAX_LOAD after the slowest boarding, unload = PAX_UNLOAD after the
- * slowest leaving, over every leg of the cycle in both directions; never shorter than today's. Pure; ground heights
- * are not needed (routes are XZ only).
+ * slowest leaving, over one pass of the era's leg cycle (twice for an odd cycle, so every rule runs both ways); never
+ * shorter than today's. Memoised per era. `fields`: the 512 placement fields (<Ancon> passes its own; omitted, the
+ * cached build is used). Ground heights are not needed (routes are XZ only). boardEnd and offDeck do not depend on
+ * the timings (only the spawn times do), so planning with today's timings here is consistent.
  */
-export function eraTimings(era: Era): CrossingTimings {
+export function eraTimings(era: Era, fields?: WorldFields): CrossingTimings {
+  const hit = TIMINGS.get(era.id);
+  if (hit) return hit;
   const rules = era.ancon.load.value;
-  if (!rules.length || era.ancon.propulsion.value === 'moored') return CROSSING_TIMINGS;
-  const spec = vesselSpec(era), f = placementFields(era.river.bankOffset.value);
-  const env = dockEnv(era, makePoseContext(crossingGeometry(f), spec, era.river.flow.value), () => 0);
-  let board = 0, off = 0;
-  for (let leg = 0; leg < 2 * rules.length; leg++) { const p = planLeg(env, leg); board = Math.max(board, p.load.boardEnd); off = Math.max(off, p.load.offEnd); }
-  return { ...CROSSING_TIMINGS, load: Math.max(CROSSING_TIMINGS.load, Math.ceil(board + PAX_LOAD)), unload: Math.max(CROSSING_TIMINGS.unload, Math.ceil(off + PAX_UNLOAD)) };
+  let T = CROSSING_TIMINGS;
+  if (rules.length && era.ancon.propulsion.value !== 'moored') {
+    const spec = vesselSpec(era), f = fields ?? placementFields(era.river.bankOffset.value);
+    const env = dockEnv(era, makePoseContext(crossingGeometry(f), spec, era.river.flow.value), () => 0);
+    let board = 0, off = 0;
+    for (let leg = 0; leg < (rules.length % 2 ? 2 : 1) * rules.length; leg++) { const p = planLeg(env, leg); board = Math.max(board, p.load.boardEnd); off = Math.max(off, p.load.offEnd); }
+    T = { ...CROSSING_TIMINGS, load: Math.max(CROSSING_TIMINGS.load, Math.ceil(board + PAX_LOAD)), unload: Math.max(CROSSING_TIMINGS.unload, Math.ceil(off + PAX_UNLOAD)) };
+  }
+  TIMINGS.set(era.id, T);
+  return T;
 }
 ```
 
-Note on `eraTimings` and the queue spawn times: `spawn.t0` depends on `T` (the leg length), and `boardEnd`/`offDeck` do not, so computing the timings with default `T` and then planning with the era's `T` is consistent.
-
 - [ ] **Step 4: Use the era timings in the ferry**
 
-`src/ancon/Ancon.tsx`:
+In `src/ancon/Ancon.tsx`, replace:
 
-```ts
-import { eraTimings } from '../traffic/schedule';
-// …
-  const spec = useMemo(() => vesselSpec(era, eraTimings(era)), [era]);
+```tsx
+import { vesselSpec } from './spec';
 ```
 
-- [ ] **Step 5: Run all tests and the type check**
+with:
+
+```tsx
+import { vesselSpec } from './spec';
+import { eraTimings } from '../traffic/schedule';
+```
+
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+  const spec = useMemo(() => vesselSpec(era), [era]);
+  // Crossing geometry always comes from the fixed 512 placement fields (never the tier's grid).
+  const place = useMemo(() => placementFields(bank, near), [bank, near]);
+```
+
+with:
+
+```tsx
+  // Crossing geometry always comes from the fixed 512 placement fields (never the tier's grid).
+  const place = useMemo(() => placementFields(bank, near), [bank, near]);
+  const spec = useMemo(() => vesselSpec(era, eraTimings(era, place)), [era, place]);
+```
+
+- [ ] **Step 5: Amend the spec (rulings R4, B9b, R5)**
+
+In `docs/superpowers/specs/2026-09-29-phase-4c-traffic-design.md` §4.2, replace:
+
+```markdown
+- **Speeds** (inferred L): 2 m/s on ramps and deck, up to 6 m/s on the road, smooth starts and stops; oxen 0.9 m/s; horse and bicycles at walking speed.
+```
+
+with:
+
+```markdown
+- **Speeds** (inferred L): 2.8 m/s on ramps and deck (ruling 2026-09-29: at 2 m/s the 1984 stop runs past 50 s; 2.8 is the lowest that fits), up to 6 m/s on the road, smooth starts and stops; oxen 0.9 m/s; horse and bicycles at walking speed (1.3 m/s).
+- **Lanes** (ruling 2026-09-29). Roads keep right: the waiting line and the movers driving on use the right-hand lane, movers driving off the other lane, offset sideways along the road and the pad. Bicycles wait and leave on the verge on the side of the deck's bicycle rail. The queue head waits 10 m up the pad, where each mover can line up with its deck lane before the ramp.
+```
+
+In §4.3, replace:
+
+```markdown
+- `load` and `unload` get longer only where the load needs it: a per-era timing, computed from the drive-on and drive-off plan, capped at 50 s each, never shorter than today's (load 20 s, unload 16 s). An era whose plan fits in today's timings keeps them.
+```
+
+with:
+
+```markdown
+- `load` and `unload` get longer where there is a load: a per-era timing, computed from the drive-on and drive-off plan, capped at 50 s each, never shorter than today's (load 20 s, unload 16 s). Passengers walk on after the load has parked and off after it has left (ruling 2026-09-29), so every era with a load gets a longer stop; an era without a load keeps today's timings.
+```
+
+- [ ] **Step 6: Run all tests and the type check**
 
 Run: `npx vitest run && npx tsc -p tsconfig.json --noEmit`
-Expected: PASS. If the `≤ 50 s` bound fails for 1984, raise `SPEED.deck` to 3.5 (landing and deck) and record the ruling in the rulings note; do not raise `MAX_STOP`.
+Expected: PASS (verified in a scratch copy).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/traffic/schedule.ts src/traffic/schedule.test.ts src/ancon/Ancon.tsx
+git add src/traffic/schedule.ts src/traffic/schedule.test.ts src/ancon/Ancon.tsx docs/superpowers/specs/2026-09-29-phase-4c-traffic-design.md
 git commit -m "feat(4c): dock schedule (queue, board, leave) and per-era dock timings
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1345,7 +1827,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/traffic/motion.ts`, `src/traffic/motion.test.ts`
-- Modify: `src/traffic/testing.ts` (OBB helpers)
+- Modify: `src/traffic/testing.ts` (the era's timings, OBB helpers, `deckHeight`), `src/traffic/schedule.test.ts` (its `envT` becomes `envFor`)
+
+**Preflight rulings applied:** B8 (both contacts are computed every frame: a short-circuit `&&` left the rear contact stale whenever the front was off the deck), R6 (a wheels-within-3 cm surface test replaces the height claim in the parking test's name).
 
 **Interfaces:**
 - Consumes: Tasks 4–6; `VesselPose`, `computeVesselPose`, `createVesselPose` (`src/ancon/pose.ts`); `landingTop` (`src/infrastructure/landing.ts`); `ROAD_LIFT` (`src/infrastructure/roadStrip.ts`); `APRON_REST` (`src/ancon/geometry.ts`).
@@ -1367,18 +1851,32 @@ export function bodyMatrix(front: THREE.Vector3, rear: THREE.Vector3, up: THREE.
 export function surfacePoint(env: DockEnv, f: DockFrame, wx: number, wz: number, pose: VesselPose, out: THREE.Vector3): boolean;   // true = on deck
 ```
 
-- Produces (`testing.ts`): `obbOf(fr: MoverFrame, d: MoverDims, pad?: number): OBB`, `obbOverlap(a: OBB, b: OBB): boolean`, `discInObb(x: number, z: number, r: number, b: OBB): boolean`, `poseFor(env: DockEnv, clock: number): VesselPose`.
+- Produces (`testing.ts`): `envFor` now builds the context with `eraTimings(era)`; `obbOf(fr, d, pad?)`, `obbOverlap(a, b)`, `discInObb(x, z, r, b)`, `poseFor(env, clock)`, `deckHeight(env, pose, x, z)`.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `src/traffic/testing.ts`:
+Replace the whole of `src/traffic/testing.ts` with:
 
 ```ts
+// Shared test fixtures for src/traffic (imported by *.test.ts only).
 import * as THREE from 'three';
-import { computeVesselPose, createVesselPose, type VesselPose } from '../ancon/pose';
-import type { DockEnv } from './env';
+import { fields512, geom512 } from '../ancon/testing';
+import { computeVesselPose, createVesselPose, makePoseContext, type VesselPose } from '../ancon/pose';
+import { vesselSpec } from '../ancon/spec';
+import { getEra, type EraId } from '../data/eras';
+import { sampleField } from '../terrain/fields';
+import { dockEnv, type DockEnv } from './env';
 import type { MoverFrame } from './motion';
 import { rearOverhang, type MoverDims } from './models';
+import { eraTimings } from './schedule';
+
+/** An era's dock environment with its own dock timings, on the 512 placement fields (the grid the app computes the crossing from). */
+export const envFor = (id: EraId) => {
+  const e = getEra(id), f = fields512(e.river.bankOffset.value), groundAt = (x: number, z: number) => sampleField(f, f.height, x, z);
+  const ctx = makePoseContext(geom512(e.river.bankOffset.value), vesselSpec(e, eraTimings(e)), e.river.flow.value, groundAt);
+  return dockEnv(e, ctx, groundAt);
+};
+export const poseFor = (env: DockEnv, clock: number): VesselPose => computeVesselPose(clock, env.ctx, createVesselPose());
 
 export interface OBB { c: [number, number]; u: [number, number]; hx: number; hz: number }
 /** The body's ground rectangle (XZ): centre, forward unit axis, half length and half width (+ pad). */
@@ -1403,37 +1901,38 @@ export function discInObb(x: number, z: number, r: number, b: OBB): boolean {
   const qx = Math.max(-b.hx, Math.min(b.hx, lx)), qz = Math.max(-b.hz, Math.min(b.hz, lz));
   return Math.hypot(lx - qx, lz - qz) < r;
 }
-export const poseFor = (env: DockEnv, clock: number): VesselPose => computeVesselPose(clock, env.ctx, createVesselPose());
+/** World height of deck-local (x, deck, z) under `pose`. */
+export const deckHeight = (env: DockEnv, pose: VesselPose, x: number, z: number) => new THREE.Vector3(x, env.layout.deckY, z).applyMatrix4(pose.matrix).y;
 ```
 
-Update `envFor` in `testing.ts` so the era's timings are used (the schedule and motion read `env.spec.timings`):
+In `src/traffic/schedule.test.ts`, replace:
 
 ```ts
-import { eraTimings } from './schedule';
-import { makePoseContext } from '../ancon/pose';
-import { vesselSpec } from '../ancon/spec';
-import { geom512 } from '../ancon/testing';
-export const envFor = (id: EraId) => {
-  const e = getEra(id), f = fields512(e.river.bankOffset.value), groundAt = (x: number, z: number) => sampleField(f, f.height, x, z);
-  const ctx = makePoseContext(geom512(e.river.bankOffset.value), vesselSpec(e, eraTimings(e)), e.river.flow.value, groundAt);
-  return dockEnv(e, ctx, groundAt);
-};
+  const envT = (id: EraId) => { const e = envFor(id); return { ...e, spec: { ...e.spec, timings: eraTimings(e.era) } }; };
 ```
 
-(Remove the `ctxFor` import it replaces. The Task 6 test helper `envT` in `schedule.test.ts` becomes a plain `envFor`.)
-
-`src/traffic/motion.test.ts`:
+with:
 
 ```ts
+  const envT = envFor;
+```
+
+Create `src/traffic/motion.test.ts`:
+
+```ts
+import * as THREE from 'three';
 import { describe, expect, test } from 'vitest';
 import { legDuration } from '../ancon/crossing';
 import { moveEnd } from '../ancon/crew';
 import type { EraId } from '../data/eras';
+import { landingTop } from '../infrastructure/landing';
+import { ROAD_LIFT } from '../infrastructure/roadStrip';
 import { PAD, padFrame } from '../terrain/landingPads';
+import { arriveFrame, departFrame, worldToDeck } from './env';
 import { createMoverFrame, moverFrame } from './motion';
 import { planLeg } from './schedule';
 import { travelOf } from './plan';
-import { envFor, obbOf, obbOverlap, poseFor } from './testing';
+import { deckHeight, envFor, obbOf, obbOverlap, poseFor } from './testing';
 
 const ERAS_WITH_LOAD: EraId[] = ['1840', '1900', '1925', '1935', '1959', '1975', '1984'];
 
@@ -1469,7 +1968,7 @@ describe('moverFrame', () => {
     }
   });
 
-  test('parked at cast-off, facing the way the ferry goes, and at deck height', () => {
+  test('parked at cast-off, on the deck, facing the way the ferry goes', () => {
     for (const id of ERAS_WITH_LOAD) {
       const env = envFor(id), T = env.spec.timings, Lg = legDuration(T), fr = createMoverFrame();
       for (const leg of [2, 3]) for (const s of planLeg(env, leg).movers) {
@@ -1478,6 +1977,31 @@ describe('moverFrame', () => {
         expect(fr.stage).toBe('park'); expect(fr.onDeck).toBe(true);
         const e = fr.matrix.elements, fwd = [e[0], e[2]], deckX = [Math.cos(pose.yaw), -Math.sin(pose.yaw)];
         expect(travelOf(leg) * (fwd[0] * deckX[0] + fwd[1] * deckX[1])).toBeGreaterThan(0.99);
+      }
+    }
+  });
+
+  test('wheels stand on the deck, the landing pad and the road (within 3 cm)', () => {
+    for (const id of ERAS_WITH_LOAD) {
+      const env = envFor(id), Lg = legDuration(env.spec.timings), fr = createMoverFrame(), L = env.layout;
+      const local = new THREE.Vector3(), inv = new THREE.Matrix4();
+      for (const s of planLeg(env, 2).movers) for (let c = 1.5 * Lg; c < 3.5 * Lg; c += 0.5) {
+        const pose = poseFor(env, c);
+        if (!moverFrame(s, env, c, pose, fr).visible) continue;
+        const f = fr.stage === 'leave' ? arriveFrame(env, s.m.leg) : departFrame(env, s.m.leg);
+        for (const p of [fr.front, fr.rear]) {
+          if (fr.stage === 'park') {   // parked contacts ride the deck: deck-local height = the deck surface
+            expect(Math.abs(local.copy(p).applyMatrix4(inv.copy(pose.matrix).invert()).y - L.deckY)).toBeLessThan(0.03);
+            continue;
+          }
+          const [x, z] = worldToDeck(f, p.x, p.z), [a, v] = padFrame(f.pad, p.x, p.z);
+          let want: number | null = null;
+          if (Math.abs(x) <= L.halfLength - 0.05 && Math.abs(z) <= L.halfBeam) want = deckHeight(env, pose, x, z);
+          else if (Math.abs(x) <= L.reach + 1) want = null;   // the apron / bow blend onto the bank
+          else if (a >= 1 && a <= PAD.length && Math.abs(v) <= PAD.halfWidth) want = landingTop(f.pad, env.look, a);
+          else if (a > PAD.length + 2 || Math.abs(v) > PAD.halfWidth + 2) want = env.groundAt(p.x, p.z) + ROAD_LIFT;
+          if (want !== null) expect(Math.abs(p.y - want), `${id} ${s.m.id} ${fr.stage} @${c.toFixed(1)}`).toBeLessThan(0.03);
+        }
       }
     }
   });
@@ -1527,6 +2051,8 @@ Run: `npx vitest run src/traffic/motion.test.ts`
 Expected: FAIL — `motion.ts` missing.
 
 - [ ] **Step 3: Write `motion.ts`**
+
+Create `src/traffic/motion.ts`:
 
 ```ts
 import * as THREE from 'three';
@@ -1604,7 +2130,9 @@ export function moverFrame(s: MoverSched, env: DockEnv, clock: number, pose: Ves
   if (t < s.boardEnd - 0.5) {   // queueing, then driving on (boarding path, departure dock)
     if (t < s.boardTrip.t0) { tripAt(s.spawn, t, _tp); out.stage = 'queue'; } else { tripAt(s.boardTrip, t, _tp); out.stage = 'board'; }
     const f = departFrame(env, m.leg);
-    out.onDeck = onPath(env, f, s.board, _tp.s, pose, out.front) && onPath(env, f, s.board, _tp.s - d.wheelbase, pose, out.rear);
+    // Both contacts every frame (a short-circuit && would leave `rear` stale whenever the front is off the deck).
+    const fOn = onPath(env, f, s.board, _tp.s, pose, out.front), rOn = onPath(env, f, s.board, _tp.s - d.wheelbase, pose, out.rear);
+    out.onDeck = fOn && rOn;
     out.speed = _tp.v; out.dist = _tp.s - d.wheelbase;
   } else if (tl < s.leave1.t0) {   // parked: rides the deck
     out.front.set(tr * (m.park.x + d.wheelbase / 2), L.deckY, m.park.z).applyMatrix4(pose.matrix);
@@ -1613,7 +2141,9 @@ export function moverFrame(s: MoverSched, env: DockEnv, clock: number, pose: Ves
   } else {   // driving off (leaving path, arrival dock)
     tripAt(tl < s.leave2.t0 ? s.leave1 : s.leave2, tl, _tp);
     const f = arriveFrame(env, m.leg);
-    out.onDeck = onPath(env, f, s.leave, _tp.s, pose, out.front) && onPath(env, f, s.leave, _tp.s - d.wheelbase, pose, out.rear);
+    // Both contacts every frame (a short-circuit && would leave `rear` stale whenever the front is off the deck).
+    const fOn = onPath(env, f, s.leave, _tp.s, pose, out.front), rOn = onPath(env, f, s.leave, _tp.s - d.wheelbase, pose, out.rear);
+    out.onDeck = fOn && rOn;
     out.stage = 'leave'; out.speed = _tp.v; out.dist = s.board.len - d.wheelbase + (_tp.s - d.wheelbase);
   }
   if (out.onDeck) _up.set(0, 1, 0).applyQuaternion(pose.quaternion); else _up.copy(UP);
@@ -1625,7 +2155,7 @@ export function moverFrame(s: MoverSched, env: DockEnv, clock: number, pose: Ves
 - [ ] **Step 4: Run the tests**
 
 Run: `npx vitest run src/traffic`
-Expected: PASS. A failing overlap names the pair and time: fix it in `schedule.ts` (raise `BOARD_STAGGER`, `OFF_GAP` or `SPAWN_GAP` by 0.2 at a time; for a merge conflict on the pad, move the `padPoint(pad, 6, PAD_KEEP)` waypoint in `leavePath` to `a = 8`), rerun, and log the change in the rulings note.
+Expected: PASS (verified in a scratch copy).
 
 - [ ] **Step 5: Commit**
 
@@ -1641,33 +2171,34 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 8: The crew makes room for the load
 
 **Files:**
-- Modify: `src/ancon/crew.ts`, `src/ancon/CrewSet.ts` (`update` signature), `src/traffic/schedule.ts` (`DeckLoad` import, `ashoreZ`)
+- Modify: `src/ancon/crew.ts`, `src/ancon/CrewSet.ts` (`update` signature), `src/traffic/schedule.ts` (`DeckLoad` from crew.ts, `ashoreZ`)
 - Create: `src/traffic/room.test.ts`
 
+**Preflight rulings applied:** B11 (on two-lane decks no standing spot lies within 0.45 m of the centre corridor, and passengers take the spots at the deck ends first — the Phase 3 "nobody walks through anybody" test keeps passing), B12 (a spot in the lane a mover drives off along is blocked, not only its parked rectangle; the walk to the spot is checked against the parked load), N4 (`DeckLoad` lives in crew.ts so the crew does not import `src/traffic`; `Ancon.tsx` does import `src/traffic`, which is fine — there is no cycle). The cart's straight run-out past the leading poler (B13) is in `leavePath` (Task 5).
+
 **Interfaces:**
-- Produces (in `src/ancon/crew.ts`, so `src/ancon` does not import from `src/traffic` at runtime):
+- Produces (in `src/ancon/crew.ts`):
 
 ```ts
 /** What the crew and passengers need from one leg's load (built by src/traffic/schedule.ts). */
 export interface DeckLoad {
   rects: [number, number, number, number][];   // parked, deck-local [x0, x1, z0, z1]
-  boardEnd: number;                            // s into the leg when the last mover is parked
-  offEnd: number;                              // s after unload starts when the last mover is off the deck
+  boardEnd: number; offEnd: number;             // s into the leg when the last mover is parked; s after unload starts when the last is off the deck
   helmAshore: boolean;
-  ashoreZ: number;                             // deck-local z where the helmsman waits ashore (away from the waiting line)
+  ashoreZ: number;                              // deck-local z where the helmsman waits ashore (away from the waiting line)
 }
 export const NO_LOAD: DeckLoad;
 ActorCtx.loadAt?: (leg: number) => DeckLoad;
-export const HAUL_ASIDE = 0.25;
+export const HAUL_ASIDE = 0.25, CORRIDOR = 0.45;
 export function paxBlocked(a: Actor, load: DeckLoad, spec: VesselSpec, L: DeckLayout, travel: 1 | -1): boolean;
 ```
 
 - `CrewSet.update(pose, ctx, loadAt?)`.
-- `schedule.ts`: `DeckLoad` / `EMPTY_LOAD` come from `crew.ts` (`export type { DeckLoad } from '../ancon/crew'`, `EMPTY_LOAD = NO_LOAD`); `planLeg` fills `ashoreZ`.
+- `schedule.ts`: `DeckLoad` / `EMPTY_LOAD` come from `crew.ts` (`export type { DeckLoad }`, `EMPTY_LOAD = NO_LOAD`); `planLeg` fills `ashoreZ`.
 
 - [ ] **Step 1: Write the failing test**
 
-`src/traffic/room.test.ts`:
+Create `src/traffic/room.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
@@ -1725,7 +2256,7 @@ describe('crew and load', () => {
 });
 ```
 
-(The last test's "no load" still has `slack` behaviour: haulers step aside only when a `loadAt` reports movers — see Step 3.)
+(Without a load the crew is unchanged: haulers step aside and passengers wait only when `loadAt` reports movers — see Step 3.)
 
 - [ ] **Step 2: Run to see it fail**
 
@@ -1734,57 +2265,189 @@ Expected: FAIL — `loadAt` unknown to the crew; overlaps reported.
 
 - [ ] **Step 3: Teach the crew**
 
-`src/ancon/crew.ts`:
+All edits are exact. `src/ancon/crew.ts` (after Task 2):
+
+In `src/ancon/crew.ts`, replace:
 
 ```ts
+  groundLocal?: (x: number, z: number) => number;
+}
+```
+
+with:
+
+```ts
+  groundLocal?: (x: number, z: number) => number;
+  /** Phase 4c: this leg's load (src/traffic/schedule.ts); omitted = none. */
+  loadAt?: (leg: number) => DeckLoad;
+}
+/** What the crew and passengers need from one leg's load (built by src/traffic/schedule.ts; defined here so the crew does not import src/traffic). */
 export interface DeckLoad {
+  /** Parked, deck-local [x0, x1, z0, z1]. */
   rects: [number, number, number, number][];
-  boardEnd: number; offEnd: number; helmAshore: boolean; ashoreZ: number;
+  /** s into the leg when the last mover is parked; s after unload starts when the last mover is off the deck. */
+  boardEnd: number; offEnd: number;
+  helmAshore: boolean;
+  /** Deck-local z where the helmsman waits ashore (away from the waiting line). */
+  ashoreZ: number;
 }
 export const NO_LOAD: DeckLoad = { rects: [], boardEnd: 0, offEnd: 0, helmAshore: false, ashoreZ: 0 };
 /** Haulers step this far outboard toward the rope (m) while a load moves on or off (spec 4c §2 fit ruling). */
 export const HAUL_ASIDE = 0.25;
-// ActorCtx gains:
-  /** Phase 4c: this leg's load (src/traffic/schedule.ts); omitted = none. */
-  loadAt?: (leg: number) => DeckLoad;
 ```
 
-`laneZ`:
+In `src/ancon/crew.ts`, replace:
+
+```ts
+  const standing = seats.filter((s) => s.kind === 'standing').map((s, k) => ({ s, k, r: room(s.pos[0], s.pos[2]) }))
+```
+
+with:
+
+```ts
+  // Two car lanes (spec 4c): passengers walk the centre corridor (laneZ), so nobody stands within CORRIDOR of it, and
+  // they take the spots at the deck ends first — beside the cars the load would block the walk, and ahead of them
+  // the cars drive off through the spot (paxBlocked).
+  const two = L.lanes === 2, rowsHalf = (L.rows * CAR_SLOT.length) / 2, end = (s: SeatAnchor) => (two && Math.abs(s.pos[0]) > rowsHalf ? 1 : 0);
+  const standing = seats.filter((s) => s.kind === 'standing' && (!two || Math.abs(s.pos[2]) >= CORRIDOR)).map((s, k) => ({ s, k, e: end(s), r: room(s.pos[0], s.pos[2]) }))
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+/** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers. */
+export const laneZ = (spec: VesselSpec, L: DeckLayout) => (spec.propulsion === 'ropes' ? Math.min(LANE_Z, Math.abs(haulerZ(1, L)) - 0.5) : LANE_Z);
+```
+
+with:
 
 ```ts
 /** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers; between two car lanes, on the centre line. */
 export const laneZ = (spec: VesselSpec, L: DeckLayout) =>
   (L.lanes === 2 ? 0 : spec.propulsion === 'ropes' ? Math.min(LANE_Z, Math.abs(haulerZ(1, L)) - 0.5) : LANE_Z);
+/** On two-lane decks no standing spot lies within this of the centre corridor (a walker passes 0.44 m clear). */
+export const CORRIDOR = 0.45;
 ```
 
-`paxBlocked` (allocation-free; the boarding route is the lane from the entry end to the spot's x, then across):
+In `src/ancon/crew.ts`, replace:
 
 ```ts
+    .sort((a, b) => b.r - a.r || a.k - b.k).map((e) => e.s);
+```
+
+with:
+
+```ts
+    .sort((a, b) => b.e - a.e || b.r - a.r || a.k - b.k).map((e) => e.s);
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+import { deckLayout, type DeckLayout, type VesselSpec } from './spec';
+```
+
+with:
+
+```ts
+import { CAR_SLOT, deckLayout, type DeckLayout, type VesselSpec } from './spec';
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+// ---- passengers ----
+const LANE_Z = 0.6, SPOT_TURN = 1.2 * TURN_S;
+```
+
+with:
+
+```ts
+// ---- passengers ----
+const LANE_Z = 0.6, SPOT_TURN = 1.2 * TURN_S;
 const PAX_R = 0.25 + 0.05;
 const inRect = (x: number, z: number, r: [number, number, number, number]) => x > r[0] - PAX_R && x < r[1] + PAX_R && z > r[2] - PAX_R && z < r[3] + PAX_R;
-/** A passenger stays ashore this leg when their spot, or their walk to it, meets the parked load. */
+/**
+ * A passenger stays ashore this leg when their walk to the spot (made after the load has parked) meets the parked
+ * load, or when the spot lies where a mover drives off (its rectangle stretched to the leading deck end: the load
+ * leaves before the passengers do). Allocation-free.
+ */
 export function paxBlocked(a: Actor, load: DeckLoad, spec: VesselSpec, L: DeckLayout, travel: 1 | -1): boolean {
   if (!load.rects.length) return false;
   const sx = a.spot!.pos[0], sz = a.spot!.pos[2], lz = a.walk!.lane, xIn = -travel * L.halfLength;
   for (const r of load.rects) {
     for (let u = 0; u <= 1.0001; u += 0.02) if (inRect(xIn + (sx - xIn) * u, lz, r)) return true;
     for (let u = 0; u <= 1.0001; u += 0.1) if (inRect(sx, lz + (sz - lz) * u, r)) return true;
+    _sweep[0] = travel > 0 ? r[0] : -L.halfLength; _sweep[1] = travel > 0 ? L.halfLength : r[1]; _sweep[2] = r[2]; _sweep[3] = r[3];
+    if (inRect(sx, sz, _sweep)) return true;
   }
   return false;
 }
+const _sweep: [number, number, number, number] = [0, 0, 0, 0];
 ```
 
-In `passenger(...)`, at the top (after `const w = a.walk!…`):
+In `src/ancon/crew.ts`, replace:
 
 ```ts
-  const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD;
-  if (paxBlocked(a, load, spec, L, st.travel)) { f.visible = false; f.pose.kind = 'stand'; return; }
-  const b0 = load.boardEnd + w.board[k], /* … */ l0 = moveEnd(T) + load.offEnd + w.leave[k] /* … */;
+function passenger(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
+  const w = a.walk!, k = st.travel > 0 ? 0 : 1, spot = a.spot!, tau = st.tLeg, tr = st.travel, V = WALK_SPEED;
 ```
 
-(`passenger` now needs `ctx` whole: change its signature to `passenger(a, st, clock, ctx, f)` and destructure `{ spec, layout: L }` from it.)
+with:
 
-In `hauler(...)`:
+```ts
+function passenger(a: Actor, st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L } = ctx, T = spec.timings, MOVE_END = moveEnd(T);
+  const w = a.walk!, k = st.travel > 0 ? 0 : 1, spot = a.spot!, tau = st.tLeg, tr = st.travel, V = WALK_SPEED;
+  const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD;
+  if (paxBlocked(a, load, spec, L, st.travel)) { f.visible = false; f.pose.kind = 'stand'; return; }
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const b0 = w.board[k], bc
+```
+
+with:
+
+```ts
+const b0 = load.boardEnd + w.board[k], bc
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+const l0 = MOVE_END + w.leave[k], lc
+```
+
+with:
+
+```ts
+const l0 = MOVE_END + load.offEnd + w.leave[k], lc
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+function hauler(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+```
+
+with:
+
+```ts
+function hauler(a: Actor, st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L } = ctx;
+```
+
+In `src/ancon/crew.ts`, replace:
+
+```ts
+  set3(f.pos, x, L.deckY, haulerZ(side, L));
+```
+
+with:
 
 ```ts
   const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD, moving = load.rects.length > 0;
@@ -1792,11 +2455,21 @@ In `hauler(...)`:
   set3(f.pos, x, L.deckY, haulerZ(side, L) + side * aside);
 ```
 
-(Rename its destructured parameter to `ctx` and read `spec`, `layout: L` from it.)
-
-In `helmsman(...)` — change its third parameter to `ctx: ActorCtx` and destructure `{ spec, layout: L, groundLocal }` from it — add, after its first `const` line and before the `if (tau < MOVE_END)` branch:
+In `src/ancon/crew.ts`, replace:
 
 ```ts
+function helmsman(st: CrossingState, clock: number, { spec, layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
+  const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
+```
+
+with:
+
+```ts
+function helmsman(st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L, groundLocal } = ctx, T = spec.timings, MOVE_END = moveEnd(T);
+  const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
+  let tau0 = 0;
   const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD;
   if (load.helmAshore) {
     // Step ashore beside the trailing end (away from the waiting line), wait while the load drives on, step back.
@@ -1820,25 +2493,152 @@ In `helmsman(...)` — change its third parameter to `ctx: ActorCtx` and destruc
   }
 ```
 
-and in the existing `tau < MOVE_END` branch use `tau - tau0` wherever it used `tau` for `k` and `kp` (declare `let tau0 = 0;` at the top of the function). Everything after `MOVE_END` is unchanged.
-
-`src/ancon/CrewSet.ts` — `update(pose, ctx, loadAt?: (leg: number) => DeckLoad)`; set `actx.loadAt = loadAt;` beside the other `actx` fields.
-
-`src/traffic/schedule.ts`:
-- Replace the local `DeckLoad` interface and `EMPTY_LOAD` with `import { NO_LOAD, type DeckLoad } from '../ancon/crew'; export type { DeckLoad }; export const EMPTY_LOAD = NO_LOAD;`
-- In `planLeg`, compute the ashore side from the first mover's queue point:
+In `src/ancon/crew.ts`, replace:
 
 ```ts
+const k = smooth(clamp01(tau / TURN_S)), kp = smooth(clamp01(tau / POLE_SWING));
+```
+
+with:
+
+```ts
+const k = smooth(clamp01((tau - tau0) / TURN_S)), kp = smooth(clamp01((tau - tau0) / POLE_SWING));
+```
+
+`src/ancon/CrewSet.ts`:
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+import { actorFrame, createActorFrame, type Actor, type ActorCtx, type ActorFrame } from './crew';
+```
+
+with:
+
+```ts
+import { actorFrame, createActorFrame, type Actor, type ActorCtx, type ActorFrame, type DeckLoad } from './crew';
+```
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+update(pose: VesselPose, ctx: ActorCtx & { groundAt?: (x: number, z: number) => number }) {
+```
+
+with:
+
+```ts
+update(pose: VesselPose, ctx: ActorCtx & { groundAt?: (x: number, z: number) => number }, loadAt?: (leg: number) => DeckLoad) {
+```
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+actx.groundLocal = ctx.groundAt ? this.groundLocal : undefined;
+```
+
+with:
+
+```ts
+actx.groundLocal = ctx.groundAt ? this.groundLocal : undefined; actx.loadAt = loadAt;
+```
+
+`src/traffic/schedule.ts`:
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+/** What the crew needs from a leg's load (src/ancon/crew.ts). */
+export interface DeckLoad { rects: [number, number, number, number][]; boardEnd: number; offEnd: number; helmAshore: boolean }
+```
+
+with:
+
+```ts
+
+```
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+export const EMPTY_LOAD: DeckLoad = { rects: [], boardEnd: 0, offEnd: 0, helmAshore: false };
+```
+
+with:
+
+```ts
+export type { DeckLoad };
+export const EMPTY_LOAD = NO_LOAD;
+```
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+import { CROSSING_TIMINGS, legDuration, type CrossingTimings } from '../ancon/crossing';
+```
+
+with:
+
+```ts
+import { CROSSING_TIMINGS, legDuration, type CrossingTimings } from '../ancon/crossing';
+import { NO_LOAD, type DeckLoad } from '../ancon/crew';
+```
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+import { ANIMAL_ROAD, boardPath, CAR_ROAD, dockEnv, leaveOffDeckS,
+```
+
+with:
+
+```ts
+import { ANIMAL_ROAD, boardPath, CAR_ROAD, departFrame, dockEnv, leaveOffDeckS,
+```
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+queueHeadS, type DockEnv, type Polyline } from './env';
+```
+
+with:
+
+```ts
+pointAt, queueHeadS, worldToDeck, type DockEnv, type Polyline } from './env';
+```
+
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+  const rects = out.map((s) => footprint(s.m, tr));
+```
+
+with:
+
+```ts
+  const rects = out.map((s) => footprint(s.m, tr));
+  // The helmsman waits ashore on the deck side away from the waiting line (its head's side of the deck axis).
   const q = pointAt(out[0].board, out[0].spawn.s1, [0, 0]), [, qz] = worldToDeck(departFrame(env, leg), q[0], q[1]);
   const ashoreZ = -Math.sign(qz || 1) * (L.halfBeam + 0.6);
 ```
 
-  and add `ashoreZ` to the returned `load`. (`pointAt`, `worldToDeck`, `departFrame` from `./env`.)
+In `src/traffic/schedule.ts`, replace:
+
+```ts
+offEnd: Math.max(0, ...out.map((s) => s.offDeck)) + 0.5, helmAshore },
+```
+
+with:
+
+```ts
+offEnd: Math.max(0, ...out.map((s) => s.offDeck)) + 0.5, helmAshore, ashoreZ },
+```
 
 - [ ] **Step 4: Run all tests**
 
 Run: `npx vitest run && npx tsc -p tsconfig.json --noEmit`
-Expected: PASS. Phase 3 crew tests must still pass (they run without `loadAt`). An overlap naming a hauler: raise `HAUL_ASIDE` to 0.3 (never past `ropeZ − 0.05`); naming a poler on the 1840/1900 barge: narrow the cart (`DIMS.oxCart.width` down to 1.5) and note it.
+Expected: PASS, including the Phase 3 crew tests, which run without `loadAt` (verified in a scratch copy).
 
 - [ ] **Step 5: Commit**
 
@@ -1857,8 +2657,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `src/people/rig.ts` (`PoseKind`, `poseFigure` switch)
 - Test: `src/people/rig.test.ts`
 
+**Preflight rulings applied:** R7 (`sitHipHeight` reuses a scratch `Proportions`: it runs per driver per frame), N3 (no filler assertion).
+
 **Interfaces:**
-- Produces: `PoseKind` gains `'sit'`; `sitHipHeight(b: Body): number` (hip joint height above the feet plane when seated).
+- Produces: `PoseKind` gains `'sit'`; `sitHipHeight(b: Body): number` (hip joint height above the feet plane when seated; allocation-free).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1868,7 +2670,7 @@ Append to `src/people/rig.test.ts`:
 import { sitHipHeight } from './rig';
 
 test('sit: thighs level, shins upright, hands reach a wheel ahead', () => {
-  const body = { height: 1.72, build: 1, dress: false }, P = proportions(body);
+  const body = { height: 1.72, build: 1, dress: false };
   const hand: V3 = [0.17, sitHipHeight(body) + 0.36, 0.45];
   const out = poseFigure(body, { kind: 'sit', phase: 0, handL: hand, handR: [-0.17, hand[1], hand[2]] }, createFigurePose());
   const col = (name: PartName, c: number) => out.parts[PART_INDEX[name] * 16 + 12 + c];
@@ -1879,11 +2681,10 @@ test('sit: thighs level, shins upright, hands reach a wheel ahead', () => {
   expect(Math.abs(sy / m)).toBeGreaterThan(0.95);              // near vertical
   expect(col('hips', 1)).toBeCloseTo(sitHipHeight(body), 2);
   expect(Math.hypot(out.handL[0] - hand[0], out.handL[1] - hand[1], out.handL[2] - hand[2])).toBeLessThan(0.02);
-  expect(P.thigh).toBeGreaterThan(0);
 });
 ```
 
-(Import `PART_INDEX`, `type PartName`, `type V3`, `proportions`, `createFigurePose`, `poseFigure` if the file does not already. A segment matrix's second column is the segment direction × length, pointing from `from` to `to` negated — only its y share is tested, so the sign does not matter.)
+(`PART_INDEX`, `type PartName`, `type V3`, `createFigurePose` and `poseFigure` are already imported there. A segment matrix's second column is the segment direction × length; only its y share is tested, so the sign does not matter.)
 
 - [ ] **Step 2: Run to see it fail**
 
@@ -1892,17 +2693,29 @@ Expected: FAIL — `sitHipHeight` not exported, `'sit'` not a `PoseKind`.
 
 - [ ] **Step 3: Add the pose**
 
-`src/people/rig.ts`:
+In `src/people/rig.ts`, replace:
+
+```ts
+export type PoseKind = 'stand' | 'walk' | 'haul' | 'pole';
+```
+
+with:
 
 ```ts
 export type PoseKind = 'stand' | 'walk' | 'haul' | 'pole' | 'sit';
 /** Seated thigh angle (rad from straight down) — a touch below level, as on a car bench. */
-const SIT_SW = 1.45;
-/** Hip joint height above the feet plane when seated: the thigh drops a little, the shin stands upright. */
-export const sitHipHeight = (b: Body) => { const P = proportions(b, {} as Proportions); return P.thigh * Math.cos(SIT_SW) + P.shin + P.footH; };
+const SIT_SW = 1.45, _SIT = {} as Proportions;
+/** Hip joint height above the feet plane when seated: the thigh drops a little, the shin stands upright. Allocation-free. */
+export const sitHipHeight = (b: Body) => { const P = proportions(b, _SIT); return P.thigh * Math.cos(SIT_SW) + P.shin + P.footH; };
 ```
 
-In the `switch (input.kind)`:
+In `src/people/rig.ts`, replace:
+
+```ts
+    case 'haul':
+```
+
+with:
 
 ```ts
     case 'sit':
@@ -1913,6 +2726,7 @@ In the `switch (input.kind)`:
       headYaw = 0.12 * Math.sin(TAU * t / 10 + seed);
       elbow = 0.6;
       break;
+    case 'haul':
 ```
 
 - [ ] **Step 4: Run the people tests**
@@ -1936,25 +2750,29 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/traffic/carKit.ts`, `src/traffic/carKit.test.ts`
 
+**Preflight rulings applied:** B14 (`bevelOffset: −b`, so the hi bevel no longer grows the body past its size), B15 (compact80's cabin starts inside its tail: `c0` −1.595), B16 (hi wheel 12 segments: the rim reaches ±1 on both axes), B17 (`WHEEL_TRIS.lo` = 88, the lo wheel's real count), N2 (`colored` shared with animals.ts; `wheelMatrix` shared by the ferry load and the bridge traffic).
+
 **Interfaces:**
 - Consumes: `DIMS`, `MoverDims`, `rearOverhang` (Task 4); `CarModel` (Task 3).
 - Produces:
 
 ```ts
 export type CarPart = 'paint' | 'glass' | 'trim' | 'dark';
-export const CAR_PARTS: readonly CarPart[];
+export const CAR_PARTS: readonly CarPart[];      // 'paint' first
 export type Detail = 'hi' | 'lo';
 export interface Silhouette { /* see Step 3 */ }
 export const SILHOUETTES: Record<CarModel, Silhouette>;
 export function buildCar(model: CarModel, detail: Detail): Record<CarPart, THREE.BufferGeometry>;   // model frame; 'paint' has no colour attribute (instance colour), the others are vertex-coloured
 export function buildWheel(detail: Detail): THREE.BufferGeometry;   // unit radius, axle along z, vertex-coloured (tyre, rim, hubcap)
+export function colored(g: THREE.BufferGeometry, hex: number): THREE.BufferGeometry;   // non-indexed, no UVs, one vertex colour
+export function wheelMatrix(d: MoverDims, k: number, dist: number, body: THREE.Matrix4, out: THREE.Matrix4): THREE.Matrix4;   // wheel k (0–3) of a car body, rolled `dist` m
 export const CAR_TRIS: Record<Detail, number>;   // budget per car, all four parts: hi 2400, lo 600
-export const WHEEL_TRIS: Record<Detail, number>; // hi 160, lo 64
+export const WHEEL_TRIS: Record<Detail, number>; // hi 160, lo 88
 ```
 
 - [ ] **Step 1: Write the failing test**
 
-`src/traffic/carKit.test.ts`:
+Create `src/traffic/carKit.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
@@ -1999,6 +2817,8 @@ Expected: FAIL — module missing.
 
 - [ ] **Step 3: Write `carKit.ts`**
 
+Create `src/traffic/carKit.ts`:
+
 ```ts
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -2009,7 +2829,7 @@ export type CarPart = 'paint' | 'glass' | 'trim' | 'dark';
 export const CAR_PARTS: readonly CarPart[] = ['paint', 'glass', 'trim', 'dark'];
 export type Detail = 'hi' | 'lo';
 export const CAR_TRIS: Record<Detail, number> = { hi: 2400, lo: 600 };
-export const WHEEL_TRIS: Record<Detail, number> = { hi: 160, lo: 64 };
+export const WHEEL_TRIS: Record<Detail, number> = { hi: 160, lo: 88 };
 
 /**
  * Side view of one model (model frame, m). The lower body runs from the tail to the nose along `sill`, over two
@@ -2033,7 +2853,7 @@ export const SILHOUETTES: Record<CarModel, Silhouette> = {
   wagon70: { sill: 0.3, noseY: 0.66, hoodY: 0.76, belt: 0.82, deckY: 0.82, tailY: 0.8, c0: -1.89, c1: 0.45, roof: 1.42, ws: 0.65, bw: 0.12, cabinW: 0.86, chrome: true },
   tvVan: { sill: 0.35, noseY: 0.8, hoodY: 0.95, belt: 1.0, deckY: 1.0, tailY: 1.0, c0: -2.28, c1: 1.2, roof: 2.05, ws: 0.35, bw: 0.02, cabinW: 0.97, glass0: 0.2, chrome: false, mast: true },
   sedan80: { sill: 0.28, noseY: 0.62, hoodY: 0.72, belt: 0.8, deckY: 0.78, tailY: 0.72, c0: -1.05, c1: 0.55, roof: 1.36, ws: 0.6, bw: 0.45, cabinW: 0.86, chrome: false },
-  compact80: { sill: 0.27, noseY: 0.6, hoodY: 0.7, belt: 0.78, deckY: 0.8, tailY: 0.78, c0: -1.795, c1: 0.45, roof: 1.38, ws: 0.6, bw: 0.35, cabinW: 0.88, chrome: false },
+  compact80: { sill: 0.27, noseY: 0.6, hoodY: 0.7, belt: 0.78, deckY: 0.8, tailY: 0.78, c0: -1.595, c1: 0.45, roof: 1.38, ws: 0.6, bw: 0.35, cabinW: 0.88, chrome: false },
 };
 
 type P2 = [number, number];
@@ -2049,13 +2869,15 @@ function arch(xc: number, wr: number, r: number, sill: number, steps: number): P
 }
 function extrude(pts: P2[], depth: number, bevel: number, detail: Detail): THREE.BufferGeometry {
   const shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
-  const b = detail === 'hi' ? bevel : 0, g = new THREE.ExtrudeGeometry(shape, { depth: depth - 2 * b, bevelEnabled: b > 0, bevelThickness: b, bevelSize: b, bevelSegments: 2, curveSegments: 1 });
+  // bevelOffset −b keeps the bevelled outline inside the side profile (a bevel otherwise grows it by bevelSize).
+  const b = detail === 'hi' ? bevel : 0, g = new THREE.ExtrudeGeometry(shape, { depth: depth - 2 * b, bevelEnabled: b > 0, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 2, curveSegments: 1 });
   g.translate(0, 0, -(depth - 2 * b) / 2);
   g.deleteAttribute('uv');
   return g;
 }
-function colored(g: THREE.BufferGeometry, hex: number) {
-  const n = g.toNonIndexed(); if (n !== g) g.dispose();
+/** Non-indexed copy of `g` (disposing `g`), without UVs, every vertex coloured `hex`. Shared with src/traffic/animals.ts. */
+export function colored(g: THREE.BufferGeometry, hex: number) {
+  const n = g.index ? g.toNonIndexed() : g; if (n !== g) g.dispose();
   n.deleteAttribute('uv');
   const c = new THREE.Color(hex), a = new Float32Array(n.attributes.position.count * 3);
   for (let i = 0; i < a.length; i += 3) { a[i] = c.r; a[i + 1] = c.g; a[i + 2] = c.b; }
@@ -2145,13 +2967,26 @@ export function buildCar(model: CarModel, detail: Detail): Record<CarPart, THREE
   return g;
 }
 
-/** Unit wheel (radius 1, axle along z): dark tyre, grey rim, chrome hubcap. */
+/** Unit wheel (radius 1, axle along z): dark tyre, grey rim, chrome hubcap. Segment counts are multiples of 4, so the rim reaches ±1 on both axes. */
 export function buildWheel(detail: Detail): THREE.BufferGeometry {
-  const seg = detail === 'hi' ? 14 : 8, w = 0.56;
+  const seg = detail === 'hi' ? 12 : 8, w = 0.56;
   const tyre = colored(new THREE.CylinderGeometry(1, 1, w, seg, 1).rotateX(Math.PI / 2), 0x151515);
   const rim = colored(new THREE.CylinderGeometry(0.68, 0.68, w + 0.02, seg, 1).rotateX(Math.PI / 2), 0x5a5a58);
   const cap = colored(new THREE.CylinderGeometry(0.42, 0.45, w + 0.06, detail === 'hi' ? 10 : 6, 1).rotateX(Math.PI / 2), 0xcfcfca);
   return merge([tyre, rim, cap]);
+}
+
+/** The four wheel positions (front/rear × right/left): model-local x and z signs. */
+const WHEEL_SIGNS = [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const;
+const _wm = new THREE.Matrix4(), _ws = new THREE.Matrix4();
+/**
+ * World matrix of wheel `k` (0–3) of a car with sizes `d` whose body matrix is `body`, rolled by `dist` m. For the
+ * unit wheel (buildWheel). Shared by the ferry load and the bridge traffic. Allocation-free.
+ */
+export function wheelMatrix(d: MoverDims, k: number, dist: number, body: THREE.Matrix4, out: THREE.Matrix4): THREE.Matrix4 {
+  const [sx, sz] = WHEEL_SIGNS[k];
+  _wm.makeRotationZ(-dist / d.wheelR).premultiply(_ws.makeScale(d.wheelR, d.wheelR, d.wheelR)).setPosition((sx * d.wheelbase) / 2, d.wheelR, sz * d.track);
+  return out.multiplyMatrices(body, _wm);
 }
 ```
 
@@ -2160,7 +2995,7 @@ export function buildWheel(detail: Detail): THREE.BufferGeometry {
 - [ ] **Step 4: Run the test**
 
 Run: `npx vitest run src/traffic/carKit.test.ts`
-Expected: PASS. If a hi model exceeds 2400 triangles, drop `bevelSegments` to 1 for that part. (The shapes are judged by eye in Task 12's screenshots, once they are in the scene.)
+Expected: PASS (verified in a scratch copy). The shapes are judged by eye in Task 12's screenshots, once they are in the scene.
 
 - [ ] **Step 5: Commit**
 
@@ -2178,8 +3013,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `src/traffic/animals.ts`, `src/traffic/animals.test.ts`
 
+**Preflight rulings applied:** R2 (tapers the right way round: `CylinderGeometry(radiusTop, …)` lands on the segment's start), N2 (vertex colours through carKit's `colored`). R3's longer `front` (Task 4) matches the drawn heads; the anatomy is unchanged.
+
 **Interfaces:**
-- Consumes: `segmentMatrix` (`src/people/rig.ts`); `PartBuilder`, `WOOD` (`src/ancon/vessels/common.ts`); `DIMS` (Task 4).
+- Consumes: `segmentMatrix` (`src/people/rig.ts`); `PartBuilder`, `WOOD` (`src/ancon/vessels/common.ts`); `DIMS` (Task 4); `colored` (Task 10).
 - Produces:
 
 ```ts
@@ -2187,7 +3024,7 @@ export type Species = 'ox' | 'horse';
 export interface Anatomy { length: number; shoulder: [number, number]; hip: [number, number]; legZ: number; upper: number; lower: number; r: number; stride: number }
 export const ANATOMY: Record<Species, Anatomy>;
 export function buildAnimalBody(sp: Species): THREE.BufferGeometry;   // one animal, its own frame (origin ground under its centre, +X forward), vertex-coloured (white coat for instance tint, horns, muzzle, hooves)
-export function buildLegSegment(): THREE.BufferGeometry;              // unit segment y 0 → −1, radius 1, dark hoof band at the bottom
+export function buildLegSegment(): THREE.BufferGeometry;              // unit segment y 0 → −1, radius 1 at the top, 0.8 at the bottom, dark hoof band
 export function legMatrices(sp: Species, dist: number, moving: boolean, world: THREE.Matrix4, out: THREE.Matrix4[]): void;   // out: 8 matrices (4 upper, 4 lower), world space
 export const OXEN_Z = 0.42;
 export const oxenCentreX: (kind: 'oxCart' | 'caneCart') => number;   // cart-mover-local x of the two oxen
@@ -2199,7 +3036,7 @@ export const ANIMAL_TRIS = { oxBody: 1200, horseBody: 1000, leg: 60, cart: 800, 
 
 - [ ] **Step 1: Write the failing test**
 
-`src/traffic/animals.test.ts`:
+Create `src/traffic/animals.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
@@ -2249,11 +3086,14 @@ Expected: FAIL — module missing.
 
 - [ ] **Step 3: Write `animals.ts`**
 
+Create `src/traffic/animals.ts`:
+
 ```ts
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PartBuilder, WOOD } from '../ancon/vessels/common';
 import { segmentMatrix, type V3 } from '../people/rig';
+import { colored as tint } from './carKit';
 import { DIMS } from './models';
 
 export type Species = 'ox' | 'horse';
@@ -2270,18 +3110,10 @@ export const ANATOMY: Record<Species, Anatomy> = {
 export const ANIMAL_TRIS = { oxBody: 1200, horseBody: 1000, leg: 60, cart: 800, cartWheel: 200, bicycle: 700 };
 
 const COAT = 0xffffff, HORN = 0xe0d6bd, MUZZLE = 0x3a2e28, HOOF = 0x2a2420, MANE = 0x2a1f18;
-function tint(g: THREE.BufferGeometry, hex: number) {
-  const n = g.index ? g.toNonIndexed() : g; if (n !== g) g.dispose();
-  n.deleteAttribute('uv');
-  const c = new THREE.Color(hex), a = new Float32Array(n.attributes.position.count * 3);
-  for (let i = 0; i < a.length; i += 3) { a[i] = c.r; a[i + 1] = c.g; a[i + 2] = c.b; }
-  n.setAttribute('color', new THREE.BufferAttribute(a, 3));
-  return n;
-}
 const ellipsoid = (rx: number, ry: number, rz: number, x: number, y: number, z: number, seg = 10) => new THREE.SphereGeometry(1, seg, Math.max(4, seg - 4)).scale(rx, ry, rz).translate(x, y, z);
-/** A tapered limb from a to b (radius r0 at a, r1 at b): a unit-height cylinder (y 0 → −1) placed by segmentMatrix, which stretches y only. */
+/** A tapered limb from a to b (radius r0 at a, r1 at b): a unit-height cylinder (y 0 → −1; radiusTop lands on a) placed by segmentMatrix, which stretches y only. */
 const limb = (a: V3, b: V3, r0: number, r1: number, seg = 6) =>
-  new THREE.CylinderGeometry(r1, r0, 1, seg).translate(0, -0.5, 0).applyMatrix4(segmentMatrix(a, b, 1, 1, new THREE.Matrix4()));
+  new THREE.CylinderGeometry(r0, r1, 1, seg).translate(0, -0.5, 0).applyMatrix4(segmentMatrix(a, b, 1, 1, new THREE.Matrix4()));
 const boxy = (sx: number, sy: number, sz: number, x: number, y: number, z: number, rotZ: number) => new THREE.BoxGeometry(sx, sy, sz).rotateZ(rotZ).translate(x, y, z);
 const merge = (list: THREE.BufferGeometry[]) => { const m = mergeGeometries(list, false)!; list.forEach((g) => g.dispose()); m.computeVertexNormals(); return m; };
 
@@ -2308,7 +3140,7 @@ export function buildAnimalBody(sp: Species): THREE.BufferGeometry {
 
 /** Unit leg segment (y 0 → −1, radius 1 at the top, 0.8 at the bottom); the lowest 12 % dark (the hoof, on the lower segment). */
 export function buildLegSegment(): THREE.BufferGeometry {
-  const g = new THREE.CylinderGeometry(0.8, 1, 1, 6, 1).translate(0, -0.5, 0).toNonIndexed();
+  const g = new THREE.CylinderGeometry(1, 0.8, 1, 6, 1).translate(0, -0.5, 0).toNonIndexed();
   const p = g.attributes.position, a = new Float32Array(p.count * 3), coat = new THREE.Color(COAT), hoof = new THREE.Color(HOOF);
   for (let i = 0; i < p.count; i++) { const c = p.getY(i) < -0.88 ? hoof : coat; a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
   g.setAttribute('color', new THREE.BufferAttribute(a, 3));
@@ -2381,7 +3213,7 @@ export function buildBicycle(): THREE.BufferGeometry {
 - [ ] **Step 4: Run the tests**
 
 Run: `npx vitest run src/traffic/animals.test.ts`
-Expected: PASS. If a standing hoof is off the ground, the joint heights and leg lengths disagree: set `upper + lower` equal to the joint height in `ANATOMY`.
+Expected: PASS (verified in a scratch copy).
 
 - [ ] **Step 5: Commit**
 
@@ -2400,8 +3232,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Create: `src/traffic/materials.ts`, `src/traffic/TrafficSet.ts`, `src/traffic/TrafficSet.test.ts`
 - Modify: `src/ancon/CrewSet.ts`, `src/ancon/Ancon.tsx`
 
+**Preflight rulings applied:** R7 (no per-frame allocation: mesh keys precomputed per model, one reused `PoseInput` per figure slot, indexed loops, a shared wheel matrix helper), N3 (the tautological "people slots" test is gone).
+
 **Interfaces:**
-- Consumes: everything above; `CrewSet` (`src/ancon/CrewSet.ts`); `poseFigure`, `createFigurePose`, `sitHipHeight` (`src/people/rig.ts`); `dressFigure` (`src/people/palettes.ts`).
+- Consumes: everything above; `CrewSet` (`src/ancon/CrewSet.ts`); `poseFigure`, `createFigurePose`, `sitHipHeight` (`src/people/rig.ts`); `dressFigure` (`src/people/palettes.ts`); `wheelMatrix` (Task 10).
 - Produces:
 
 ```ts
@@ -2416,7 +3250,7 @@ export function trafficLooks(env: DockEnv): FigureLook[];                       
 export class TrafficSet {
   readonly group: THREE.Group;
   constructor(env: DockEnv, cache: LegCache, crew: CrewSet, castShadow: boolean);
-  update(pose: VesselPose): void;   // before crew.update (which commits the shared figure batch)
+  update(pose: VesselPose): void;   // before crew.update (which commits the shared figure batch); allocation-free
   dispose(): void;
 }
 // CrewSet.ts
@@ -2427,7 +3261,7 @@ hideExtra(k: number): void;
 
 - [ ] **Step 1: Write the failing test**
 
-`src/traffic/TrafficSet.test.ts`:
+Create `src/traffic/TrafficSet.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
@@ -2436,11 +3270,11 @@ import { tris } from '../ancon/testing';
 import { ERAS, type EraId } from '../data/eras';
 import { buildAnimalBody, buildBicycle, buildCart, buildCartWheel, buildLegSegment } from './animals';
 import { buildCar, buildWheel, CAR_PARTS } from './carKit';
-import { isAnimal, isCar } from './models';
+import { isCar } from './models';
 import { createMoverFrame, moverFrame } from './motion';
 import { LegCache } from './schedule';
 import { envFor, poseFor } from './testing';
-import { eraMeshKeys, PEOPLE_PER_LEG } from './TrafficSet';
+import { eraMeshKeys } from './TrafficSet';
 
 describe('budget (spec 4c §7)', () => {
   test('at most 14 draw calls per era (1986: the bridge traffic, Task 13, adds its own)', () => {
@@ -2465,16 +3299,6 @@ describe('budget (spec 4c §7)', () => {
       expect(worst, id).toBeLessThanOrEqual(80_000);
     }
   });
-  test('people slots cover every leg', () => {
-    for (const e of ERAS) {
-      const rules = e.ancon.load.value;
-      for (let k = 0; k < rules.length; k++) {
-        const r = rules[k], n = r.cars + r.bicycles + (r.animal ? 1 : 0);
-        expect(n).toBeLessThanOrEqual(PEOPLE_PER_LEG(rules));
-      }
-    }
-    expect(isAnimal('horse')).toBe(true);
-  });
 });
 ```
 
@@ -2485,7 +3309,7 @@ Expected: FAIL — module missing.
 
 - [ ] **Step 3: Materials**
 
-`src/traffic/materials.ts`:
+Create `src/traffic/materials.ts`:
 
 ```ts
 import * as THREE from 'three';
@@ -2512,17 +3336,52 @@ export function trafficMaterials(): Record<TrafficMaterialId, THREE.Material> {
 }
 ```
 
-Check `src/ancon/materials.ts` for the exact export name and key of the vessel wood material (`vesselMaterials()` returns a record keyed by `VesselMaterialId`, which includes `'wood'`).
+(`vesselMaterials()` in `src/ancon/materials.ts` returns a record keyed by `VesselMaterialId`, which includes `'wood'`.)
 
 - [ ] **Step 4: CrewSet extras**
 
-`src/ancon/CrewSet.ts`:
+In `src/ancon/CrewSet.ts`, replace:
 
 ```ts
+import { createFigurePose, poseFigure, segmentMatrix, type Body, type FigurePose } from '../people/rig';
+```
+
+with:
+
+```ts
+import type { FigureLook } from '../people/palettes';
+import { createFigurePose, poseFigure, segmentMatrix, type Body, type FigurePose } from '../people/rig';
+```
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+  private readonly actx: ActorCtx = { spec: undefined!, layout: undefined! };
+```
+
+with:
+
+```ts
+  private readonly actx: ActorCtx = { spec: undefined!, layout: undefined! };
+  /** Phase 4c: figure slots after the actors hold the load's people (TrafficSet); their goads join the poles. */
   private readonly extraBase: number;
   private readonly extraPoles: THREE.Matrix4[];
   private extraPoleN = 0;
+```
 
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+  constructor(private readonly actors: Actor[]) {
+    const n = Math.max(1, actors.length);
+    this.batch = new FigureBatch(n, this.figMat, 'hi');
+    actors.forEach((a, i) => this.batch.setLook(i, a.look));
+    for (let i = 0; i < n; i++) this.batch.hide(i);
+```
+
+with:
+
+```ts
   constructor(private readonly actors: Actor[], extras: FigureLook[] = []) {
     const n = Math.max(1, actors.length + extras.length);
     this.extraBase = actors.length;
@@ -2531,28 +3390,46 @@ Check `src/ancon/materials.ts` for the exact export name and key of the vessel w
     extras.forEach((l, k) => this.batch.setLook(this.extraBase + k, l));
     for (let i = 0; i < n; i++) this.batch.hide(i);
     this.extraPoles = extras.map(() => new THREE.Matrix4());
-    /* …poles InstancedMesh with capacity n, as before… */
-  }
+```
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+    this.poles.count = pi; this.poleCount = pi;
+```
+
+with:
+
+```ts
+    for (let j = 0; j < this.extraPoleN; j++) this.poles.setMatrixAt(pi++, this.extraPoles[j]);
+    this.extraPoleN = 0;
+    this.poles.count = pi; this.poleCount = pi;
+```
+
+In `src/ancon/CrewSet.ts`, replace:
+
+```ts
+  dispose() {
+```
+
+with:
+
+```ts
   /** The load's people (TrafficSet): write before update(), which commits the batch. `pole`: an ox driver's goad (world). */
   setExtra(k: number, world: THREE.Matrix4, pose: FigurePose, pole?: THREE.Matrix4) {
     this.batch.set(this.extraBase + k, world, pose);
     if (pole) this.extraPoles[this.extraPoleN++].copy(pole);
   }
   hideExtra(k: number) { this.batch.hide(this.extraBase + k); }
+
+  dispose() {
 ```
 
-In `update`, after the actor loop and before `this.poles.count = pi`:
-
-```ts
-    for (let j = 0; j < this.extraPoleN; j++) this.poles.setMatrixAt(pi++, this.extraPoles[j]);
-    this.extraPoleN = 0;
-```
-
-(Import `type FigureLook` from `../people/palettes`.)
+The goad pole is one of `CrewSet`'s poles; its capacity (actors + extras) covers every goad.
 
 - [ ] **Step 5: TrafficSet**
 
-`src/traffic/TrafficSet.ts`:
+Create `src/traffic/TrafficSet.ts`:
 
 ```ts
 import * as THREE from 'three';
@@ -2560,9 +3437,9 @@ import type { CrewSet } from '../ancon/CrewSet';
 import type { VesselPose } from '../ancon/pose';
 import type { CarModel, LegRule } from '../data/eras';
 import { dressFigure, type FigureLook } from '../people/palettes';
-import { createFigurePose, poseFigure, segmentMatrix, sitHipHeight, type Body, type FigurePose, type V3 } from '../people/rig';
+import { createFigurePose, poseFigure, segmentMatrix, sitHipHeight, type Body, type FigurePose, type PoseInput, type V3 } from '../people/rig';
 import { buildAnimalBody, buildBicycle, buildCart, buildCartWheel, buildLegSegment, legMatrices, OXEN_Z, oxenCentreX } from './animals';
-import { buildCar, buildWheel, CAR_PARTS, type CarPart } from './carKit';
+import { buildCar, buildWheel, CAR_PARTS, wheelMatrix, type CarPart } from './carKit';
 import type { DockEnv } from './env';
 import { trafficMaterials, type TrafficMaterialId } from './materials';
 import { DIMS, isCar, type MoverKind } from './models';
@@ -2597,10 +3474,19 @@ export function trafficLooks(env: DockEnv): FigureLook[] {
 }
 
 const HALF_PI = Math.PI / 2, STRIDE = 1.1;
+/** Per car model, its part mesh keys in CAR_PARTS order (no string building per frame). */
+const CAR_KEYS = {} as Record<CarModel, MeshKey[]>;
+for (const m of ['modelT', 'modelA', 'sedan50', 'publico', 'sedan70', 'wagon70', 'tvVan', 'sedan80', 'compact80'] as const) CAR_KEYS[m] = CAR_PARTS.map((p) => `${m}:${p}` as MeshKey);
+const CART_KEY = { oxCart: 'cart:oxCart', caneCart: 'cart:caneCart' } as const;
+const OXEN_SIDES = [OXEN_Z, -OXEN_Z] as const;
 const _w = new THREE.Matrix4(), _p = new THREE.Matrix4(), _q = new THREE.Matrix4(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 const _rot = new THREE.Matrix4().makeRotationY(HALF_PI);   // figure +Z (forward) → model +X
 const _legs = Array.from({ length: 8 }, () => new THREE.Matrix4());
 const _c = new THREE.Color();
+/** Scratch hand targets (figure-local): steering wheel grips (y set per driver), the right handlebar grip; goad ends (world). */
+const WL: V3 = [0.17, 0, 0.45], WR: V3 = [-0.17, 0, 0.45], BAR_R: V3 = [-0.21, 0.98, 0.14], GA: V3 = [0, 0, 0], GB: V3 = [0, 0, 0];
+
+interface Slot { key: MeshKey; mesh: THREE.InstancedMesh; used: number }
 
 /**
  * The ferry load of one era: instanced meshes per model part (created only for the kinds the era uses, eraMeshKeys),
@@ -2609,11 +3495,12 @@ const _c = new THREE.Color();
  */
 export class TrafficSet {
   readonly group = new THREE.Group();
-  private readonly meshes = new Map<MeshKey, THREE.InstancedMesh>();
-  private readonly used = new Map<MeshKey, number>();
+  private readonly slots = new Map<MeshKey, Slot>();
+  private readonly list: Slot[] = [];
   private readonly frames: MoverFrame[];
   private readonly bodies: Body[];
   private readonly poses: FigurePose[];
+  private readonly inputs: PoseInput[];
   private readonly perLeg: number;
   private readonly geos: THREE.BufferGeometry[] = [];
 
@@ -2623,9 +3510,10 @@ export class TrafficSet {
     const maxOf = (k: MoverKind) => Math.max(0, ...rules.map((r) => (r.animal === k ? 1 : k === 'bicycle' ? r.bicycles : isCar(k) ? r.fixed.filter((m) => m === k).length + (r.pool.includes(k as CarModel) ? r.cars - r.fixed.length : 0) : 0)));
     const add = (key: MeshKey, geo: THREE.BufferGeometry, mat: TrafficMaterialId, cap: number) => {
       if (cap <= 0) return;
-      const m = new THREE.InstancedMesh(geo, trafficMaterials()[mat], cap);
-      m.castShadow = castShadow; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; m.visible = false;
-      this.meshes.set(key, m); this.used.set(key, 0); this.group.add(m); this.geos.push(geo);
+      const mesh = new THREE.InstancedMesh(geo, trafficMaterials()[mat], cap);
+      mesh.castShadow = castShadow; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0; mesh.visible = false;
+      const slot = { key, mesh, used: 0 };
+      this.slots.set(key, slot); this.list.push(slot); this.group.add(mesh); this.geos.push(geo);
     };
     let carCap = 0;
     for (const k of kinds) if (isCar(k)) {
@@ -2643,74 +3531,78 @@ export class TrafficSet {
     this.frames = Array.from({ length: 3 * Math.max(1, this.perLeg) }, createMoverFrame);
     this.bodies = looks.map((l) => ({ height: l.height, build: l.build, dress: l.dress }));
     this.poses = looks.map(createFigurePose);
+    this.inputs = looks.map((): PoseInput => ({ kind: 'stand', phase: 0, t: 0, seed: 0 }));
   }
 
   private put(key: MeshKey, m: THREE.Matrix4, color?: number) {
-    const mesh = this.meshes.get(key)!, i = this.used.get(key)!;
-    mesh.setMatrixAt(i, m);
-    if (color !== undefined) mesh.setColorAt(i, _c.setHex(color));
-    this.used.set(key, i + 1);
+    const slot = this.slots.get(key)!;
+    slot.mesh.setMatrixAt(slot.used, m);
+    if (color !== undefined) slot.mesh.setColorAt(slot.used, _c.setHex(color));
+    slot.used++;
   }
 
   update(pose: VesselPose) {
-    for (const k of this.used.keys()) this.used.set(k, 0);
+    for (let i = 0; i < this.list.length; i++) this.list[i].used = 0;
     const n = pose.state.legIndex, clock = pose.clock;
     let fi = 0;
     for (let dl = -1; dl <= 1; dl++) {
-      const leg = n + dl, plan = this.cache.get(leg), slot0 = (((leg % 3) + 3) % 3) * this.perLeg;
+      const leg = n + dl, movers = this.cache.get(leg).movers, slot0 = (((leg % 3) + 3) % 3) * this.perLeg;
       let person = 0;
-      for (const s of plan.movers) {
-        const fr = moverFrame(s, this.env, clock, pose, this.frames[fi++]), m = s.m, d = m.dims;
-        for (const p of m.people) {
-          const k = slot0 + person++;
+      for (let j = 0; j < movers.length; j++) {
+        const s = movers[j], fr = moverFrame(s, this.env, clock, pose, this.frames[fi++]), m = s.m, d = m.dims;
+        for (let q = 0; q < m.people.length; q++) {
+          const k = slot0 + person++, p = m.people[q];
           if (!fr.visible) { this.crew.hideExtra(k); continue; }
           this.person(k, fr, p.role, p.at, p.goad, m.kind);
         }
         if (!fr.visible) continue;
         if (isCar(m.kind)) {
-          for (const part of CAR_PARTS) this.put(`${m.kind}:${part}`, fr.matrix, part === 'paint' ? m.paint : undefined);
-          const spin = fr.dist / d.wheelR;
-          for (const [wx, wz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-            _w.makeRotationZ(-spin).premultiply(_q.makeScale(d.wheelR, d.wheelR, d.wheelR)).setPosition(wx * d.wheelbase / 2, d.wheelR, wz * d.track);
-            this.put('wheel', _p.multiplyMatrices(fr.matrix, _w));
-          }
+          const keys = CAR_KEYS[m.kind];
+          for (let i = 0; i < keys.length; i++) this.put(keys[i], fr.matrix, i === 0 ? m.paint : undefined);   // CAR_PARTS[0] is 'paint'
+          for (let w = 0; w < 4; w++) this.put('wheel', wheelMatrix(d, w, fr.dist, fr.matrix, _p));
         } else if (m.kind === 'oxCart' || m.kind === 'caneCart') {
-          this.put(`cart:${m.kind}`, fr.matrix);
-          for (const z of [OXEN_Z, -OXEN_Z]) {
-            _w.makeTranslation(oxenCentreX(m.kind), 0, z); _p.multiplyMatrices(fr.matrix, _w);
+          this.put(CART_KEY[m.kind], fr.matrix);
+          for (let o = 0; o < 2; o++) {
+            _w.makeTranslation(oxenCentreX(m.kind), 0, OXEN_SIDES[o]); _p.multiplyMatrices(fr.matrix, _w);
             this.put('oxBody', _p, m.paint);
             legMatrices('ox', fr.dist, fr.speed > 0.05, _p, _legs);
-            for (const L of _legs) this.put('oxLeg', L, m.paint);
+            for (let i = 0; i < 8; i++) this.put('oxLeg', _legs[i], m.paint);
           }
           const spin = fr.dist / d.wheelR;
-          for (const z of [d.track, -d.track]) { _w.makeRotationZ(-spin).premultiply(_q.makeScale(d.wheelR, d.wheelR, 1)).setPosition(-d.wheelbase / 2, d.wheelR, z); this.put('cartWheel', _p.multiplyMatrices(fr.matrix, _w)); }
+          for (let o = 0; o < 2; o++) {
+            _w.makeRotationZ(-spin).premultiply(_q.makeScale(d.wheelR, d.wheelR, 1)).setPosition(-d.wheelbase / 2, d.wheelR, o === 0 ? d.track : -d.track);
+            this.put('cartWheel', _p.multiplyMatrices(fr.matrix, _w));
+          }
         } else if (m.kind === 'horse') {
           this.put('horseBody', fr.matrix, m.paint);
           legMatrices('horse', fr.dist, fr.speed > 0.05, fr.matrix, _legs);
-          for (const L of _legs) this.put('horseLeg', L, m.paint);
+          for (let i = 0; i < 8; i++) this.put('horseLeg', _legs[i], m.paint);
         } else if (m.kind === 'bicycle') this.put('bicycle', fr.matrix, m.paint);
       }
       for (let k = slot0 + person; k < slot0 + this.perLeg; k++) this.crew.hideExtra(k);
     }
-    for (const [key, mesh] of this.meshes) {
-      const u = this.used.get(key)!;
-      mesh.count = u; mesh.visible = u > 0; mesh.instanceMatrix.needsUpdate = true;
+    for (let i = 0; i < this.list.length; i++) {
+      const { mesh, used } = this.list[i];
+      mesh.count = used; mesh.visible = used > 0; mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
   }
 
   /** A driver (seated in the model at `at`) or an attendant on foot (standing at `at`, facing forward). */
   private person(k: number, fr: MoverFrame, role: 'driver' | 'attendant', at: [number, number, number], goad: boolean, kind: MoverKind) {
-    const body = this.bodies[k], fp = this.poses[k];
+    const body = this.bodies[k], fp = this.poses[k], input = this.inputs[k];
+    input.t = fr.dist; input.seed = k; input.handL = undefined; input.handR = undefined;
     if (role === 'driver') {
-      _w.makeTranslation(at[0], at[1] - sitHipHeight(body) + 0.05, at[2]).multiply(_rot);
-      WL[1] = WR[1] = sitHipHeight(body) + 0.36;
-      poseFigure(body, { kind: 'sit', phase: 0, t: fr.dist, seed: k, handL: WL, handR: WR }, fp);
+      const hip = sitHipHeight(body);
+      _w.makeTranslation(at[0], at[1] - hip + 0.05, at[2]).multiply(_rot);
+      WL[1] = WR[1] = hip + 0.36;
+      input.kind = 'sit'; input.phase = 0; input.handL = WL; input.handR = WR;
     } else {
       _w.makeTranslation(at[0], 0, at[2]).multiply(_rot);
-      const walking = fr.speed > 0.05;
-      poseFigure(body, { kind: walking ? 'walk' : 'stand', phase: (fr.dist / STRIDE) % 1, t: fr.dist, seed: k, handR: kind === 'bicycle' ? BAR_R : undefined }, fp);
+      input.kind = fr.speed > 0.05 ? 'walk' : 'stand'; input.phase = (fr.dist / STRIDE) % 1;
+      if (kind === 'bicycle') input.handR = BAR_R;
     }
+    poseFigure(body, input, fp);
     _p.multiplyMatrices(fr.matrix, _w);
     let pole: THREE.Matrix4 | undefined;
     if (goad && role === 'attendant') {
@@ -2724,25 +3616,39 @@ export class TrafficSet {
   }
 
   dispose() {
-    for (const m of this.meshes.values()) { m.dispose(); this.group.remove(m); }
+    for (const s of this.list) { s.mesh.dispose(); this.group.remove(s.mesh); }
     for (const g of this.geos) g.dispose();
   }
 }
-/** Scratch hand targets (figure-local): steering wheel grips (y set per driver), the right handlebar grip; goad ends (world). */
-const WL: V3 = [0.17, 0, 0.45], WR: V3 = [-0.17, 0, 0.45], BAR_R: V3 = [-0.21, 0.98, 0.14], GA: V3 = [0, 0, 0], GB: V3 = [0, 0, 0];
 ```
-
-The goad pole is one of `CrewSet`'s poles; its capacity (actors + extras) covers every goad.
 
 - [ ] **Step 6: Mount it in the ferry**
 
-`src/ancon/Ancon.tsx`:
+In `src/ancon/Ancon.tsx`, replace:
 
-```ts
+```tsx
+import { eraTimings } from '../traffic/schedule';
+```
+
+with:
+
+```tsx
 import { dockEnv } from '../traffic/env';
-import { LegCache } from '../traffic/schedule';
+import { eraTimings, LegCache } from '../traffic/schedule';
 import { TrafficSet, trafficLooks } from '../traffic/TrafficSet';
-// …after `seats`:
+```
+
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+  const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);
+  useEffect(() => () => crew.dispose(), [crew]);
+```
+
+with:
+
+```tsx
+  // Phase 4c: the load (movers on roads, landings and deck) and its people in the crew's figure batch.
   const env = useMemo(() => dockEnv(era, ctx, ctx.groundAt!), [era, ctx]);
   const legs = useMemo(() => new LegCache(env), [env]);
   const loadAt = useMemo(() => (leg: number) => legs.get(leg).load, [legs]);
@@ -2750,14 +3656,33 @@ import { TrafficSet, trafficLooks } from '../traffic/TrafficSet';
   useEffect(() => () => crew.dispose(), [crew]);
   const traffic = useMemo(() => new TrafficSet(env, legs, crew, castShadow), [env, legs, crew, castShadow]);
   useEffect(() => () => traffic.dispose(), [traffic]);
-// in useFrame, replace `crew.update(pose, ctx);` with:
-    traffic.update(pose);
-    crew.update(pose, ctx, loadAt);
-// in the JSX, after the crew primitive:
-    <primitive object={traffic.group} />
 ```
 
-(Delete the old `crew` `useMemo`/`useEffect` lines this replaces.)
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+    crew.update(pose, ctx);
+```
+
+with:
+
+```tsx
+    traffic.update(pose);   // writes the load's people into the crew batch, which crew.update commits
+    crew.update(pose, ctx, loadAt);
+```
+
+In `src/ancon/Ancon.tsx`, replace:
+
+```tsx
+    <primitive object={crew.group} />
+```
+
+with:
+
+```tsx
+    <primitive object={crew.group} />
+    <primitive object={traffic.group} />
+```
 
 - [ ] **Step 7: Run everything, then look**
 
@@ -2789,11 +3714,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 13: Bridge traffic in 1986
 
 **Files:**
-- Create: `src/traffic/bridgeTraffic.ts`, `src/traffic/bridgeTraffic.test.ts`, `src/traffic/BridgeTraffic.tsx`
-- Modify: `src/quality.ts`, `src/scene/World.tsx`
+- Create: `src/traffic/bridgeTraffic.ts`, `src/traffic/bridgeTraffic.test.ts`, `src/traffic/BridgeTrafficMesh.tsx` (the file map's `BridgeTraffic.tsx`: renamed, because on a case-insensitive disk `./BridgeTraffic` resolves to `bridgeTraffic.ts` and `tsc` fails)
+- Modify: `src/quality.ts`, `src/scene/World.tsx`, `src/infrastructure/roads.ts` (export `antiguaJunction`)
+
+**Preflight rulings applied:** B18 (the component file name), R9 (the car count scales by lane length / bridge length, so about 10 — 6 on the low tier — are on the bridge at once), R7 (no per-frame allocation), N2 (lanes from `offsetRight`, paint from `PAINT[1984]`, wheels from `wheelMatrix`, spin from `BRIDGE_SPEED`).
 
 **Interfaces:**
-- Consumes: `bridgePlan`, `deckTop`, `BRIDGE`, `BridgePlan` (`src/infrastructure/bridge.ts`); `BRIDGE_WAY`, `PR187_WAY`, `STORY_WAYS` (`src/infrastructure/roads.ts`); `polyline`, `pointAt`, `Polyline` (Task 5); `bodyMatrix` (Task 7); `buildCar`, `buildWheel` (Task 10); `trafficMaterials` (Task 12).
+- Consumes: `bridgePlan`, `deckTop`, `BridgePlan` (`src/infrastructure/bridge.ts`); `bridgeWay`, `PR187_WAY`, `STORY_WAYS` (`src/infrastructure/roads.ts`); `polyline`, `pointAt`, `offsetRight`, `Polyline` (Task 5); `PAINT` (Task 4); `bodyMatrix` (Task 7); `buildCar`, `buildWheel`, `wheelMatrix` (Task 10); `trafficMaterials` (Task 12).
 - Produces:
 
 ```ts
@@ -2802,16 +3729,18 @@ export interface BridgeLane { path: Polyline; y: (x: number, z: number) => numbe
 export function bridgeLanes(geo: GeoBundle, plan: BridgePlan, groundAt: (x: number, z: number) => number): [BridgeLane, BridgeLane];
 export interface BridgeCar { lane: 0 | 1; model: CarModel; paint: number; offset: number }
 export function bridgeCars(n: number): BridgeCar[];
+export const bridgeCarCount: (onBridge: number, lanes: readonly BridgeLane[], plan: BridgePlan) => number;   // cars to run for ~onBridge on the bridge
 export function bridgeCarAt(lane: BridgeLane, car: BridgeCar, clock: number, front: THREE.Vector3, rear: THREE.Vector3): boolean;   // false = in the hidden gap at the path end
+export function BridgeTrafficMesh(props: { near: WorldFields; era: Era; n: number; castShadow: boolean }): JSX.Element;
 // roads.ts
 export function antiguaJunction(geo: GeoBundle): number;   // was module-private
 // quality.ts
-QualitySettings.traffic: { bridgeCars: number }   // high 10, medium 10, low 6
+QualitySettings.traffic: { bridgeCars: number }   // cars on the bridge at once: high 10, medium 10, low 6
 ```
 
 - [ ] **Step 1: Write the failing test**
 
-`src/traffic/bridgeTraffic.test.ts`:
+Create `src/traffic/bridgeTraffic.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
@@ -2823,7 +3752,7 @@ import { bridgeWay } from '../infrastructure/roads';
 import { waterAt } from '../ancon/geometry';
 import { fields512 } from '../ancon/testing';
 import { sampleField } from '../terrain/fields';
-import { BRIDGE_LANE, bridgeCarAt, bridgeCars, bridgeLanes } from './bridgeTraffic';
+import { BRIDGE_LANE, bridgeCarAt, bridgeCarCount, bridgeCars, bridgeLanes } from './bridgeTraffic';
 import { pointAt } from './env';
 import { DIMS } from './models';
 
@@ -2855,6 +3784,17 @@ describe('bridge traffic', () => {
       for (let i = 0; i < pos.length; i++) for (let j = i + 1; j < pos.length; j++) expect(pos[i].distanceTo(pos[j])).toBeGreaterThan(DIMS.sedan80.length + 5);
     }
   });
+  test('about 10 (high) or 6 (low) cars are on the bridge at once (spec 4c §6)', () => {
+    for (const want of [10, 6]) {
+      const cars = bridgeCars(bridgeCarCount(want, lanes, plan)), fr = new THREE.Vector3(), rr = new THREE.Vector3();
+      let sum = 0, n = 0;
+      for (let c = 0; c < 200; c += 1, n++) for (const k of cars) if (bridgeCarAt(lanes[k.lane], k, c, fr, rr)) {
+        const t = ((fr.x - plan.a[0]) * plan.dir[0] + (fr.z - plan.a[1]) * plan.dir[1]) / plan.len;
+        if (t >= 0 && t <= 1) sum++;
+      }
+      expect(Math.abs(sum / n - want), `${want}`).toBeLessThan(1.5);
+    }
+  });
   test('on the bridge the wheels are on the deck', () => {
     const cars = bridgeCars(10), fr = new THREE.Vector3(), rr = new THREE.Vector3();
     for (let c = 0; c < 200; c += 0.7) for (const k of cars) if (bridgeCarAt(lanes[k.lane], k, c, fr, rr)) {
@@ -2872,6 +3812,8 @@ Expected: FAIL — module missing.
 
 - [ ] **Step 3: Write `bridgeTraffic.ts`**
 
+Create `src/traffic/bridgeTraffic.ts`:
+
 ```ts
 import * as THREE from 'three';
 import type { CarModel } from '../data/eras';
@@ -2879,21 +3821,17 @@ import type { GeoBundle, XZ } from '../data/geo/types';
 import { deckTop, type BridgePlan } from '../infrastructure/bridge';
 import { ROAD_LIFT } from '../infrastructure/roadStrip';
 import { antiguaJunction, PR187_WAY, STORY_WAYS } from '../infrastructure/roads';
-import { pointAt, polyline, type Polyline } from './env';
+import { offsetRight, pointAt, polyline, type Polyline } from './env';
 import { DIMS } from './models';
+import { PAINT } from './plan';
 
 /** 40 km/h (inferred L), lane centres 2.4 m either side of the bridge axis (the 9.6 m asphalt), 1984–86 models. */
 export const BRIDGE_SPEED = 11, BRIDGE_LANE = 2.4;
 export const BRIDGE_MODELS: readonly CarModel[] = ['sedan80', 'compact80'];
-const PAINT = [0xdcdcd6, 0x9a1f1f, 0x1f3a5f, 0x7a7d80, 0x2b2b2b, 0xb8a27a];
 /** Deck ↔ approach blend length at each abutment (m). */
 const BLEND = 8;
 
 export interface BridgeLane { path: Polyline; y: (x: number, z: number) => number }
-const right = (pts: readonly XZ[], off: number): XZ[] => pts.map((p, i) => {
-  const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-  return [p[0] - ((b[1] - a[1]) / l) * off, p[1] + ((b[0] - a[0]) / l) * off];
-});
 
 /** West approach (PR-187's last ~145 m) → bridge → east approach (Ruta de la Tradición), and back; each lane keeps right. */
 export function bridgeLanes(geo: GeoBundle, plan: BridgePlan, groundAt: (x: number, z: number) => number): [BridgeLane, BridgeLane] {
@@ -2907,17 +3845,23 @@ export function bridgeLanes(geo: GeoBundle, plan: BridgePlan, groundAt: (x: numb
     const e = t < 0 ? -t * plan.len : (t - 1) * plan.len, deck = deckTop(plan, t < 0 ? 0 : 1) + 0.06;
     return e < BLEND ? deck + (g - deck) * (e / BLEND) : g;
   };
-  return [{ path: polyline(right(centre, BRIDGE_LANE)), y }, { path: polyline(right([...centre].reverse(), BRIDGE_LANE)), y }];
+  return [{ path: polyline(offsetRight(centre, BRIDGE_LANE)), y }, { path: polyline(offsetRight([...centre].reverse(), BRIDGE_LANE)), y }];
 }
 
 export interface BridgeCar { lane: 0 | 1; model: CarModel; paint: number; offset: number }
-/** n cars, half per lane, evenly spaced along it (offset = share of the lane length). */
+/** n cars, half per lane, evenly spaced along it (offset = share of the lane length); 1984–86 paint (src/traffic/plan.ts). */
 export function bridgeCars(n: number): BridgeCar[] {
-  const per = Math.ceil(n / 2);
+  const per = Math.ceil(n / 2), paint = PAINT[1984];
   return Array.from({ length: n }, (_, k) => ({
-    lane: (k % 2) as 0 | 1, model: BRIDGE_MODELS[(k >> 1) % 2], paint: PAINT[(k * 5) % PAINT.length], offset: Math.floor(k / 2) / per + (k % 2) * 0.37 / per,
+    lane: (k % 2) as 0 | 1, model: BRIDGE_MODELS[(k >> 1) % 2], paint: paint[(k * 5) % paint.length], offset: Math.floor(k / 2) / per + (k % 2) * 0.37 / per,
   }));
 }
+/**
+ * How many cars to run so about `onBridge` are on the bridge at once (spec 4c §6): the loops run the approaches too,
+ * so scale by lane length / bridge length (ruling R9).
+ */
+export const bridgeCarCount = (onBridge: number, lanes: readonly BridgeLane[], plan: BridgePlan) =>
+  2 * Math.round((onBridge / 2) * (lanes[0].path.len / plan.len));
 const _xz: [number, number] = [0, 0];
 /** Front and rear contacts of `car` at `clock`; false while it is in the hidden gap at the path's end. */
 export function bridgeCarAt(lane: BridgeLane, car: BridgeCar, clock: number, front: THREE.Vector3, rear: THREE.Vector3): boolean {
@@ -2929,20 +3873,73 @@ export function bridgeCarAt(lane: BridgeLane, car: BridgeCar, clock: number, fro
 }
 ```
 
-In `src/infrastructure/roads.ts`, export the existing `antiguaJunction` (`export function antiguaJunction(geo: GeoBundle)`); no other change there.
+In `src/infrastructure/roads.ts`, replace:
+
+```ts
+function antiguaJunction(geo: GeoBundle) {
+```
+
+with:
+
+```ts
+export function antiguaJunction(geo: GeoBundle) {
+```
 
 - [ ] **Step 4: Quality tier and component**
 
-`src/quality.ts`: add to `QualitySettings`:
+In `src/quality.ts`, replace:
 
 ```ts
-  /** Phase 4c: cars on the open bridge (1986). */
-  traffic: { bridgeCars: number };
+  ancon: { ropeSegments: number; ropeRadial: number; passengers: number };
+}
 ```
 
-and `traffic: { bridgeCars: 10 }` to high and medium, `traffic: { bridgeCars: 6 }` to low.
+with:
 
-`src/traffic/BridgeTraffic.tsx`:
+```ts
+  ancon: { ropeSegments: number; ropeRadial: number; passengers: number };
+  /** Phase 4c: cars on the open bridge at once (1986; spec 4c §6, §7). */
+  traffic: { bridgeCars: number };
+}
+```
+
+In `src/quality.ts`, replace:
+
+```ts
+ancon: { ropeSegments: 40, ropeRadial: 6, passengers: 1 } },
+```
+
+with:
+
+```ts
+ancon: { ropeSegments: 40, ropeRadial: 6, passengers: 1 }, traffic: { bridgeCars: 10 } },
+```
+
+In `src/quality.ts`, replace:
+
+```ts
+ancon: { ropeSegments: 32, ropeRadial: 6, passengers: 1 } },
+```
+
+with:
+
+```ts
+ancon: { ropeSegments: 32, ropeRadial: 6, passengers: 1 }, traffic: { bridgeCars: 10 } },
+```
+
+In `src/quality.ts`, replace:
+
+```ts
+ancon: { ropeSegments: 20, ropeRadial: 4, passengers: 0.5 } },
+```
+
+with:
+
+```ts
+ancon: { ropeSegments: 20, ropeRadial: 4, passengers: 0.5 }, traffic: { bridgeCars: 6 } },
+```
+
+Create `src/traffic/BridgeTrafficMesh.tsx`:
 
 ```tsx
 import { useFrame } from '@react-three/fiber';
@@ -2950,7 +3947,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { waterAt } from '../ancon/geometry';
 import { advanceClock } from '../ancon/crossing';
-import type { Era } from '../data/eras';
+import type { CarModel, Era } from '../data/eras';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { bridgePlan } from '../infrastructure/bridge';
@@ -2958,69 +3955,95 @@ import { bridgeWay } from '../infrastructure/roads';
 import { useStore } from '../state/store';
 import { sampleField, type WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
-import { bridgeCarAt, bridgeCars, bridgeLanes, BRIDGE_MODELS } from './bridgeTraffic';
-import { buildCar, buildWheel, CAR_PARTS } from './carKit';
+import { BRIDGE_MODELS, BRIDGE_SPEED, bridgeCarAt, bridgeCarCount, bridgeCars, bridgeLanes } from './bridgeTraffic';
+import { buildCar, buildWheel, CAR_PARTS, wheelMatrix } from './carKit';
 import { trafficMaterials } from './materials';
 import { DIMS } from './models';
 import { bodyMatrix } from './motion';
 
 const G = geo as unknown as GeoBundle, UP = new THREE.Vector3(0, 1, 0);
-const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _m = new THREE.Matrix4(), _w = new THREE.Matrix4(), _p = new THREE.Matrix4(), _s = new THREE.Matrix4(), _c = new THREE.Color();
+const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _m = new THREE.Matrix4(), _p = new THREE.Matrix4(), _c = new THREE.Color();
 
-/** Phase 4c, 1986 only: cars cross the open bridge both ways (lo detail, ≥ 150 m from the ferry). ≤ 9 draw calls. */
-export function BridgeTraffic({ near, era, n, castShadow }: { near: WorldFields; era: Era; n: number; castShadow: boolean }) {
+/**
+ * Phase 4c, 1986 only: cars cross the open bridge both ways (lo detail, ≥ 150 m from the ferry); about `n` on the
+ * bridge at once. ≤ 9 draw calls. Allocation-free per frame. (Named apart from bridgeTraffic.ts: on a
+ * case-insensitive disk `./BridgeTraffic` would resolve to that module.)
+ */
+export function BridgeTrafficMesh({ near, era, n, castShadow }: { near: WorldFields; era: Era; n: number; castShadow: boolean }) {
   const bank = era.river.bankOffset.value, place = useMemo(() => placementFields(bank, near), [bank, near]);
   const groundAt = useMemo(() => (x: number, z: number) => sampleField(near, near.height, x, z), [near]);
   const plan = useMemo(() => bridgePlan(bridgeWay(G), 'open', (x, z) => waterAt(place, x, z), groundAt)!, [place, groundAt]);
   const lanes = useMemo(() => bridgeLanes(G, plan, groundAt), [plan, groundAt]);
-  const cars = useMemo(() => bridgeCars(n), [n]);
+  const cars = useMemo(() => bridgeCars(bridgeCarCount(n, lanes, plan)), [n, lanes, plan]);
   const set = useMemo(() => {
-    const mats = trafficMaterials(), group = new THREE.Group(), meshes: Record<string, THREE.InstancedMesh> = {};
+    const mats = trafficMaterials(), group = new THREE.Group();
+    const parts = {} as Record<CarModel, THREE.InstancedMesh[]>, used = {} as Record<CarModel, number>;
     for (const model of BRIDGE_MODELS) {
-      const g = buildCar(model, 'lo'), cap = cars.filter((c) => c.model === model).length;
-      for (const p of CAR_PARTS) { const m = new THREE.InstancedMesh(g[p], mats[p], Math.max(1, cap)); meshes[`${model}:${p}`] = m; }
+      const g = buildCar(model, 'lo'), cap = Math.max(1, cars.filter((c) => c.model === model).length);
+      parts[model] = CAR_PARTS.map((p) => new THREE.InstancedMesh(g[p], mats[p], cap)); used[model] = 0;
     }
-    meshes.wheel = new THREE.InstancedMesh(buildWheel('lo'), mats.wheel, 4 * cars.length);
-    for (const m of Object.values(meshes)) { m.castShadow = castShadow; m.receiveShadow = true; m.frustumCulled = false; group.add(m); }
-    const used: Record<string, number> = Object.fromEntries(Object.keys(meshes).map((k) => [k, 0]));
-    return { group, meshes, used };
+    const wheel = new THREE.InstancedMesh(buildWheel('lo'), mats.wheel, 4 * cars.length);
+    const all = [...BRIDGE_MODELS.flatMap((m) => parts[m]), wheel];
+    for (const m of all) { m.castShadow = castShadow; m.receiveShadow = true; m.frustumCulled = false; group.add(m); }
+    return { group, parts, used, wheel, all };
   }, [cars, castShadow]);
-  useEffect(() => () => { for (const m of Object.values(set.meshes)) { m.dispose(); m.geometry.dispose(); } }, [set]);
+  useEffect(() => () => { for (const m of set.all) { m.dispose(); m.geometry.dispose(); } }, [set]);
   const start = useStore((s) => s.crossingStart), frozen = useStore((s) => s.frozen), speed = useStore((s) => s.crossingSpeed);
   const clock = useRef(start ?? 0);
   useEffect(() => { clock.current = start ?? 0; }, [start]);
   useFrame((_, dt) => {
     clock.current = advanceClock(clock.current, Math.min(dt, 0.1), frozen, speed);
-    const used = set.used;
-    for (const k in used) used[k] = 0;
-    for (const car of cars) {
+    const { parts, used, wheel } = set;
+    for (let i = 0; i < BRIDGE_MODELS.length; i++) used[BRIDGE_MODELS[i]] = 0;
+    let wi = 0;
+    for (let k = 0; k < cars.length; k++) {
+      const car = cars[k];
       if (!bridgeCarAt(lanes[car.lane], car, clock.current, _f, _r)) continue;
       bodyMatrix(_f, _r, UP, _m);
-      for (const p of CAR_PARTS) {
-        const key = `${car.model}:${p}`, mesh = set.meshes[key], i = used[key]++;
-        mesh.setMatrixAt(i, _m); if (p === 'paint') mesh.setColorAt(i, _c.setHex(car.paint));
-      }
-      const d = DIMS[car.model], spin = (clock.current * 11) / d.wheelR;
-      for (const [wx, wz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-        _w.makeRotationZ(-spin).premultiply(_s.makeScale(d.wheelR, d.wheelR, d.wheelR)).setPosition(wx * d.wheelbase / 2, d.wheelR, wz * d.track);
-        set.meshes.wheel.setMatrixAt(used.wheel++, _p.multiplyMatrices(_m, _w));
+      const meshes = parts[car.model], i = used[car.model]++;
+      for (let p = 0; p < meshes.length; p++) meshes[p].setMatrixAt(i, _m);
+      meshes[0].setColorAt(i, _c.setHex(car.paint));   // CAR_PARTS[0] is 'paint'
+      const d = DIMS[car.model], dist = BRIDGE_SPEED * clock.current;
+      for (let w = 0; w < 4; w++) wheel.setMatrixAt(wi++, wheelMatrix(d, w, dist, _m, _p));
+    }
+    for (let i = 0; i < BRIDGE_MODELS.length; i++) {
+      const meshes = parts[BRIDGE_MODELS[i]], u = used[BRIDGE_MODELS[i]];
+      for (let p = 0; p < meshes.length; p++) {
+        const m = meshes[p];
+        m.count = u; m.visible = u > 0; m.instanceMatrix.needsUpdate = true;
+        if (m.instanceColor) m.instanceColor.needsUpdate = true;
       }
     }
-    for (const [k, m] of Object.entries(set.meshes)) {
-      m.count = used[k]; m.visible = used[k] > 0; m.instanceMatrix.needsUpdate = true;
-      if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    }
+    wheel.count = wi; wheel.visible = wi > 0; wheel.instanceMatrix.needsUpdate = true;
   });
   return <primitive object={set.group} />;
 }
 ```
 
-`src/scene/World.tsx`:
+In `src/scene/World.tsx`, replace:
 
 ```tsx
-import { BridgeTraffic } from '../traffic/BridgeTraffic';
-// …after <Town …/>:
-      {era.infrastructure.bridge.value === 'open' && <BridgeTraffic near={near} era={era} n={q.traffic.bridgeCars} castShadow={q.shadowMap > 0} />}
+import { Town } from '../town/TownMeshes';
+```
+
+with:
+
+```tsx
+import { Town } from '../town/TownMeshes';
+import { BridgeTrafficMesh } from '../traffic/BridgeTrafficMesh';
+```
+
+In `src/scene/World.tsx`, replace:
+
+```tsx
+      <Town near={near} era={era} castShadow={q.shadowMap > 0} />
+```
+
+with:
+
+```tsx
+      <Town near={near} era={era} castShadow={q.shadowMap > 0} />
+      {era.infrastructure.bridge.value === 'open' && <BridgeTrafficMesh near={near} era={era} n={q.traffic.bridgeCars} castShadow={q.shadowMap > 0} />}
 ```
 
 - [ ] **Step 5: Run tests; look at 1986**
@@ -3040,7 +4063,7 @@ Read both. Record in the rulings note whether the 1986 `ride` view frames the br
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/traffic/bridgeTraffic.ts src/traffic/bridgeTraffic.test.ts src/traffic/BridgeTraffic.tsx src/quality.ts src/scene/World.tsx src/infrastructure/roads.ts docs/superpowers/notes/phase-4c-rulings.md
+git add src/traffic/bridgeTraffic.ts src/traffic/bridgeTraffic.test.ts src/traffic/BridgeTrafficMesh.tsx src/quality.ts src/scene/World.tsx src/infrastructure/roads.ts docs/superpowers/notes/phase-4c-rulings.md
 git commit -m "feat(4c): 1986 bridge traffic
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -3052,24 +4075,85 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Modify: `tests/e2e/world.spec.ts` (4c shots), `docs/superpowers/notes/phase-4c-rulings.md`
-- Create: `tests/snapshots/phase4c/*.png`
+- Create: `src/traffic/dockStops.ts`, `src/traffic/dockStops.test.ts`, `tests/snapshots/phase4c/*.png`
+
+**Preflight rulings applied:** B19 (the shot list imports a plain dock-stop table, not `schedule.ts`: Playwright's ESM loader rejects the geo JSON that `schedule.ts` pulls in), N6 and the other deviations recorded in the rulings note (Step 2).
 
 - [ ] **Step 1: Add the 4c shots**
 
-`tests/e2e/world.spec.ts`, above `SHOTS`:
+Create `src/traffic/dockStops.ts`:
 
 ```ts
-import { eraTimings } from '../../src/traffic/schedule';
-/** Crossing clock at a moment of an era's leg 0: 6 s into boarding, mid-crossing (the waiting line ahead), 6 s into unloading. */
-const at = (era: EraId, when: 'board' | 'mid' | 'unload') => {
-  const T = eraTimings(getEra(era)), move = T.load + T.castOff + T.cross + T.dock;
-  return when === 'board' ? 6 : when === 'mid' ? Math.round(T.load + T.castOff + T.cross / 2) : Math.round(move + 6);
+import type { EraId } from '../data/eras';
+
+/**
+ * Each era's dock stop (s), as eraTimings (src/traffic/schedule.ts) computes it — a plain table so the Playwright
+ * shot list can import it without the geo bundle (Node's ESM loader rejects the JSON import). dockStops.test.ts keeps
+ * it equal to eraTimings.
+ */
+export const DOCK_STOPS: Record<EraId, { load: number; unload: number }> = {
+  '1840': { load: 43, unload: 27 }, '1900': { load: 43, unload: 27 }, '1925': { load: 43, unload: 27 }, '1935': { load: 30, unload: 22 },
+  '1959': { load: 39, unload: 33 }, '1975': { load: 45, unload: 41 }, '1984': { load: 50, unload: 49 }, '1986': { load: 20, unload: 16 },
 };
 ```
 
-Append to `SHOTS`:
+Create `src/traffic/dockStops.test.ts`:
 
 ```ts
+import { expect, test } from 'vitest';
+import { ERAS } from '../data/eras';
+import { DOCK_STOPS } from './dockStops';
+import { eraTimings } from './schedule';
+
+test('the shot list’s dock stops match eraTimings', () => {
+  for (const e of ERAS) {
+    const T = eraTimings(e);
+    expect(DOCK_STOPS[e.id], e.id).toEqual({ load: T.load, unload: T.unload });
+  }
+});
+```
+
+In `tests/e2e/world.spec.ts`, replace:
+
+```ts
+import { goldenHourAST } from '../../src/geo/sun';
+```
+
+with:
+
+```ts
+import { CROSSING_TIMINGS as T } from '../../src/ancon/crossing';
+import { goldenHourAST } from '../../src/geo/sun';
+import { DOCK_STOPS } from '../../src/traffic/dockStops';
+```
+
+In `tests/e2e/world.spec.ts`, replace:
+
+```ts
+const SHOTS: {
+```
+
+with:
+
+```ts
+/** Crossing clock at a moment of an era's leg 0: 6 s into boarding, mid-crossing (the waiting line ahead), 6 s into unloading. */
+const at = (era: EraId, when: 'board' | 'mid' | 'unload') => {
+  const { load } = DOCK_STOPS[era], move = load + T.castOff + T.cross + T.dock;
+  return when === 'board' ? 6 : when === 'mid' ? Math.round(load + T.castOff + T.cross / 2) : Math.round(move + 6);
+};
+const SHOTS: {
+```
+
+In `tests/e2e/world.spec.ts`, replace:
+
+```ts
+  { era: '1986', cam: 'town', t: 12, c: 95, name: '1986-town-noon' },          // mostly concrete
+```
+
+with:
+
+```ts
+  { era: '1986', cam: 'town', t: 12, c: 95, name: '1986-town-noon' },          // mostly concrete
   // Phase 4c: the load driving on, riding, driving off; the waiting line; the 1986 bridge traffic.
   { era: '1840', cam: 'ride', t: golden('1840'), c: at('1840', 'board'), name: '1840-ride-board' },
   { era: '1900', cam: 'ride', t: golden('1900'), c: at('1900', 'mid'), name: '1900-ride-cane' },
@@ -3083,9 +4167,36 @@ Append to `SHOTS`:
   { era: '1986', cam: 'bridge', t: golden('1986'), c: 40, name: '1986-bridge-traffic' },
 ```
 
-(The existing shots keep their names; their `c` values still land in the same phases — `c = 95` is mid-crossing and `c ≤ 5` is loading in every era's timings.)
+(`world.spec.ts` already writes to `phase4c` since Task 1. The existing shots keep their names; their `c` values still land in the same phases — `c = 95` is mid-crossing and `c ≤ 5` is loading in every era's timings.)
 
-- [ ] **Step 2: Take the shots**
+Run: `npx vitest run src/traffic/dockStops.test.ts && npx playwright test tests/e2e/world.spec.ts --list`
+Expected: PASS; 45 tests listed.
+
+- [ ] **Step 2: Record the rulings and deviations**
+
+Add to `docs/superpowers/notes/phase-4c-rulings.md`:
+
+```markdown
+## Preflight rulings and plan deviations (2026-09-29)
+
+The preflight scan (`.superpowers/sdd/2026-09-29-phase-4c-traffic/preflight.md`) found 18 blocking and 9 risky items in the first plan; each has a ruling (`progress.md`), applied in the amended plan and verified in a scratch copy.
+
+- **Deck speed (R4).** Spec §4.2 says 2 m/s on ramps and deck. At 2 m/s the 1984 load takes 57 s (cap 50). `SPEED.deck` = 2.8 m/s, the lowest speed ≤ 3 m/s (0.1 steps) that keeps every era within 50 s (at 2.7 m/s 1984 loads in 51 s). Spec §4.2 amended (Task 6). Horse and bicycles 1.3 m/s, oxen 0.9 m/s, cars 5.5 m/s on the road.
+- **Dock stops (R5).** Passengers stay serial (on after the load parks, off after it leaves), so every era with a load gets a longer stop: load/unload 1840 43/27, 1900 43/27, 1925 43/27, 1935 30/22, 1959 39/33, 1975 45/41, 1984 50/49 s; 1986 keeps 20/16. Spec §4.3 amended (Task 6).
+- **Lanes (B9, R1).** Roads keep right: the waiting line in the right-hand lane, leaving movers in the other, offset sideways along the road and pad connectors (mitred corners). Both story roads run 10–15 m beside their pad, so the lanes leave the road 28 m inland and run diagonally to the pad top. The queue head waits 10 m up the pad (spec §4.2 says "the top of the ramp"), where each mover lines up with its deck lane one wheelbase before the apron. Spec §4.2 amended (Task 6).
+- **Bicycles (B5; spec §4.1 deviation).** Spec §4.1 moves bicycles "like passengers, in the passenger lane". They ride the rail lane on deck and use the verge on the rail side ashore: they wait 2 m outside the lanes and leave 3.2 m outside them, in their own leave chain, never crossing the car lanes.
+- **Horse (spec §4.1, §5 deviations).** The led horse follows the vehicle route and parks on the cargo line (not the passenger lane); its leader walks without a hand target (spec §5 says "walk with hand targets").
+- **Spawns (B6).** Spawns are timed back from the docking deadline (5 s margin) and never let a mover catch the one ahead; places in line are measured back from each path's own queue head (B7).
+- **Passengers (B11, B12).** On two-lane decks nobody stands within 0.45 m of the centre corridor, and passengers take the spots at the deck ends first. A spot in the lane a mover drives off along keeps that passenger ashore for the leg.
+- **Leg cycles (N5).** Even cycles are kept: each rule always runs the same way (1840 ox cart east → west, led horse west → east; 1900 cane cart east → west only; 1975 TV vans on east → west legs only).
+- **Cart wheels (N6).** Solid plank discs, not the "two big spoked wheels" of spec §3.
+- **Cargo anchor (N6).** Not grown to 5.5 × 1.8 m in `seats.ts`; the load's footprint and `paxBlocked` keep passengers clear instead.
+- **Animal sizes (R3).** Ox cart 5.8 m, cane cart 6.0 m, horse 2.65 m (`front` 1.0 m, the drawn muzzle); the 1925 platform still fits the ox cart.
+- **Bridge (R9).** The car count scales by lane length / bridge length so about 10 (low tier 6) are on the bridge at once.
+- **Files.** The bridge component is `src/traffic/BridgeTrafficMesh.tsx` (a case-insensitive disk resolves `./BridgeTraffic` to `bridgeTraffic.ts`). The shot list reads the dock stops from `src/traffic/dockStops.ts` (tested equal to `eraTimings`), because Playwright's ESM loader cannot import the geo JSON through `schedule.ts`.
+```
+
+- [ ] **Step 3: Take the shots**
 
 ```bash
 npx playwright test tests/e2e/world.spec.ts --grep-invert @slow
@@ -3093,7 +4204,7 @@ npx playwright test tests/e2e/world.spec.ts --grep-invert @slow
 
 Expected: PASS, no console errors. Files in `tests/snapshots/phase4c/`.
 
-- [ ] **Step 3: Art gate**
+- [ ] **Step 4: Art gate**
 
 Compare `phase4c/` with `phase4c-before/` (same names) and read every new 4c shot. Judge against the quality-bar image and the V1 photos (research §10: "people standing among cars", closely parked cars on a flat open deck). Check, and fix before moving on:
 - no car floats, sinks into the deck or the ramp, or pops in or out in frame;
@@ -3104,27 +4215,27 @@ Compare `phase4c/` with `phase4c-before/` (same names) and read every new 4c sho
 
 Record each fix in the rulings note ("Art gate" section).
 
-- [ ] **Step 4: Frame rate after**
+- [ ] **Step 5: Frame rate after**
 
 `npm run build && npm run preview`; rerun every Task 1 Step 5 query. Add an "After" table to the rulings note (mean ms, baseline ms, change). If a tier is more than 5 % slower, measure the before state back to back (a scratch worktree at the Task 1 commit on `:4174` with `BASE=http://localhost:4174/ancon-de-loiza/`) as in 4b; if it still fails, stop and report the numbers.
 
-- [ ] **Step 5: Fact check**
+- [ ] **Step 6: Fact check**
 
 Dispatch a review agent (general-purpose) with: the spec §2 table and rules, `docs/research/ancon-research.md` §2, §6, §9, `src/data/sources.ts`. Ask it to check each §2 claim against its named sources, open the source URLs where it can, and return only the claims it cannot confirm or finds wrong, with the source text. Add a "Fact check" section to the rulings note with its verdicts; list flagged items for the user.
 
-- [ ] **Step 6: Code review**
+- [ ] **Step 7: Code review**
 
 Use superpowers:requesting-code-review over the branch diff (`git diff main...HEAD`). Fix every Critical and Important item; list Minor items under "Deferred" in the rulings note.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add tests/e2e/world.spec.ts tests/snapshots/phase4c docs/superpowers/notes/phase-4c-rulings.md
+git add tests/e2e/world.spec.ts tests/snapshots/phase4c src/traffic/dockStops.ts src/traffic/dockStops.test.ts docs/superpowers/notes/phase-4c-rulings.md
 git commit -m "docs(4c): shots, art gate, frame rate, fact check and review
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 8: Hand back to the user**
+- [ ] **Step 9: Hand back to the user**
 
 Report: what each era now shows, the frame-rate table, flagged facts, deferred items, and whether 1986 `ride` frames the bridge. Do not merge; the user approves first.
