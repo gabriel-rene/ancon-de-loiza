@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { ERAS, ERA_IDS, getEra, type Sourced } from './eras';
+import { ERAS, ERA_IDS, getEra, type EraId, type Sourced } from './eras';
 import { SOURCES } from './sources';
 
 const sourcedFields = (e: (typeof ERAS)[number]): Sourced<unknown>[] => [
@@ -123,5 +123,26 @@ describe('eras', () => {
       expect(ERAS[k].town.thatchShare.value).toBeLessThanOrEqual(ERAS[k - 1].town.thatchShare.value);
     }
     for (const e of ERAS) for (const v of Object.values(e.town)) expect(v.inferred).toBe(true);
+  });
+  test('the ferry load per era (spec 4c §2)', () => {
+    const load = (id: EraId) => getEra(id).ancon.load.value;
+    for (const e of ERAS) for (const r of e.ancon.load.value) {
+      expect(r.cars, e.id).toBeLessThanOrEqual(e.ancon.cars.value);
+      expect(r.fixed.length, e.id).toBeLessThanOrEqual(r.cars);
+      if (r.cars > r.fixed.length) expect(r.pool.length, e.id).toBeGreaterThan(0);
+      if (r.animal) expect(r.cars, e.id).toBe(0);
+    }
+    expect(load('1840').map((r) => r.animal)).toEqual(['oxCart', 'horse']);
+    expect(load('1900').map((r) => r.animal)).toEqual(['caneCart', undefined]);
+    expect(load('1925').map((r) => r.animal ?? r.fixed[0])).toEqual(['oxCart', 'modelT', 'horse']);
+    expect(load('1935')).toEqual([{ cars: 1, fixed: [], pool: ['modelA'], bicycles: 0 }]);
+    expect(load('1959')[0].fixed).toEqual(['publico']);
+    expect(load('1975').length).toBe(4);
+    expect(load('1975')[0].fixed).toEqual(['tvVan', 'tvVan']);
+    expect(load('1975').slice(1).every((r) => r.fixed.length === 0 && r.cars === 6)).toBe(true);
+    expect(load('1984')).toEqual([{ cars: 8, fixed: [], pool: ['sedan80', 'compact80'], bicycles: 2 }]);
+    expect(load('1986')).toEqual([]);
+    expect(getEra('1984').ancon.load.sources).toContain('S4');
+    expect(getEra('1975').ancon.load.sources).toEqual(expect.arrayContaining(['S1', 'S4']));
   });
 });

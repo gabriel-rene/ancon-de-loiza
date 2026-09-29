@@ -28,6 +28,15 @@ export interface Infrastructure {
   neighbourHouse: Sourced<boolean>; bridge: Sourced<BridgeState>;
 }
 
+/** Phase 4c vehicles (spec 4c §3). Models are inferred period types (L), sized for the 4.4 m deck slots. */
+export type CarModel = 'modelT' | 'modelA' | 'sedan50' | 'publico' | 'sedan70' | 'wagon70' | 'tvVan' | 'sedan80' | 'compact80';
+export type AnimalLoad = 'oxCart' | 'caneCart' | 'horse';
+/**
+ * One leg's load (spec 4c §2). Leg n of an era uses `load.value[n mod length]`. `fixed` models take the first
+ * slots in boarding order; the other `cars − fixed.length` slots draw from `pool` (seeded by the leg).
+ */
+export interface LegRule { animal?: AnimalLoad; cars: number; fixed: CarModel[]; pool: CarModel[]; bicycles: number }
+
 /**
  * Phase 4b town (spec 4b §2). Shares of the OSM outlines near the landing; all inferred (L): the old town
  * grows out from the church (1692: 100 houses [S12]; 1899: 833 residents [S16]); wooden casas on zocos with
@@ -63,6 +72,8 @@ export interface AnconEra {
   /** People standing on deck per trip (Phase 3: people only). */
   passengers: Sourced<number>;
   clothing: Sourced<ClothingStyle>;
+  /** Phase 4c: the vehicles, carts and animals each leg carries (cycled by leg). [] = none. */
+  load: Sourced<LegRule[]>;
 }
 
 export interface Era {
@@ -153,42 +164,60 @@ const LAND = {
 // Clothing: research §7 is general Puerto Rican dress by period, [INFERRED] (L) — no ancón-specific source.
 const WEAR = (c: ClothingStyle) => s(c, [], 'L', true);
 const NO = (src: string[]) => s(false, src, 'H');
+// Phase 4c (spec 4c §2, fit rulings in docs/superpowers/notes/phase-4c-rulings.md). Carts and animals before the
+// cars are inferred from the crossing's function [S3] and the 1920s caption "1 car or ox cart plus people and horses"
+// [S4]; públicos about 1959 [S4]; TV vans two at a time in the 1970s [S1][S4]; bicycles in the 1980s photos [S4].
+// Every model and the leg cycles are inferred.
+const leg = (r: Partial<LegRule>): LegRule => ({ cars: 0, fixed: [], pool: [], bicycles: 0, ...r });
+const LOAD = {
+  '1840': s([leg({ animal: 'oxCart' }), leg({ animal: 'horse' })], ['S3'], 'L', true),
+  '1900': s([leg({ animal: 'caneCart' }), leg({})], ['S1'], 'L', true),
+  '1925': s([leg({ animal: 'oxCart' }), leg({ cars: 1, fixed: ['modelT'] }), leg({ animal: 'horse' })], ['S4'], 'M', true),
+  '1935': s([leg({ cars: 1, pool: ['modelA'] })], ['S4'], 'M', true),
+  '1959': s([leg({ cars: 4, fixed: ['publico'], pool: ['sedan50'] })], ['S4'], 'M', true),
+  '1975': s([
+    leg({ cars: 6, fixed: ['tvVan', 'tvVan'], pool: ['sedan70', 'wagon70'] }),
+    ...[1, 2, 3].map(() => leg({ cars: 6, pool: ['sedan70', 'wagon70'] })),
+  ], ['S1', 'S4'], 'M', true),
+  '1984': s([leg({ cars: 8, pool: ['sedan80', 'compact80'], bicycles: 2 })], ['S1', 'S4'], 'M', true),
+  '1986': s<LegRule[]>([], ['S1', 'S4'], 'H'),
+} satisfies Record<EraId, Sourced<LegRule[]>>;
 const ANCON = {
   '1840': { kind: s<VesselKind>('timberBarge', ['S3'], 'M'), length: s(8, ['S3'], 'L', true), beam: s(3, ['S3'], 'L', true),
     freeboard: s(0.15, [], 'L', true), cars: s(0, ['S3'], 'L', true), propulsion: s<Propulsion>('poles', ['S3'], 'M'),
     crew: s(2, ['S3'], 'L', true), helmsman: s(true, ['S1'], 'L', true), anconera: NO(['S11']),
-    shoreRope: s(true, ['S3'], 'M'), passengers: s(3, ['S3'], 'L', true), clothing: WEAR('colonial') },
+    shoreRope: s(true, ['S3'], 'M'), passengers: s(3, ['S3'], 'L', true), clothing: WEAR('colonial'), load: LOAD['1840'] },
   '1900': { kind: s<VesselKind>('timberBarge', ['S3'], 'M'), length: s(8.5, ['S3'], 'L', true), beam: s(3.2, ['S3'], 'L', true),
     freeboard: s(0.15, [], 'L', true), cars: s(0, ['S1'], 'L', true), propulsion: s<Propulsion>('poles', ['S1', 'S3'], 'M'),
     crew: s(2, ['S1'], 'L', true), helmsman: s(true, ['S1'], 'L', true), anconera: NO(['S11']),
-    shoreRope: s(false, ['S3'], 'L', true), passengers: s(5, ['S1'], 'L', true), clothing: WEAR('earlyCentury') },
+    shoreRope: s(false, ['S3'], 'L', true), passengers: s(5, ['S1'], 'L', true), clothing: WEAR('earlyCentury'), load: LOAD['1900'] },
   '1925': { kind: s<VesselKind>('plankPlatform', ['S1', 'S4'], 'H'), length: s(7, ['S4'], 'L', true), beam: s(3.2, ['S4'], 'L', true),
     freeboard: s(0.35, [], 'L', true), cars: s(1, ['S4'], 'H'), propulsion: s<Propulsion>('poles', ['S1', 'S4'], 'H'),
     crew: s(1, ['S1'], 'H'), helmsman: s(true, ['S1'], 'H'), anconera: NO(['S11']),
-    shoreRope: s(false, ['S1'], 'M'), passengers: s(3, ['S1'], 'L', true), clothing: WEAR('earlyCentury') },
+    shoreRope: s(false, ['S1'], 'M'), passengers: s(3, ['S1'], 'L', true), clothing: WEAR('earlyCentury'), load: LOAD['1925'] },
   '1935': { kind: s<VesselKind>('woodPlatform', ['S1', 'S4'], 'H'), length: s(7.5, ['S4'], 'L', true), beam: s(3.2, ['S4'], 'L', true),
     freeboard: s(0.45, [], 'L', true), cars: s(1, ['S4'], 'H'), propulsion: s<Propulsion>('ropes', ['S1', 'S4'], 'H'),
     crew: s(2, ['S1'], 'H'), helmsman: s(false, ['S1'], 'M', true), anconera: NO(['S11']),
-    shoreRope: s(false, ['S1'], 'M'), passengers: s(3, ['S1'], 'L', true), clothing: WEAR('earlyCentury') },
+    shoreRope: s(false, ['S1'], 'M'), passengers: s(3, ['S1'], 'L', true), clothing: WEAR('earlyCentury'), load: LOAD['1935'] },
   // spec §13 lists 1 → 2 → 4 → 6 but has three wooden-platform eras; 1959 takes 4 (upper end of the 1950s
   // "2–4 cars incl. público" row), the builder supports 2 as well. (Accepted, preflight F14: research §9
   // gives 1950s "~2–4 cars", so 1935 = 1, 1959 = 4, 1975 = 6.)
   '1959': { kind: s<VesselKind>('woodPlatform', ['S1'], 'H'), length: s(12.5, ['S1'], 'L', true), beam: s(6.2, ['S1'], 'L', true),
     freeboard: s(0.45, [], 'L', true), cars: s(4, ['S1'], 'M', true), propulsion: s<Propulsion>('ropes', ['S1'], 'H'),
     crew: s(3, ['S1'], 'H'), helmsman: s(false, ['S1'], 'M', true), anconera: NO(['S11']),
-    shoreRope: s(false, ['S1'], 'M'), passengers: s(4, ['S1', 'S4'], 'L', true), clothing: WEAR('midCentury') },
+    shoreRope: s(false, ['S1'], 'M'), passengers: s(4, ['S1', 'S4'], 'L', true), clothing: WEAR('midCentury'), load: LOAD['1959'] },
   '1975': { kind: s<VesselKind>('woodPlatform', ['S1'], 'H'), length: s(17, ['S1'], 'L', true), beam: s(6.6, ['S1'], 'L', true),
     freeboard: s(0.5, [], 'L', true), cars: s(6, ['S1'], 'H'), propulsion: s<Propulsion>('ropes', ['S1'], 'H'),
     crew: s(3, ['S1'], 'H'), helmsman: s(false, ['S1'], 'M', true), anconera: NO(['S11']),
-    shoreRope: s(false, ['S1'], 'M'), passengers: s(7, ['S1'], 'M', true), clothing: WEAR('modern') },
+    shoreRope: s(false, ['S1'], 'M'), passengers: s(7, ['S1'], 'M', true), clothing: WEAR('modern'), load: LOAD['1975'] },
   '1984': { kind: s<VesselKind>('steelPontoon', ['S1', 'S4'], 'H'), length: s(20, ['S1', 'S4'], 'M', true), beam: s(7.5, ['S1', 'S4'], 'M', true),
     freeboard: s(0.7, [], 'L', true), cars: s(8, ['S1'], 'H'), propulsion: s<Propulsion>('ropes', ['S1', 'S2', 'S4'], 'H'),
     crew: s(1, ['S4', 'S11'], 'H'), helmsman: s(false, ['S1'], 'M', true), anconera: s(true, ['S4', 'S11'], 'H'),
-    shoreRope: s(false, ['S1'], 'M'), passengers: s(6, ['S4'], 'M', true), clothing: WEAR('modern') },
+    shoreRope: s(false, ['S1'], 'M'), passengers: s(6, ['S4'], 'M', true), clothing: WEAR('modern'), load: LOAD['1984'] },
   '1986': { kind: s<VesselKind>('steelPontoon', ['S4'], 'H'), length: s(20, ['S1', 'S4'], 'M', true), beam: s(7.5, ['S1', 'S4'], 'M', true),
     freeboard: s(0.7, [], 'L', true), cars: s(8, ['S1'], 'H'), propulsion: s<Propulsion>('moored', ['S1', 'S4'], 'H'),
     crew: s(0, ['S1', 'S4'], 'H'), helmsman: s(false, ['S1', 'S4'], 'H'), anconera: s(false, ['S1', 'S4'], 'H'),
-    shoreRope: s(false, ['S4'], 'M', true), passengers: s(0, ['S1', 'S4'], 'H'), clothing: WEAR('modern') },
+    shoreRope: s(false, ['S4'], 'M', true), passengers: s(0, ['S1', 'S4'], 'H'), clothing: WEAR('modern'), load: LOAD['1986'] },
 } satisfies Record<EraId, AnconEra>;
 
 // Phase 4a (spec 4a §2; sources checked in docs/superpowers/notes/phase-4a-factcheck.md). Sand camino
