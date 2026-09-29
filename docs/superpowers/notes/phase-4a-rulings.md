@@ -82,3 +82,23 @@ Test runs: `world.spec.ts` 26 passed, 5 skipped (station, taken with the real GP
 - Minor: painted textures in `src/infrastructure/textures.ts` are not wrap-tiled; no seams visible at shot scale, but check zinc roofs and concrete in a close camera.
 - Minor: 1984 and 1986 low-detail road ends are unlit paint; fine at the frame's distance.
 - Existing (not 4a): era-cycle GPU resource growth in `leak.spec.ts`: +90 buffers, +18 geometries, +18 textures per cycle; present with Infrastructure removed. Needs its own investigation.
+
+## Final review fixes
+
+- I1 bridge approaches: story roads carry their own `surface`; while the bridge is `building` (1984) the
+  approaches are `sand`, drawn as a second strip (one strip mesh per surface in use, at most 2) and painted
+  into the dirt channel (G) instead of the road channel, so their shoulders are not the era's asphalt.
+  1986: the era surface (asphalt).
+- I2 west approach: the modern PR-187 (528811967) is cut at the Antigua PR-187 junction (its point 26)
+  when there is no bridge; with a bridge its ~145 m tail to the bridge's west end is painted with the same
+  surface rule (dirt 1984, asphalt 1986). Spec §3 row updated.
+- I3 docking: the pad's shore level is per bank offset (`padShoreY`), lowered until every ferry docking
+  there fits over it: bank 8 (1840–1935) 0.11 m (the barges' floor 4 cm above), bank 0 (1959–86)
+  0.25 m (the wood aprons' hinge underside 1 cm above the timber/concrete surface). Docked, each apron
+  tilts so its tip's underside lies 1 cm above the landing, following heave and pitch (`docking.ts`);
+  docked, the hull's periodic motion is damped by 80 % (`DOCK_HOLD`), its end held by the landing. Before,
+  the 1959/1975 apron tips were also ~20 cm inside the landing, not only 1840/1900/1925.
+- M1: 1986 bridge `open` cites S1 only. M2: pads flatten at full weight one target grid cell past their
+  edges (low tier no longer pokes through the ramp/log sides).
+- Budget per era (draw calls / triangles): 1840 3/630, 1900 3/630, 1925 3/786, 1935 3/1530,
+  1959 3/1530, 1975 5/4030, 1984 6/6304 (+1 strip: the dirt approach), 1986 4/6332.
