@@ -10,7 +10,7 @@ import { Water } from './water/Water';
 import { Vegetation } from '../vegetation/Vegetation';
 import { Ancon } from '../ancon/Ancon';
 import { Infrastructure } from '../infrastructure/Infrastructure';
-import { Town } from '../town/Town.tsx';
+import { Town } from '../town/TownMeshes';
 
 export function World() {
   const { near, far } = useWorldFields();
