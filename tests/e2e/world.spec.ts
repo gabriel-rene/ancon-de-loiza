@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { getEra, type EraId } from '../../src/data/eras';
 import { goldenHourAST } from '../../src/geo/sun';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase2c-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase2c'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase4a-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4a'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
@@ -35,6 +35,14 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1925', cam: 'bank', t: 12, c: 70, name: '1925-bank-noon' },
   { era: '1900', cam: 'farm', t: 12, c: 95, name: '1900-farm-noon' },           // young palms in 8 m rows
   { era: '1935', cam: 'farm', t: 12, c: 95, name: '1935-farm-noon' },           // the same block, full-grown
+  // Phase 4a: landings, station, roads, bridge.
+  { era: '1900', cam: 'station', t: 12, c: 95, name: '1900-station-noon' },     // shelter, bare bank, sand road
+  { era: '1925', cam: 'station', t: 12, c: 95, name: '1925-station-noon' },     // wooden Cortijo house, thatch
+  { era: '1959', cam: 'station', t: 12, c: 5, name: '1959-station-docked' },    // timber landing, zinc roofs, ferry docked
+  { era: '1975', cam: 'station', t: golden('1975'), c: 95, name: '1975-station' }, // concrete house + bar terrace
+  { era: '1984', cam: 'station', t: 12, c: 95, name: '1984-station-noon' },     // neighbour's house gone
+  { era: '1984', cam: 'bridge', t: 12, c: 95, name: '1984-bridge-noon' },       // bridge being built, gap, crane
+  { era: '1986', cam: 'bridge', t: golden('1986'), c: 0, name: '1986-bridge' }, // bridge open
 ];
 
 for (const s of SHOTS) {

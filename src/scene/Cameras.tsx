@@ -22,6 +22,10 @@ export const CAMERA_POSES: Record<CameraPreset, { pos: [number, number, number];
   fields: { pos: [-500, 170, 250], target: [-1800, 0, 1500] },
   // Dev preset: 150 m out, 60 m up, looking at the farm block centred at (160, -400).
   farm: { pos: [265, 60, -295], target: [160, 0, -400] },
+  // Dev view (phase 4a): from the river, looking at the Loíza landing, the station and its road.
+  station: { pos: [ex * 0.3, 6, ez * 0.3], target: [ex + 12, 2, ez + 10] },
+  // Dev view (phase 4a): from the Loíza bank, looking upstream at the PR-187 bridge line.
+  bridge: { pos: [60, 30, 230], target: [-164, 4, 120] },
 };
 
 export function Cameras() {
