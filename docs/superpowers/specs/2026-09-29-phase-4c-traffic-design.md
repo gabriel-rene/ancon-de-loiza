@@ -41,9 +41,9 @@ All vehicle models, colours and mixes are inferred (L) unless a source is named.
 
 | Era | Deck slots (existing data) | Load per leg | Sources |
 |---|---|---|---|
-| `1840` | 0 (cargo) | ox cart (2 yoked oxen + driver on foot) and one led horse | carts and animals inferred from function [S3] L |
-| `1900` | 0 (cargo) | cane cart (2 yoked oxen + driver on foot) | cane workers [S1] H; cane cart inferred L |
-| `1925` | 1 | even legs: ox cart + led horse; odd legs: Model T | "1 car or ox cart plus people and horses" [S4] H; model inferred L |
+| `1840` | 0 (cargo) | even legs: ox cart (2 yoked oxen + driver on foot); odd legs: led horse | carts and animals inferred from function [S3] L |
+| `1900` | 0 (cargo) | even legs: cane cart (2 yoked oxen + driver on foot); odd legs: cane workers only | cane workers [S1] H; cane cart inferred L |
+| `1925` | 1 | legs cycle: ox cart → Model T → led horse | "1 car or ox cart plus people and horses" [S4] H; model inferred L |
 | `1935` | 1 | one car, Model A type | one-vehicle platform [S4] H; model inferred L |
 | `1959` | 4 | 4 cars, one of them a público (sedan with a roof sign) | público car ~1959 [S4] H; other models inferred L |
 | `1975` | 6 | 6 cars (sedans, station wagons); every 4th leg, 2 of them are TV vans | TV vans crossed two at a time [S1][S4] H; models inferred L |
@@ -56,6 +56,7 @@ Rules:
 - **Slots.** Cars park on the existing `car` seat anchors (`src/ancon/seats.ts`). Carts and animals use the `cargo` anchor, which grows to fit an ox pair and cart (≈ 5.5 × 1.8 m) on the 8–8.5 m timber barges, clear of the helmsman at both ends. The 1925 platform's single slot takes the ox cart or the car.
 - **Paint.** Each era gets a small palette of period paint colours (inferred L): muted dark colours before 1950; two-tone and pastels in 1959; bolder solids and white in 1975–86. Públicos keep one fixed look per era.
 - **People with the load.** Each car has a seated driver (§5). The ox driver walks beside the oxen. The horse is led by a walking person. Each bicycle is pushed by a walking person. These people are extra to the era's `passengers` count.
+- **Fit (plan ruling, 2026-09-29).** Cars are at most 4.1 m long (the 4.4 m slots). A passenger whose standing spot, or whose walk to it, meets the leg's parked load is not on board that leg. With a helmsman (1840–1925), he waits ashore beside the trailing end while the load drives on, then steps aboard. Rope haulers step to the rail (0.25 m outboard) while the ferry is docked. On two-lane decks passengers walk the centre corridor between the car lanes. 1984 bicycles park along the rail on the side without the hauler.
 
 ## 3. Vehicle kit and models
 

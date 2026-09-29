@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { getEra, type EraId } from '../../src/data/eras';
 import { goldenHourAST } from '../../src/geo/sun';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase4b-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4b'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase4c-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4c'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
