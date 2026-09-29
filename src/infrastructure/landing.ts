@@ -19,9 +19,9 @@ function onPad(b: Builders['wood'], p: LandingPad, a0: number, a1: number, v: nu
 export function buildLanding(b: Builders, p: LandingPad, look: LandingLook, seed: number) {
   const r = cellRng(seed, 7, 4401);
   if (look === 'timber') {
-    // 1935–59: squared timber edging along both sides of the trodden slope, in two tilted lengths each, and
-    // four mooring stakes out in the water.
-    for (const side of [-1, 1]) for (const [a0, a1] of [[-1, 7.5], [7.5, PAD.length]] as const)
+    // 1935–59: squared timber edging along both sides of the trodden slope, in four tilted lengths each, and
+    // four mooring stakes out in the water. Short lengths so each log follows the curved slope.
+    for (const side of [-1, 1]) for (const [a0, a1] of [[-1, 3], [3, 7.5], [7.5, 11.5], [11.5, PAD.length]] as const)
       onPad(b.wood, p, a0, a1, side * (PAD.halfWidth + 0.15), 0.15, 0.2, 0.3, woodTone(r).getHex());
     for (const side of [-1, 1]) for (const a of [-2.5, -5.5]) {
       const [x, z] = padPoint(p, a, side * (PAD.halfWidth + 1.5)), h = 2.8;
@@ -38,5 +38,5 @@ export function buildLanding(b: Builders, p: LandingPad, look: LandingLook, seed
 export function landingDirt(p: LandingPad, look: LandingLook): DirtPatch[] {
   if (look === 'concrete') return [];
   const [x, z] = padPoint(p, PAD.length / 2, 0), extra = look === 'bank' ? 3 : 0;
-  return [{ c: [x, z], axis: p.inland, hu: PAD.length / 2 + extra, hv: PAD.halfWidth + extra }];
+  return [{ c: [x, z], axis: [p.inland[0], p.inland[1]], hu: PAD.length / 2 + extra, hv: PAD.halfWidth + extra }];
 }
