@@ -22,7 +22,7 @@ describe('eraTimings', () => {
 });
 
 describe('planLeg', () => {
-  const envT = (id: EraId) => { const e = envFor(id); return { ...e, spec: { ...e.spec, timings: eraTimings(e.era) } }; };
+  const envT = envFor;
   test('every mover is parked with room for the passengers, and off the deck with room for them to leave', () => {
     for (const id of ['1840', '1900', '1925', '1935', '1959', '1975', '1984'] as const) for (const leg of [0, 1, 2, 3, 4]) {
       const env = envT(id), T = env.spec.timings, p = planLeg(env, leg);
