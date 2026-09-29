@@ -61,14 +61,15 @@ New folder `src/town/`, pure logic and components side by side (repo pattern, as
 |---|---|
 | `scripts/osm-parse.ts`, `scripts/bake-osm.ts` | Add `buildings: { id, kind, ring }[]` to the geo bundle, only outlines within 350 m of the east landing. Uses the cached `scripts/.cache/osm.xml`; no download. `GeoBundle` type and README updated. |
 | `src/data/eras.ts` | New `town: { houseShare, concreteShare, thatchShare }`, each `Sourced<number>`. Era schema test covers it. |
-| `houses.ts` | Pure. Ranks outlines, picks the era's houses, gives each a look (`thatch`, `woodThatch`, `woodZinc`, `concrete`), a rectangle and a paint colour. |
-| `houseMesh.ts` | Pure geometry. Zocos, walls, gable roof (thatch or zinc) or flat roof with parapet (concrete). Doors, windows and shutters from a painted-in-code texture. One merged mesh per material. |
-| `church.ts` | Pure geometry. Nave, buttresses, three-bay front, bell tower with two bells, on the OSM church outline. |
-| `plaza.ts` | Pure. Plaza dirt patch and tree positions. |
-| `streets.ts` | Pure. Picks the era's town streets; feeds them to the 4a ground mask (`groundMask.ts`). |
+| `constants.ts` | The town circle (east landing, 350 m) and `inTownCircle`. |
+| `layout.ts` | Pure. Oriented rectangles from outlines; the lots (outlines kept after the drops and overlaps, ranked); the church plan (outline, front end); the plaza ring. |
+| `town.ts` | Pure. One era's town: houses and looks (`hut`, `wood`, `concrete`), paint, town streets, yard dirt, plaza trees, and the no-plants test. |
+| `houseMesh.ts` | Pure geometry. Zocos, walls, gable zinc roof or thatched hip roof (wood, huts), or flat roof with parapet (concrete). Doors, windows and shutters are flat dark or painted pieces. |
+| `church.ts` | Pure geometry. Nave with a low barrel roof, buttresses, three-bay two-storey front, bell tower with two bells, on the OSM church outline. |
+| `build.ts` | One era's town meshes (one per material) and the §4 budget. |
 | `Town.tsx` | Mounts the era's town. Rebuilds only on era or tier change. |
 | Vegetation | A no-plants patch per shown house (1 m past its walls), the church and the plaza, per era. |
-| Ground | Each house, the church and the plaza sit on ground levelled under them; yards get trodden-dirt paint (4a `DirtPatch`). |
+| Ground | The terrain is not reshaped. Wood houses and huts stand on zocos; concrete houses and the church on a plinth down to their lowest corner (as the 4a station). Yards, the church and the plaza get trodden-dirt paint (4a `DirtPatch`). Town streets and dirt go into the 4a ground mask (`Infrastructure.tsx`). |
 
 Heights read the tier's `near` terrain, as in 4a.
 
