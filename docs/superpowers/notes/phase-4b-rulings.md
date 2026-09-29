@@ -61,6 +61,9 @@ After set in `tests/snapshots/phase4b/`, before set in `phase4b-before/`. Town s
 - The zinc gable slabs are lowered by tan(tilt)·eave so they meet the wall top.
 - The PR-951/PR-188 roads test skips bridge-tagged ways.
 - 2c plantation palms also skip the town (guard only; 0 palms were affected).
+- F1 (final review): the PR-951/PR-188 fix lives in `src/town/town.ts`, not `roads.ts`. `roads.ts` keeps the plain 4a gate (numbered roads hidden before 1935). Before 1935, `townStreets` clips those roads to the town circle (`clipToCircle`, cut exactly at the edge) and paints each piece only when a shown house stands within 15 m, like any town street. Town streets are clipped the same way, so no street paint lies outside the circle in any era.
+- F3 (fact check): the belfry is a bell gable (espadaña) on the front's centre bay, per [S14]: two piers and a top around one open arch, two bells side by side on a beam, a cross on top. The side tower is gone. `LOT.churchReach` drops from 5 to 3 m (buttresses + 1.4 m).
+- F4: houses keep 1 m off every road edge (was 0.3 m), so eaves (0.5–0.6 m) stay off the carriageway. Lots drop from 97 to 88 on both banks.
 
 ## Town shots and the software GPU
 
@@ -69,10 +72,25 @@ After set in `tests/snapshots/phase4b/`, before set in `phase4b-before/`. Town s
   `PORT=4173 node scripts/dev/shot.mjs "?era=<era>&cam=town&t=<t>&c=95&freeze=1&q=medium" tests/snapshots/<dir>/<name>.png 2000`
   (t = 12, except 1959 = golden('1959') = 18.46). The before set was made this way and includes the HUD.
 
+## Final fixes: after shots
+
+Retaken after F1–F4: the 4 town shots on the real GPU as above, and the 3 aerials with Playwright.
+- Town shots: the church front now carries a bell gable centred over the middle bay, the open arch with the two dark bells and the cross on top reading clearly in 1840 and 1925; seen behind the plaza trees in 1959 and 1986. No side tower.
+- `1900-aerial-noon`: the long numbered-road paint out of town is gone; the town streets stop at the circle edge (lower left and right), and the short in-town PR-951 piece with no house near it is not painted.
+- The 1925 "pink house touching the church" minor is closed: the final review proved no contact is possible (perspective overlap).
+
+## Fact check
+
+Summary of `.superpowers/sdd/2026-09-28-phase-4b-town/factcheck.md` (sources: Wikipedia [S14][S12][S16], PRAHA photo caption).
+- Confirmed: built 1645, enlarged 1729; single barrel-vaulted nave with massive walls and buttresses; two-storey three-bay front; two bells; the front faces the plaza (church at the plaza's north end); 1692 100 houses; 1899 833 residents (barrio-pueblo count).
+- Wrong: "bell tower beside the front". The source describes a belfry holding two bells within a single open arch above the centre bay (a bell gable with a cross). Fixed (F3).
+- Unsupported, kept inferred (L): the lime-white wall colour (sources say only "plastered masonry"); the low exterior barrel roof (only the interior vault is confirmed). Street data rests on OSM and was not checked.
+- The house shares and looks per era remain inferred (L), no contradiction found.
+
 ## Deferred
 
 - 1986 `ride`: the moored barge faces west, so the default ride view never frames the town or church; if the 1986 town should show to visitors, the moored heading or the ride rig's resting view needs a look (outside `src/town/`).
 - The church reads as a flat lime-white block at 150–350 m: no wall texture or weathering, buttresses barely read; a subtle wash texture or AO would help.
 - Plaza trees are few and small from the aerial and hidden from the deck (by design); the plaza reads as bare dirt from above.
 - The 1986 green zinc house is the most saturated paint in the town; within range but could be toned down a step.
-- No research photo shows the church from the river; confirm the lime-white and the tower silhouette with the fact check.
+- No research photo shows the church from the river; the fact check fixed the belfry (bell gable) but found no source for the wall colour (kept inferred).
