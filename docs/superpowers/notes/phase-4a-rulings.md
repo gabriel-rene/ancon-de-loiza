@@ -29,3 +29,8 @@ Spec: `docs/superpowers/specs/2026-09-28-phase-4a-ferry-place-design.md`. Plan: 
   half-width + 3 m) so no crown pierces the deck (Task 10). No other plant changes.
 
 ## Deferred
+
+## Station shots and the software GPU
+
+- The 5 `station` shots time out in Playwright (swiftshader software GPU: the close water reflection is too slow for 30 frames in 90 s). The `bridge` shots pass.
+- Ruling: the station shots are taken with the real GPU instead: `PORT=4173 node scripts/dev/shot.mjs "?era=…&cam=station&…&freeze=1&q=medium" tests/snapshots/<dir>/<name>.png 2000`, against `npm run preview`. The before set was made this way. Task 11 does the same for the after set.
