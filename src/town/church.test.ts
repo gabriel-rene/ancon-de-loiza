@@ -31,4 +31,21 @@ describe('church', () => {
     expect(top - 3).toBeGreaterThanOrEqual(18);
     expect(frontMost).toBeGreaterThan(0);
   });
+  const floor = 3 + 0.3;
+  test('the facade (door and upper windows) is on the front end, the one facing the plaza', () => {
+    const p = parts().iron!.attributes.position;
+    let sum = 0, n = 0;
+    for (let i = 0; i < p.count; i++) if (p.getY(i) < floor + 10) { sum += toLocal(plan.fp, p.getX(i), p.getZ(i))[0] * plan.front; n++; }
+    expect(n).toBeGreaterThan(0);
+    expect(sum / n).toBeGreaterThan(plan.fp.hx);
+  });
+  test('the barrel vault bulges up over the nave', () => {
+    const { hx, hz } = plan.fp, p = parts().concrete!.attributes.position;
+    let max = -Infinity;
+    for (let i = 0; i < p.count; i++) {
+      const [lx, lz] = toLocal(plan.fp, p.getX(i), p.getZ(i));
+      if (Math.abs(lz) < hz - 1 && lx * plan.front < -hx + 0.01) max = Math.max(max, p.getY(i));
+    }
+    expect(max).toBeGreaterThan(floor + CHURCH.wall + 0.5);   // the vault has vertices only at the nave ends; the back end has no front wall or tower
+  });
 });
