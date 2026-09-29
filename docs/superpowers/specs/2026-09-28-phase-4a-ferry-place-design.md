@@ -44,11 +44,11 @@ All looks are inferred unless a source is named. Each value is `Sourced` in `era
 
 Sources and confidence:
 
-- Road surface: sand camino real before the 20th century (research §9) [S3] M; PR-187 numbered 1953 [S30] H; gravel in 1935 and asphalt from 1959 are inferred, L.
-- Landing: "street end on riverbank" [S9][S26] M; the three looks are inferred, L. The ferry's end boards meet the landing in every era.
-- Station: the Cortijos ran the ancón from about 1920 [S1] H; wooden house on zocos, zinc roofs from the 1930s (research §7, general PR vernacular) L–M; concrete house built in the 1960s [S4] H; Bar Restaurante El Ancón with a river terrace [S1][S4] H (shown from 1975, inferred start). The thatched shelter before 1925 is inferred, L.
-- Neighbour's house: "a house beside the landing was demolished to build [the bridge]" [S4] H; its look and its 1935 start are inferred, L.
-- Bridge: built early to mid 1980s next to the station, "concrete, flags" in period photos [S4] H; inaugurated 1985 [S1][S3] H; alignment from OSM way 204521442 [S26] H; pier spacing, deck width and height are inferred, L.
+- Road surface: sand camino real before the 20th century (research §9) [S3] M (S3 blocked the fact checker; not re-verified); PR-187 numbered 1953 [S30] H; gravel in 1935 and asphalt from 1959 are inferred, L.
+- Landing: at the end of Calle Carlos Escobar (OSM data); the three looks are inferred, L. The ferry's end boards meet the landing in every era.
+- Station: the Cortijos ran the ancón from about 1920 [S1] H; wooden house on zocos, zinc roofs from the 1930s (research §7, general PR vernacular) L–M; the house built in the 1960s [S4] (concrete inferred) M; Bar Restaurante El Ancón with a river terrace [S4] H (S1 says balcony; shown from 1975, inferred start). The thatched shelter before 1925 is inferred, L.
+- Neighbour's house: "a house beside the landing was demolished to build [the bridge]" [S4] H; its look, its 1935 start and the demolition date are inferred, L–M.
+- Bridge: built in the early 1980s next to the station [S4] H; reinforced concrete [S1] H; in service by 1986 [S1] H (S3 gives 1985; S1 shows 1985 construction photos); alignment from OSM way 204521442 [S26] H; pier spacing, deck width and height are inferred, L. The name "Puente de la Restauración" follows S1/S4; S27 is the 2019 dedication.
 
 ## 3. Roads
 

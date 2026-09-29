@@ -176,23 +176,24 @@ const ANCON = {
     shoreRope: s(false, ['S4'], 'M', true), passengers: s(0, ['S1', 'S4'], 'H'), clothing: WEAR('modern') },
 } satisfies Record<EraId, AnconEra>;
 
-// Phase 4a (spec 4a §2). Sand camino real before the 20th c. (research §9, S3); PR-187 numbered
-// 1953 (S30) — gravel in 1935 and asphalt from 1959 are inferred. Landing looks are inferred from
-// "street end on the riverbank" (S9, S26). The Cortijos ran the ancón from 1920 (S1); the concrete
-// house is 1960s (S4, S6) with the bar's river terrace (S1, S4; shown from 1975, inferred). A
-// house beside the landing was demolished for the bridge (S4); the bridge rose in the early–mid
-// 1980s (S4) and opened in 1985 (S1, S3; name S27).
+// Phase 4a (spec 4a §2; sources checked in docs/superpowers/notes/phase-4a-factcheck.md). Sand camino
+// real before the 20th c. (research §9, S3); PR-187 numbered 1953 (S30) — gravel in 1935 and asphalt from
+// 1959 are inferred. Landing looks are inferred (the landing sits at the end of Calle Carlos Escobar in the
+// OSM data). The Cortijos ran the ancón from 1920 (S1); their house was built in the 1960s (S4; concrete is
+// inferred), with the bar's river terrace (S4; shown from 1975, inferred). A house beside the landing was
+// demolished for the bridge (S4; when is not dated). The reinforced-concrete bridge rose in the early 1980s
+// (S4) and was in service by 1986 (S1; S3 gives 1985).
 const road = (v: RoadSurface): Sourced<RoadSurface> =>
   v === 'sand' ? s(v, ['S3'], 'M', true) : s(v, ['S30'], 'L', true);
-const landing = (v: LandingLook) => s(v, ['S9', 'S26'], 'L', true);
+const landing = (v: LandingLook) => s(v, [], 'L', true);
 const STATION = {
   shelter: s<StationLook>('shelter', [], 'L', true),
   woodThatch: s<StationLook>('woodThatch', ['S1'], 'L', true),
   woodZinc: s<StationLook>('woodZinc', ['S1', 'S4'], 'L', true),
-  concrete: s<StationLook>('concrete', ['S4', 'S6'], 'H'),
+  concrete: s<StationLook>('concrete', ['S4'], 'M'),
 };
-const NEIGHBOUR_NONE = s(false, [], 'L', true), NEIGHBOUR = s(true, ['S4'], 'L', true), NEIGHBOUR_GONE = s(false, ['S4'], 'H');
-const NO_BRIDGE = s<BridgeState>('none', ['S1', 'S4'], 'H');
+const NEIGHBOUR_NONE = s(false, [], 'L', true), NEIGHBOUR = s(true, ['S4'], 'L', true), NEIGHBOUR_GONE = s(false, ['S4'], 'M');
+const NO_BRIDGE = s<BridgeState>('none', ['S1'], 'H');
 const INFRA = {
   '1840': { roadSurface: road('sand'), landing: landing('bank'), station: STATION.shelter, neighbourHouse: NEIGHBOUR_NONE, bridge: NO_BRIDGE },
   '1900': { roadSurface: road('sand'), landing: landing('bank'), station: STATION.shelter, neighbourHouse: NEIGHBOUR_NONE, bridge: NO_BRIDGE },
@@ -203,7 +204,7 @@ const INFRA = {
   '1984': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
     bridge: s<BridgeState>('building', ['S4'], 'H') },
   '1986': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
-    bridge: s<BridgeState>('open', ['S1', 'S3', 'S27'], 'H') },
+    bridge: s<BridgeState>('open', ['S1', 'S3'], 'H') },
 } satisfies Record<EraId, Infrastructure>;
 
 export const ERAS: Era[] = [

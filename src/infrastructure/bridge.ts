@@ -5,7 +5,8 @@ import type { Builders, GroundAt } from './parts';
 
 /**
  * The PR-187 bridge, "Puente de la Restauración" (spec 4a §2): on the OSM line (way 204521442, S26),
- * concrete, built early–mid 1980s next to the station (S4), opened 1985 (S1, S3). Span length, width,
+ * reinforced concrete (S1), built in the early 1980s next to the station (S4), in service by 1986 (S1;
+ * S3 gives 1985). Span length, width,
  * height and pier layout are inferred (L). 1984: every pier stands, the deck covers both ends and a
  * gap stays open over the middle of the river, with timber forms, flags and one crane. 1986: whole,
  * with parapets and street lamps. Medium detail: always ≥ ~150 m from the ferry.

@@ -101,9 +101,9 @@ describe('eras', () => {
     expect(col('station')).toEqual(['shelter', 'shelter', 'woodThatch', 'woodZinc', 'woodZinc', 'concrete', 'concrete', 'concrete']);
     expect(col('neighbourHouse')).toEqual([false, false, false, true, true, true, false, false]);
     expect(col('bridge')).toEqual(['none', 'none', 'none', 'none', 'none', 'none', 'building', 'open']);
-    // Sourced facts (spec 4a §2): concrete house [S4], the demolition [S4], the bridge dates [S1][S3][S4].
+    // Sourced facts (spec 4a §2, fact-checked): the 1960s house [S4], the demolition [S4], the bridge dates [S1][S3][S4].
     expect(getEra('1975').infrastructure.station.sources).toContain('S4');
-    expect(getEra('1975').infrastructure.station.confidence).toBe('H');
+    expect(getEra('1975').infrastructure.station.confidence).toBe('M');   // 1960s house [S4]; concrete inferred
     expect(getEra('1984').infrastructure.neighbourHouse.sources).toContain('S4');
     expect(getEra('1984').infrastructure.bridge.confidence).toBe('H');
     expect(getEra('1986').infrastructure.bridge.sources).toContain('S1');
