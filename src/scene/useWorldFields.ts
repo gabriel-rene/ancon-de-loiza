@@ -5,15 +5,21 @@ import type { GeoBundle } from '../data/geo/types';
 import { QUALITY } from '../quality';
 import { useEra, useStore } from '../state/store';
 import { buildFields, type WorldFields } from '../terrain/fields';
+import { flattenLandings } from '../terrain/landingPads';
+import { landingPadsFor, PLACE_EXTENT, PLACE_SIZE } from '../terrain/placementFields';
 import { KeyedCache } from '../vegetation/placementCache';
 
 export const NEAR_EXTENT = 2560;
 export const FAR_EXTENT = 10240;
 
-/** Fields depend only on (extent, size, bank offset) — there are only two bank offsets (Phase 1). */
+/** Fields depend only on (extent, size, bank offset) — there are only two bank offsets (Phase 1). Landing pads are flattened in (4a). */
 const fieldsCache = new KeyedCache<WorldFields>(6);
 const fieldsFor = (extent: number, size: number, bankOffset: number) =>
-  fieldsCache.get(`${extent}|${size}|${bankOffset}`, () => buildFields(geo as unknown as GeoBundle, { extent, size, bankOffset }));
+  fieldsCache.get(`${extent}|${size}|${bankOffset}`, () => {
+    const f = buildFields(geo as unknown as GeoBundle, { extent, size, bankOffset });
+    flattenLandings(f, extent === PLACE_EXTENT && size === PLACE_SIZE ? landingPadsFor(bankOffset, f) : landingPadsFor(bankOffset));
+    return f;
+  });
 
 export function useWorldFields() {
   const era = useEra();
