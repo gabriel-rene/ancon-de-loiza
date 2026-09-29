@@ -1,10 +1,11 @@
 import type { Era, RoadSurface } from '../data/eras';
 import type { GeoBundle, XZ } from '../data/geo/types';
+import { inTownCircle } from '../town/constants';
 
 /**
  * Only a handful of roads (user ruling 2026-09-28, spec 4a §3): three story roads drawn as real strips
  * (roadStrip.ts), and the main roads and paths painted into the ground mask. Residential and service
- * streets are left out (4b may bring a few back).
+ * streets are left out here; the town streets next to shown houses come from `src/town/town.ts` (4b).
  */
 export type StoryId = 'antigua' | 'escobar' | 'approach';
 export const STORY_WAYS: Record<StoryId, string> = { antigua: '1058673941', escobar: '22182236', approach: '204521441' };
@@ -14,7 +15,7 @@ export const PR187_WAY = '528811967';
 /** Widths (m), inferred. */
 export const STORY_WIDTH: Record<StoryId, number> = { antigua: 5, escobar: 6, approach: 9 };
 export const ROAD_WIDTH: Record<string, number> = { secondary: 7, secondary_link: 5, tertiary: 6, track: 3.5, path: 1.5, footway: 1.5 };
-/** Numbered roads shown only from 1935 (inferred, L). */
+/** Numbered roads shown only from 1935 (inferred, L); their old town streets (inside the town circle) show in every era (4b). */
 const FROM_1935 = new Set(['PR-951', 'PR-188']);
 
 /** `surface` is the era's, except the bridge approaches while the bridge is being built: dirt ('sand'). */
@@ -46,7 +47,7 @@ export function eraRoads(geo: GeoBundle, era: Era): EraRoads {
   const skip = new Set([...Object.values(STORY_WAYS), BRIDGE_WAY]);
   const year = Number(era.id);
   const simple: SimpleRoad[] = geo.roads
-    .filter((r) => Object.hasOwn(ROAD_WIDTH, r.kind) && !r.bridge && !skip.has(r.id) && !(r.ref && FROM_1935.has(r.ref) && year < 1935))
+    .filter((r) => Object.hasOwn(ROAD_WIDTH, r.kind) && !r.bridge && !skip.has(r.id) && !(r.ref && FROM_1935.has(r.ref) && year < 1935 && !inTownCircle(r.points)))
     .map((r) => ({ id: r.id, points: r.points, width: ROAD_WIDTH[r.kind] }));
   // Before the bridge the modern PR-187 stops at the Antigua junction; its tail to the river is the west approach.
   const k = simple.findIndex((r) => r.id === PR187_WAY);
