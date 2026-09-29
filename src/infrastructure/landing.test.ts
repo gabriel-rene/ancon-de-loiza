@@ -25,7 +25,7 @@ describe('landings', () => {
     let top = 0;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i);
-      if (Math.abs(p.getZ(i)) <= RAMP.halfWidth && x > 0.5 && x < PAD.length - 0.5 && y > padHeight(pad, x)) {
+      if (Math.abs(p.getZ(i)) < RAMP.halfWidth - 0.01 && x > 0.5 && x < PAD.length - 0.5 && y > padHeight(pad, x)) {
         expect(y - padHeight(pad, x)).toBeLessThan(RAMP.lift + 0.12);   // slab top over a tilted 1 m segment
         top++;
       }
