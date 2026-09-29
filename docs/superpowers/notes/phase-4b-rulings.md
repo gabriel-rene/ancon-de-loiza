@@ -24,6 +24,12 @@ Frame rate before the town (`perf.mjs`, 10 s, vsync and cap off, `freeze=1`, dpr
 
 - Houses keep off every road in the town circle (story roads, main roads and town streets), not only the story roads the spec names: a house on painted street reads as a bug.
 - Overlaps between lots are tested with the concrete (largest) size in every era, so a house never disappears when it turns concrete.
-- The four `town` shots time out (90 s ready wait) under the Playwright software GPU, like the 4a `station` shots (close water reflection). The 1840 and 1925 ones passed in the first run; 1959 and 1986 timed out, and all four timed out on a rerun. The baseline PNGs for 1959 and 1986 were taken with `scripts/dev/shot.mjs` on the real GPU (same query, 1440x900, 6 s wait), so they include the HUD.
+
+## Town shots and the software GPU
+
+- The 4 `town` shots time out in Playwright (swiftshader software GPU, close water reflection), like the 4a `station` shots; `world.spec.ts` skips both.
+- Ruling: town shots are taken with the real GPU against `npm run preview`, same settings for every shot (before and after sets):
+  `PORT=4173 node scripts/dev/shot.mjs "?era=<era>&cam=town&t=<t>&c=95&freeze=1&q=medium" tests/snapshots/<dir>/<name>.png 2000`
+  (t = 12, except 1959 = golden('1959') = 18.46). The before set was made this way and includes the HUD.
 
 ## Deferred
