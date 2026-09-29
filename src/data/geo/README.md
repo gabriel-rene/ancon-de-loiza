@@ -7,7 +7,7 @@ https://opendatacommons.org/licenses/odbl/ (attribution: https://www.openstreetm
 - Source: OSM API 0.6 `map` call, bounding box `-65.900,18.420,-65.865,18.450`
   (minLon, minLat, maxLon, maxLat) around the Río Grande de Loíza crossing.
 - Extracted: 2026-09-26, by `scripts/bake-osm.ts` (`npm run bake`), which keeps the river and
-  pond polygons, coastline, land cover and roads and projects them to local metres
+  pond polygons, coastline, land cover and roads, and the building and park outlines within 350 m of the east landing (Phase 4b), and projects them to local metres
   (origin 18.43485 N, 65.8823 W).
 - The app displays the required attribution ("Map data © OpenStreetMap contributors") on screen.
 

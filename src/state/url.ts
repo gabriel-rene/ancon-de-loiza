@@ -2,8 +2,8 @@ import { ERA_IDS, type EraId } from '../data/eras';
 import type { Quality } from '../quality';
 import { LANGS, type Lang } from '../i18n/text';
 
-export type CameraPreset = 'ride' | 'bank' | 'aerial' | 'mouth' | 'fields' | 'farm' | 'station' | 'bridge';
-export const CAMERA_PRESETS: CameraPreset[] = ['ride', 'bank', 'aerial', 'mouth', 'fields', 'farm', 'station', 'bridge'];
+export type CameraPreset = 'ride' | 'bank' | 'aerial' | 'mouth' | 'fields' | 'farm' | 'station' | 'bridge' | 'town';
+export const CAMERA_PRESETS: CameraPreset[] = ['ride', 'bank', 'aerial', 'mouth', 'fields', 'farm', 'station', 'bridge', 'town'];
 export type DebugView = 'water';
 export const DEBUG_VIEWS: DebugView[] = ['water'];
 export interface UrlState {

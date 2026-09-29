@@ -25,12 +25,14 @@ describe('era roads', () => {
     const n = eraRoads(G, getEra('1975')).simple.length;
     expect(n).toBeGreaterThan(10); expect(n).toBeLessThan(40);   // "only a handful": ~30 of 263
   });
-  test('PR-951 and PR-188 appear from 1935', () => {
-    const refs = (id: '1925' | '1935') => new Set(eraRoads(G, getEra(id)).simple.map((r) => G.roads.find((x) => x.id === r.id)!.ref));
-    expect(refs('1925').has('PR-951')).toBe(false);
-    expect(refs('1935').has('PR-951')).toBe(true);
-    expect(refs('1925').has('PR-188')).toBe(false);
-    expect(refs('1935').has('PR-188')).toBe(true);
+  test('PR-951 and PR-188 appear from 1935 (their in-town pieces before 1935 come from town.ts)', () => {
+    const ids = (id: '1840' | '1925' | '1935' | '1986') => new Set(eraRoads(G, getEra(id)).simple.map((r) => r.id));
+    const numbered = G.roads.filter((x) => x.ref === 'PR-951' || x.ref === 'PR-188');
+    for (const r of numbered.filter((x) => !x.bridge)) {
+      expect(ids('1840').has(r.id)).toBe(false); expect(ids('1925').has(r.id)).toBe(false);
+      expect(ids('1935').has(r.id)).toBe(true);
+    }
+    for (const r of numbered.filter((x) => x.bridge)) expect(ids('1986').has(r.id)).toBe(false);
   });
   test('surface follows the era', () => {
     expect(ERAS.map((e) => eraRoads(G, e).surface)).toEqual(ERAS.map((e) => e.infrastructure.roadSurface.value));

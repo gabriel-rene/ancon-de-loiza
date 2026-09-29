@@ -12,6 +12,7 @@ import { groundMask, SURFACE_INDEX } from './groundMask';
 import { infraMaterials, roadMaterial } from './materials';
 import type { InfraMaterialId } from './parts';
 import { bridgeWay, eraRoads } from './roads';
+import { eraTown } from '../town/town';
 
 const G = geo as unknown as GeoBundle;
 const BRIDGE_WAY_POINTS = bridgeWay(G);
@@ -35,10 +36,12 @@ export function Infrastructure({ near, era, castShadow }: { near: WorldFields; e
   }), [era, bank, roads, near, place]);
   useEffect(() => () => { for (const g of Object.values(out.parts)) g?.dispose(); for (const r of out.roads) r.geometry.dispose(); }, [out]);
 
+  // Phase 4b: the town streets next to shown houses and the yard/church/plaza dirt share the 4a mask.
+  const town = useMemo(() => eraTown(bank, era), [bank, era]);
   const mask = useMemo(() => {
-    const m = groundMask(roads, out.dirt);
+    const m = groundMask({ ...roads, simple: [...roads.simple, ...town.streets] }, [...out.dirt, ...town.dirt]);
     return { tex: makeInfoTexture(m.data, m.size), rect: m.rect };
-  }, [roads, out]);
+  }, [roads, out, town]);
   useEffect(() => {
     groundUniforms.uGround.value = mask.tex;
     groundUniforms.uGroundRect.value.set(mask.rect[0], mask.rect[1], mask.rect[2], 0);

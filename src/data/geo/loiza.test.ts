@@ -16,3 +16,10 @@ test('has the PR-187 bridge near the crossing', () => {
 test('bundle stays small', () => {
   expect(JSON.stringify(g).length).toBeLessThan(1_500_000);
 });
+
+test('has the town outlines: the church, the plaza and ~120 buildings (spec 4b §1.1)', () => {
+  expect(g.buildings.find((b) => b.id === '430399958')?.kind).toBe('church');
+  expect(g.parks.find((p) => p.id === '429703572')?.name).toMatch(/Sanjurjo/);
+  expect(g.buildings.length).toBeGreaterThan(100);
+  expect(g.buildings.length).toBeLessThan(150);
+});

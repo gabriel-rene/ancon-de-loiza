@@ -10,6 +10,7 @@ import { Water } from './water/Water';
 import { Vegetation } from '../vegetation/Vegetation';
 import { Ancon } from '../ancon/Ancon';
 import { Infrastructure } from '../infrastructure/Infrastructure';
+import { Town } from '../town/TownMeshes';
 
 export function World() {
   const { near, far } = useWorldFields();
@@ -25,6 +26,7 @@ export function World() {
       <Terrain near={near} far={far} shadows={q.shadowMap > 0} sun={sun} />
       <Vegetation near={near} far={far} era={era} q={q} bankOffset={era.river.bankOffset.value} />
       <Infrastructure near={near} era={era} castShadow={q.shadowMap > 0} />
+      <Town near={near} era={era} castShadow={q.shadowMap > 0} />
       {showAncon && <Ancon near={near} era={era} q={q} frozen={frozen} castShadow={q.shadowMap > 0} />}
       <Water near={near} far={far} sun={sun} flow={era.river.flow.value} reflScale={q.reflScale} frozen={frozen} />
       <Post sun={sun} ao={q.ao} />

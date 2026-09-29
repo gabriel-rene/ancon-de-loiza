@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { getEra, type EraId } from '../../src/data/eras';
 import { goldenHourAST } from '../../src/geo/sun';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase4a-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4a'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase4b-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4b'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
@@ -43,12 +43,17 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1984', cam: 'station', t: 12, c: 95, name: '1984-station-noon' },     // neighbour's house gone
   { era: '1984', cam: 'bridge', t: 12, c: 95, name: '1984-bridge-noon' },       // bridge being built, gap, crane
   { era: '1986', cam: 'bridge', t: golden('1986'), c: 0, name: '1986-bridge' }, // bridge open
+  // Phase 4b: the town from the river.
+  { era: '1840', cam: 'town', t: 12, c: 95, name: '1840-town-noon' },          // thatched huts round the church
+  { era: '1925', cam: 'town', t: 12, c: 95, name: '1925-town-noon' },          // wood on zocos, thatch and zinc
+  { era: '1959', cam: 'town', t: golden('1959'), c: 95, name: '1959-town' },   // zinc roofs, first concrete
+  { era: '1986', cam: 'town', t: 12, c: 95, name: '1986-town-noon' },          // mostly concrete
 ];
 
 for (const s of SHOTS) {
   test(`renders ${s.era} ${s.cam} @${s.t} c=${s.c}`, async ({ page }) => {
-    // Too slow on the software GPU (close water reflection); taken with scripts/dev/shot.mjs (phase-4a-rulings.md).
-    test.skip(s.cam === 'station', 'station shots use the real GPU');
+    // Station and town shots are too slow on the software GPU (close water reflection); taken with scripts/dev/shot.mjs (phase-4a-rulings.md, phase-4b-rulings.md).
+    test.skip(s.cam === 'station' || s.cam === 'town', 'station and town shots use the real GPU');
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

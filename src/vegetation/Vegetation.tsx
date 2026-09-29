@@ -5,7 +5,8 @@ import type { GeoBundle } from '../data/geo/types';
 import type { Era } from '../data/eras';
 import type { QualitySettings } from '../quality';
 import { groundUniforms, NO_COVER, NO_LITTER } from '../scene/groundUniforms';
-import type { WorldFields } from '../terrain/fields';
+import { sampleField, type WorldFields } from '../terrain/fields';
+import { eraTown, townBlocked } from '../town/town';
 import { placementFields } from '../terrain/placementFields';
 import { coverMap } from './coverMap';
 import { GroundCover } from './ground/GroundCover';
@@ -102,17 +103,23 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
   const caneShown = useMemo(() => (caneWet ? trimSteep(caneFor(), caneWet, caneHeightAt(near, far)) : null), [caneWet, near, far]);
   const caneSkip = useMemo(() => (caneShown ? inCane(caneFor(), caneShown) : undefined), [caneShown]);
   const bridge = era.infrastructure.bridge.value !== 'none';
-  const skip = useMemo(() => (bridge ? (x: number, z: number) => inBridge(x, z) || !!caneSkip?.(x, z) : caneSkip), [bridge, caneSkip]);
+  // Phase 4b: no plants inside a shown house, the church or the plaza (the plaza trees are added below).
+  const town = useMemo(() => eraTown(bankOffset, era), [bankOffset, era]);
+  const inTown = useMemo(() => townBlocked(town), [town]);
+  const skip = useMemo(() => (x: number, z: number) => inTown(x, z) || (bridge && inBridge(x, z)) || !!caneSkip?.(x, z), [bridge, caneSkip, inTown]);
 
   const survival = era.landscape.plantation.value;
   const tier = `${near.grid.size}|${far.grid.size}|${farCards}|${farRing}`;
-  const key = placementKey(dens, bankOffset, tier, `p${survival}|c${caneShare}|b${bridge ? 1 : 0}`);
+  const key = placementKey(dens, bankOffset, tier, `p${survival}|c${caneShare}|b${bridge ? 1 : 0}|t${era.town.houseShare.value}-${era.town.concreteShare.value}`);
   const { sets, pf, nearCount } = useMemo(() => placements.get(key, (): Placed => {
     const t0 = performance.now();
     const pf = placementFields(bankOffset, near);
     const blocks = survival > 0 ? findBlocks(pf, masksFor(pf)) : [];
-    const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival), inside: insideBlocks(blocks) } : undefined;
+    const planted = blocks.length ? { coconut: plantBlocks(pf, blocks, survival).filter((p) => !inTown(p.x, p.z)), inside: insideBlocks(blocks) } : undefined;
     const nearSet = placeAll(pf, masksFor(pf), dens, NEAR_SEED, { skip, planted });
+    for (const t of town.plazaTrees) {
+      nearSet[t.species].push({ x: t.x, y: sampleField(pf, pf.height, t.x, t.z), z: t.z, rot: t.rot, scale: t.scale, variant: t.variant });
+    }
     // Ground cover places per tile inside the frame loop; build its habitat masks here instead
     // of three 512² passes in its first frame.
     warmHabitat(pf, masksFor(pf), GROUND_ORDER);
@@ -137,7 +144,7 @@ export function Vegetation({ near, far, era, q, bankOffset }: {
     }
     vegTiming.placeRuns.push(Math.round(performance.now() - t0));
     return { sets: out, pf, nearCount };
-  }), [key, near, far, skip]);
+  }), [key, near, far, skip, town, inTown]);
 
   // Near trunk discs for ground cover (reseat only moves y, so x/z/scale match the placement run).
   const trunks = useMemo(() => {

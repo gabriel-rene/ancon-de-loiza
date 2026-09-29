@@ -28,6 +28,20 @@ export interface Infrastructure {
   neighbourHouse: Sourced<boolean>; bridge: Sourced<BridgeState>;
 }
 
+/**
+ * Phase 4b town (spec 4b §2). Shares of the OSM outlines near the landing; all inferred (L): the old town
+ * grows out from the church (1692: 100 houses [S12]; 1899: 833 residents [S16]); wooden casas on zocos with
+ * zinc roofs from the 1930s and concrete from the 1960s are general PR vernacular (research §7).
+ */
+export interface TownShares {
+  /** Share (0..1) of the lots shown, nearest the church first. */
+  houseShare: Sourced<number>;
+  /** Share (0..1) of shown houses in concrete with a flat roof. */
+  concreteShare: Sourced<number>;
+  /** Share (0..1) of shown houses that are thatched huts; the rest are painted wood with zinc roofs. */
+  thatchShare: Sourced<number>;
+}
+
 export interface AnconEra {
   kind: Sourced<VesselKind>;
   /** Hull/deck length without the hinged end aprons, m. */
@@ -67,6 +81,7 @@ export interface Era {
   vegetation: Record<SpeciesId, Sourced<number>>;
   landscape: Landscape;
   infrastructure: Infrastructure;
+  town: TownShares;
   ancon: AnconEra;
 }
 
@@ -207,39 +222,48 @@ const INFRA = {
     bridge: s<BridgeState>('open', ['S1'], 'H') },
 } satisfies Record<EraId, Infrastructure>;
 
+// Phase 4b (spec 4b §2): all shares inferred; see TownShares.
+const town = (house: number, concrete: number, thatch: number): TownShares => ({
+  houseShare: s(house, ['S12', 'S16'], 'L', true), concreteShare: s(concrete, [], 'L', true), thatchShare: s(thatch, [], 'L', true),
+});
+const TOWN = {
+  '1840': town(0.25, 0, 1), '1900': town(0.35, 0, 0.8), '1925': town(0.45, 0, 0.5), '1935': town(0.55, 0, 0.15),
+  '1959': town(0.7, 0.1, 0.05), '1975': town(1, 0.5, 0), '1984': town(1, 0.65, 0), '1986': town(1, 0.65, 0),
+} satisfies Record<EraId, TownShares>;
+
 export const ERAS: Era[] = [
   { id: '1840', label: { es: 'Cruce colonial', en: 'Colonial crossing' }, years: { es: 'décadas de 1820–1890', en: '1820s–1890s' }, date: '1840-03-15',
     summary: s('An official ancón de pasaje, ordered in 1824, carries walkers, carts and animals across a fuller river on the camino real.', ['S3'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1840'], landscape: LAND['1840'], infrastructure: INFRA['1840'], ancon: ANCON['1840'] },
+    vegetation: VEG['1840'], landscape: LAND['1840'], infrastructure: INFRA['1840'], town: TOWN['1840'], ancon: ANCON['1840'] },
   { id: '1900', label: { es: 'Era del azúcar', en: 'Sugar era' }, years: { es: 'décadas de 1900–1910', en: '1900s–1910s' }, date: '1905-04-09',
     summary: s('The Iturregui sugar family runs the crossing for cane workers. A wooden barge is poled across.', ['S1', 'S3'], 'M'),
     river: PRE_DAM,
-    vegetation: VEG['1900'], landscape: LAND['1900'], infrastructure: INFRA['1900'], ancon: ANCON['1900'] },
+    vegetation: VEG['1900'], landscape: LAND['1900'], infrastructure: INFRA['1900'], town: TOWN['1900'], ancon: ANCON['1900'] },
   { id: '1925', label: { es: 'El ancón de los Cortijo', en: 'The Cortijo ancón' }, years: { es: 'década de 1920', en: '1920s' }, date: '1925-07-26',
     summary: s('Pedro Cortijo buys the ancón in 1920. A plank platform, two mangrove poles, 10 cents a crossing.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1925'], landscape: LAND['1925'], infrastructure: INFRA['1925'], ancon: ANCON['1925'] },
+    vegetation: VEG['1925'], landscape: LAND['1925'], infrastructure: INFRA['1925'], town: TOWN['1925'], ancon: ANCON['1925'] },
   { id: '1935', label: { es: 'Las sogas', en: 'The ropes' }, years: { es: 'décadas de 1930–1940', en: '1930s–1940s' }, date: '1935-02-17',
     summary: s('Cars arrive. Two taut marine ropes span the river and two or three men haul the platform by hand.', ['S1', 'S4'], 'H'),
     river: PRE_DAM,
-    vegetation: VEG['1935'], landscape: LAND['1935'], infrastructure: INFRA['1935'], ancon: ANCON['1935'] },
+    vegetation: VEG['1935'], landscape: LAND['1935'], infrastructure: INFRA['1935'], town: TOWN['1935'], ancon: ANCON['1935'] },
   { id: '1959', label: { es: 'Públicos', en: 'Públicos' }, years: { es: 'década de 1950', en: '1950s' }, date: '1959-08-02',
     summary: s('The platform grows. Shared taxis (públicos) cross. Upstream, the Carraízo dam tames the river.', ['S1', 'S4', 'S15'], 'M'),
     river: POST_DAM,
-    vegetation: VEG['1959'], landscape: LAND['1959'], infrastructure: INFRA['1959'], ancon: ANCON['1959'] },
+    vegetation: VEG['1959'], landscape: LAND['1959'], infrastructure: INFRA['1959'], town: TOWN['1959'], ancon: ANCON['1959'] },
   { id: '1975', label: { es: 'Paseos de fin de semana', en: 'Weekend outings' }, years: { es: 'décadas de 1960–1970', en: '1960s–1970s' }, date: '1975-07-27',
     summary: s('Families cross for the day. The Cortijo bar has a terrace over the river. About six cars per trip.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1975'], landscape: LAND['1975'], infrastructure: INFRA['1975'], ancon: ANCON['1975'] },
+    vegetation: VEG['1975'], landscape: LAND['1975'], infrastructure: INFRA['1975'], town: TOWN['1975'], ancon: ANCON['1975'] },
   { id: '1984', label: { es: 'La barcaza de acero', en: 'The steel barge' }, years: { es: '1980–1986', en: '1980–1986' }, date: '1984-02-17',
     summary: s('A steel-plate barge carries six to eight cars. Next door, the PR-187 bridge rises.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1984'], landscape: LAND['1984'], infrastructure: INFRA['1984'], ancon: ANCON['1984'] },
+    vegetation: VEG['1984'], landscape: LAND['1984'], infrastructure: INFRA['1984'], town: TOWN['1984'], ancon: ANCON['1984'] },
   { id: '1986', label: { es: 'El puente', en: 'The bridge' }, years: { es: '1986', en: '1986' }, date: '1986-02-17',
     summary: s('The Puente de la Restauración is in service by 1986 (some sources say 1985). Regular ancón service ends in 1986.', ['S1', 'S4'], 'H'),
     river: POST_DAM,
-    vegetation: VEG['1986'], landscape: LAND['1986'], infrastructure: INFRA['1986'], ancon: ANCON['1986'] }
+    vegetation: VEG['1986'], landscape: LAND['1986'], infrastructure: INFRA['1986'], town: TOWN['1986'], ancon: ANCON['1986'] }
 ];
 
 export const ERA_IDS = ERAS.map((e) => e.id);
