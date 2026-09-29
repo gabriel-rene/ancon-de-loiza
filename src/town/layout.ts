@@ -6,7 +6,7 @@ import { CIRCLE_R } from './constants';
 
 /**
  * Phase 4b lots (spec 4b §2): every OSM outline in the town circle becomes an oriented rectangle, drops out
- * if it touches the landing clearing, a road, the bridge corridor, the plaza or the church, and gets a fixed
+ * if it touches the landing clearing, a road or the bridge corridor (exact rectangle tests), the plaza or the church, and gets a fixed
  * rank (distance to the church + jitter) and fixed random numbers. Lots never depend on the era, so a house
  * keeps its place, rank and look progression in every era.
  */
@@ -32,8 +32,8 @@ export interface LotRules {
   centre: XZ; church: XZ;
   /** Centre of the east landing's plant-free clearing (radius LANDING_CLEARING[0]); the 4a station stands inside it. */
   clear: XZ;
+  /** Polylines a lot must not touch; the bridge corridor is passed here too (half = width / 2 + margin). */
   roads: { points: readonly XZ[]; half: number }[];
-  corridor: (x: number, z: number) => boolean;
 }
 export interface ChurchPlan { fp: Footprint; front: 1 | -1 }
 
@@ -95,9 +95,35 @@ function fit(o: Footprint, r: { hx: readonly [number, number]; hz: readonly [num
   const hx = clamp(o.hx, r.hx);
   return { c: o.c, yaw: o.yaw, hx, hz: Math.min(hx, clamp(o.hz, r.hz)) };
 }
-/** Corners, edge midpoints and centre. */
-const samples = (f: Footprint): [number, number][] =>
-  [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [0, 0]].map(([sx, sz]) => toWorld(f, sx * f.hx, sz * f.hz));
+const segsCross = (a: XZ, b: XZ, c: XZ, d: XZ) => {
+  const o = (p: XZ, q: XZ, r: XZ) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+};
+const distToSeg = (a: XZ, b: XZ, x: number, z: number) => distToLine([a, b], x, z);
+/** Distance from a footprint rectangle to a polyline; 0 if any segment crosses or lies inside it. */
+export function rectLineDist(f: Footprint, pts: readonly XZ[]): number {
+  const cs = corners(f) as XZ[], loc = pts.map(([x, z]) => toLocal(f, x, z));
+  const boxDist = ([lx, lz]: [number, number]) => Math.hypot(Math.max(Math.abs(lx) - f.hx, 0), Math.max(Math.abs(lz) - f.hz, 0));
+  let d = Infinity;
+  for (let k = 0; k + 1 < pts.length; k++) {
+    const a = pts[k], b = pts[k + 1];
+    if (boxDist(loc[k]) === 0 || boxDist(loc[k + 1]) === 0 || cs.some((c, i) => segsCross(a, b, c, cs[(i + 1) % 4]))) return 0;
+    d = Math.min(d, boxDist(loc[k]), boxDist(loc[k + 1]), ...cs.map(([x, z]) => distToSeg(a, b, x, z)));
+  }
+  return d;
+}
+/** Does the rectangle overlap the polygon (corner in ring, vertex in rectangle, or edges crossing)? */
+export function rectRingOverlap(f: Footprint, ring: readonly XZ[]): boolean {
+  const cs = corners(f) as XZ[];
+  if (cs.some(([x, z]) => inRing(ring, x, z))) return true;
+  if (ring.some(([x, z]) => { const [lx, lz] = toLocal(f, x, z); return Math.abs(lx) <= f.hx && Math.abs(lz) <= f.hz; })) return true;
+  return cs.some((c, i) => ring.some((r, k) => segsCross(c, cs[(i + 1) % 4], r, ring[(k + 1) % ring.length])));
+}
+/** Distance from a point to the rectangle (0 inside). */
+const distToRect = (f: Footprint, x: number, z: number) => {
+  const [lx, lz] = toLocal(f, x, z);
+  return Math.hypot(Math.max(Math.abs(lx) - f.hx, 0), Math.max(Math.abs(lz) - f.hz, 0));
+};
 
 function outline(geo: GeoBundle, list: 'buildings' | 'parks', id: string) {
   const o = geo[list].find((b) => b.id === id);
@@ -115,10 +141,8 @@ export const churchReach = (p: ChurchPlan): Footprint => ({ ...p.fp, hx: p.fp.hx
 export function townLots(geo: GeoBundle, r: LotRules): Lot[] {
   const church = churchReach(churchPlan(geo)), plaza = plazaRing(geo);
   const blocked = (f: Footprint) =>
-    rectsOverlap(f, church, LOT.gap / 2) ||
-    samples(f).some(([x, z]) =>
-      Math.hypot(x - r.clear[0], z - r.clear[1]) <= LANDING_CLEARING[0] || r.corridor(x, z) || inRing(plaza, x, z) ||
-      r.roads.some((rd) => distToLine(rd.points, x, z) <= rd.half));
+    rectsOverlap(f, church, LOT.gap / 2) || distToRect(f, r.clear[0], r.clear[1]) <= LANDING_CLEARING[0] ||
+    rectRingOverlap(f, plaza) || r.roads.some((rd) => rectLineDist(f, rd.points) <= rd.half);
   const cands: Lot[] = [];
   for (const b of geo.buildings) {
     if (b.id === CHURCH_WAY) continue;

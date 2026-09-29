@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle, Outline, XZ } from '../data/geo/types';
 import { corners, toWorld, type Footprint } from '../infrastructure/parts';
-import { CHURCH_WAY, churchPlan, inRing, LOT, orientedBox, PLAZA_WAY, rectsOverlap, toLocal, townLots, type LotRules } from './layout';
+import { centroid, CHURCH_WAY, churchPlan, inRing, LOT, orientedBox, PLAZA_WAY, plazaRing, rectLineDist, rectRingOverlap, rectsOverlap, toLocal, townLots, type LotRules } from './layout';
 
 const G = geo as unknown as GeoBundle;
 const rect = (id: string, cx: number, cz: number, hx: number, hz: number, yaw = 0, kind = 'yes'): Outline =>
@@ -14,7 +14,7 @@ const bundle = (buildings: Outline[]): GeoBundle => ({
 });
 const rules: LotRules = {
   centre: [0, 0], church: [0, 0], clear: [0, 120],
-  roads: [{ points: [[-200, -60], [200, -60]], half: 3 }], corridor: (x) => x < -150,
+  roads: [{ points: [[-200, -60], [200, -60]], half: 3 }, { points: [[-170, -100], [-170, 100]], half: 8 }],
 };
 
 describe('rectangles', () => {
@@ -33,6 +33,21 @@ describe('rectangles', () => {
     expect(rectsOverlap(a, { c: [5, 0], yaw: 0, hx: 2, hz: 2 })).toBe(false);
     expect(rectsOverlap(a, { c: [5, 0], yaw: 0, hx: 2, hz: 2 }, 0.6)).toBe(true);
     expect(rectsOverlap(a, { c: [4.6, 0], yaw: Math.PI / 4, hx: 2, hz: 2 })).toBe(true);   // corner reaches in
+  });
+  test('rectLineDist: crossing is 0, a parallel line gives its gap', () => {
+    const f: Footprint = { c: [0, 0], yaw: 0, hx: 4, hz: 2 };
+    expect(rectLineDist(f, [[1, -10], [1, 10]])).toBe(0);
+    expect(rectLineDist(f, [[-1, 0], [1, 0]])).toBe(0);
+    expect(rectLineDist(f, [[-10, 5], [10, 5]])).toBeCloseTo(3);
+  });
+  test('rectRingOverlap', () => {
+    const f: Footprint = { c: [0, 0], yaw: 0, hx: 2, hz: 2 }, sq = (cx: number, h: number) => corners({ c: [cx, 0], yaw: 0, hx: h, hz: h }) as XZ[];
+    expect(rectRingOverlap(f, sq(3, 2))).toBe(true);     // corner overlap
+    expect(rectRingOverlap(f, sq(0, 0.5))).toBe(true);   // ring inside
+    expect(rectRingOverlap(f, sq(0, 5))).toBe(true);     // rect inside ring
+    expect(rectRingOverlap(f, sq(6, 2))).toBe(false);
+    const cross = [[-3, -0.5], [3, -0.5], [3, 0.5], [-3, 0.5]] as XZ[];
+    expect(rectRingOverlap({ c: [0, 0], yaw: 0, hx: 1, hz: 4 }, cross)).toBe(true);   // edges cross, no corner inside
   });
   test('inRing', () => {
     const ring = corners({ c: [0, 0], yaw: 0, hx: 1, hz: 1 }) as XZ[];
@@ -53,10 +68,21 @@ describe('lots (synthetic)', () => {
     ]), rules).map((l) => l.id);
     expect(ids).toEqual(['keep']);
   });
-  test('ranked nearest the church first; of two overlapping lots the lower rank stays', () => {
-    const lots = townLots(bundle([rect('b', 0, 100 - 30, 4, 3), rect('a', 0, 40, 4, 3), rect('a2', 5, 40, 4, 3)]), { ...rules, clear: [0, 400] });
-    expect(lots[0].rank).toBeLessThan(lots[lots.length - 1].rank);
-    expect(lots.map((l) => l.id).filter((id) => id === 'a' || id === 'a2')).toHaveLength(1);
+  test('a road cutting through a lot unseen by its edge and centre samples still drops it', () => {
+    const ids = townLots(bundle([rect('wide', 0, 60, 7, 3), rect('ok', 0, 90, 7, 3)]), { ...rules, clear: [0, 400], roads: [{ points: [[3.5, 40], [3.5, 70]], half: 3 }] }).map((l) => l.id);
+    expect(ids).toEqual(['ok']);
+  });
+  test('a lot whose corner clips the plaza is dropped', () => {
+    // plaza spans x 30..50, z -10..10; lot corner reaches (31, 9) with centre and edge midpoints outside
+    const ids = townLots(bundle([rect('clip', 26.5, 12.5, 5, 4, Math.PI / 4)]), { ...rules, clear: [0, 400] }).map((l) => l.id);
+    expect(ids).toEqual([]);
+  });
+  test('rank follows distance to the church (beyond the jitter); overlapping lots keep one', () => {
+    const lots = townLots(bundle([rect('far', 0, 150, 4, 3), rect('near', 0, 30, 4, 3)]), { ...rules, clear: [0, 400] });
+    expect(lots.map((l) => l.id)).toEqual(['near', 'far']);
+    expect(lots[0].rank).toBeLessThan(lots[1].rank);
+    const two = townLots(bundle([rect('a', 0, 40, 4, 3), rect('a2', 5, 40, 4, 3)]), { ...rules, clear: [0, 400] });
+    expect(two.map((l) => l.id).filter((id) => id === 'a' || id === 'a2')).toHaveLength(1);
   });
   test('sizes clamp to the spec 4b §2 ranges; wood fits inside concrete', () => {
     for (const l of townLots(bundle([rect('big', 0, 60, 20, 12), rect('small', 60, 60, 1, 1)]), rules)) {
@@ -81,5 +107,6 @@ describe('church plan', () => {
   test('real data: the church outline and the plaza are found', () => {
     const p = churchPlan(G);
     expect(p.fp.hx).toBeGreaterThan(8);
+    expect(toLocal(p.fp, ...centroid(plazaRing(G)))[0] * p.front).toBeGreaterThan(0);
   });
 });
