@@ -20,7 +20,7 @@ Not in Phase 5: crabs, bats, osprey, kingfisher (not sourced for this site, rese
 
 Build only what the `ride` camera shows. Every animal stays within **300 m of the crossing line** (east landing to west landing) and inside the height band the ride view frames. Nothing is placed for the aerial or debug cameras.
 
-**Amendment 2026-09-30 (framing).** Being within 300 m is not enough: the animals must be where the ride camera looks. A ride-view test (`src/fauna/view.test.ts`) builds the app's un-orbited ride camera (fov 42°, aspect 1.6) for 1975 and 1840 over two full legs, 1 s steps, and counts an animal in view when it is inside the frustum and within 400 m (occlusion ignored, high-tier counts). Thresholds, as the share of samples with at least one of that kind in view: frigatebirds ≥ 40 %, pelicans (flock and fishers) ≥ 30 %, waders ≥ 50 %; manatee ≥ 35 % of its surfacings, long-run (300 surfacings, framed at mid-roll) — not yet met, pending a ruling (task 10b report); mullet reported only.
+**Amendment 2026-09-30 (framing).** Being within 300 m is not enough: the animals must be where the ride camera looks. A ride-view test (`src/fauna/view.test.ts`) builds the app's un-orbited ride camera (fov 42°, aspect 1.6) for 1975 and 1840 over two full legs, 1 s steps, and counts an animal in view when it is inside the frustum and within 400 m (occlusion ignored, high-tier counts). Thresholds, as the share of samples with at least one of that kind in view: frigatebirds ≥ 40 %, pelicans (flock and fishers) ≥ 30 %, waders ≥ 50 %; manatee ≥ 30 % of its surfacings, long-run (300 surfacings, framed at mid-roll); mullet reported only.
 
 ## 2. Animals and counts
 
