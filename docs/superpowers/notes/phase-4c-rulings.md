@@ -21,3 +21,7 @@ Frame rate before 4c (`perf.mjs`, 10 s, vsync and cap off, `freeze=1`, dpr 2 exc
 | `?era=1975&cam=ride&t=17&c=95&freeze=1&q=low` | low | 425.6 | 2.35 | 3.3 |
 | `?era=1984&cam=ride&t=17&c=95&freeze=1&q=low` | low | 427.3 | 2.34 | 3.8 |
 | `?era=1984&cam=ride&t=17&c=5&freeze=1&q=low` | low | 398.9 | 2.51 | 4.2 |
+
+## Task 13: bridge traffic (1986)
+- Glass on the bridge cars: same `renderOrder` 2 as TrafficSet (transparent `glass` material, 'lo' detail cabins stay solid).
+- The 1986 `ride` view does NOT frame the bridge (spec 4c §6): it looks along the moored ferry deck across the river with no bridge in shot. Deferred, next to the 4b item about the 1986 moored heading; the ride rig is unchanged. `cam=bridge` frames the bridge and shows the cars.
