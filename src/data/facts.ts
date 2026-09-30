@@ -40,6 +40,9 @@ export const FACTS: Record<EraId, Fact[]> = {
     { text: { es: 'En 1918 Piñones fue declarado bosque. Los pinos australianos (casuarinas) de la costa le dan el nombre.',
               en: 'In 1918 Piñones was declared a forest. The Australian pines (casuarinas) along the coast give it its name.' },
       sources: ['S22', 'S28'] },
+    { text: { es: 'Según el DRNA, en Piñones hay unas 96 especies de aves, entre ellas el pelícano pardo, en peligro de extinción. El islote Carmelita, en la laguna de Piñones, podría ser la colonia de garzas más importante de Puerto Rico.',
+              en: 'According to DRNA, Piñones has about 96 bird species, among them the endangered brown pelican. Carmelita islet, in the Piñones lagoon, may be the most important heron colony in Puerto Rico.' },
+      sources: ['S22'] },
   ],
   '1925': [
     { text: { es: 'Pedro Cortijo Calderón, «Papá Pedro», trabajaba la barcaza para los Iturregui. En 1920 la compró y fue su primer concesionario.',
@@ -113,6 +116,9 @@ export const FACTS: Record<EraId, Fact[]> = {
     { text: { es: 'En los años 80, grupos escolares tiraban flores al río en honor a Julia de Burgos, el 17 de febrero.',
               en: 'In the 1980s, school groups threw flowers into the river in honor of Julia de Burgos, on 17 February.' },
       sources: ['S4'] },
+    { text: { es: 'El río también daba pesca: una foto de los años 80 muestra a pescadores limpiando un tiburón en El Ancón, y Tony Croatto fue filmado con una nasa de cocolías (jaibas azules) en el río.',
+              en: 'The river also gave fish and crabs: a 1980s photo shows fishermen cleaning a shark at El Ancón, and Tony Croatto was filmed with a cocolía (blue crab) trap in the river.' },
+      sources: ['S4'] },
   ],
   '1986': [
     { text: { es: 'El puente de la PR-187 sobre el río estaba en servicio en 1986 (algunas fuentes dicen 1985). El servicio regular del ancón terminó en 1986.',
@@ -127,5 +133,8 @@ export const FACTS: Record<EraId, Fact[]> = {
     { text: { es: 'Hoy el Colectivo El Ancón de Loíza (fundado en 2019) y la Casa Museo Cortijo (abierta el 26 de junio de 2024) ocupan el sitio original. El Colectivo espera diseñar y construir una nueva barcaza para atraer visitantes al centro histórico de Loíza.',
               en: 'Today the Colectivo El Ancón de Loíza (founded 2019) and the Casa Museo Cortijo (opened 26 June 2024) occupy the original site. The Colectivo hopes to design and build a new barge to draw visitors to Loíza’s historic center.' },
       sources: ['S5', 'S6'] },
+    { text: { es: 'En 1995 y en junio de 2026 hubo manatíes atrapados detrás de la boca del río, cerrada por la arena. En 2026 el DRNA abrió un canal para liberarlos.',
+              en: 'In 1995 and in June 2026, manatees were trapped behind the river mouth after sand closed it. In 2026 DRNA cut a channel to free them.' },
+      sources: ['S17', 'S18'] },
   ],
 };
