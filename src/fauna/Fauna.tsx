@@ -22,7 +22,7 @@ export function Fauna({ near, era, q, castShadow }: { near: WorldFields; era: Er
   const place = useMemo(() => placementFields(bank, near), [bank, near]);
   const spec = useMemo(() => vesselSpec(era, eraTimings(era, place)), [era, place]);
   const site = useMemo(() => faunaSite(place, (x, z) => sampleField(near, near.height, x, z)), [place, near]);
-  const set = useMemo(() => new FaunaSet({ site, T: spec.timings, moored: spec.moored }, q.fauna, castShadow), [site, spec, q.fauna, castShadow]);
+  const set = useMemo(() => new FaunaSet({ site, T: spec.timings, moored: spec.moored }, q.fauna, castShadow, q.fauna.reflect), [site, spec, q.fauna, castShadow]);
   useEffect(() => {
     reflectionHooks.before.add(set.beforeReflection); reflectionHooks.after.add(set.afterReflection);
     return () => { reflectionHooks.before.delete(set.beforeReflection); reflectionHooks.after.delete(set.afterReflection); set.dispose(); };

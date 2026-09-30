@@ -60,11 +60,12 @@ function buildBank(f: WorldFields, g: CrossingGeometry, lat: XZ, side: 0 | 1, gr
 const riverAll = (f: WorldFields, pts: number[]) => { for (let i = 0; i < pts.length; i += 2) if (waterAt(f, pts[i], pts[i + 1]) !== WATER.RIVER) return false; return true; };
 
 /**
- * Fisher circles (spec 5 §2): fisher 0 near the east end (≈ 0.2 of the span) on the mouth side, fisher 1 near the
- * west end (≈ 0.8) on the other side, 40–60 m to the side, radius 12–18 m — ahead of the ride camera for the first
- * part of each leg, and every point of the circle ≥ 20 m from the crossing line, so dives stay clear of the ferry.
+ * Fisher circles (spec 5 §2): fisher 0 at ≈ 0.3 of the span from the east landing on the mouth side, fisher 1 at
+ * ≈ 0.7 on the other side, centre 32–40 m to the side, radius 10–12 m — ahead of the ride camera as the ferry leaves
+ * the nearer landing, within ~100 m so a pelican reads (spec §1.1), and every point of the circle ≥ 20 m from the
+ * crossing line, so dives stay clear of the ferry.
  */
-export const FISHER_SITE = { at: [0.2, 0.8], jitter: 0.1, off: [40, 60] as [number, number], r: [12, 18] as [number, number] };
+export const FISHER_SITE = { at: [0.3, 0.7], jitter: 0.1, off: [32, 40] as [number, number], r: [10, 12] as [number, number] };
 function findFisher(f: WorldFields, g: CrossingGeometry, lat: XZ, i: number, sideSign: number): { c: XZ; r: number } {
   const S = FISHER_SITE;
   for (let j = 0; j < 128; j++) {

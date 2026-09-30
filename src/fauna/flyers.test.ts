@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest';
+import { createCrossingState, crossingState } from '../ancon/crossing';
 import { waterAt } from '../ancon/geometry';
 import { WATER } from '../terrain/fields';
-import { FISHER, fisherEvents, fisherPlan, frigate, pelicanFisher, pelicanFlock } from './flyers';
+import { FISHER, fisherEvents, fisherPlan, FLOCK, flockAlong, frigate, pelicanFisher, pelicanFlock } from './flyers';
 import { createFaunaPose } from './pose';
 import { distToCrossing, FRAME_RADIUS } from './site';
 import { worldFor } from './testing';
 
 const w = worldFor('1975'), p = createFaunaPose(), q = createFaunaPose();
-const clear = (x: number, z: number) => Math.max(0, w.site.groundAt(x, z));
 
 test('same clock, same pose', () => {
   for (const c of [0, 17.3, 400.9]) {
@@ -17,25 +17,53 @@ test('same clock, same pose', () => {
   }
 });
 
-test('flock: 3–8 m up, ≥ 2 m clear, inside the frame', () => {
-  for (let c = 0; c < 600; c += 0.37) for (let i = 0; i < 4; i++) {
-    pelicanFlock(c, i, w, p);
-    expect(p.y).toBeGreaterThanOrEqual(3 - 1e-6);
-    expect(p.y).toBeLessThanOrEqual(8 + 1e-6);
-    expect(p.y - clear(p.x, p.z)).toBeGreaterThanOrEqual(2);
-    expect(distToCrossing(w.site, p.x, p.z)).toBeLessThan(FRAME_RADIUS);
-  }
-});
+for (const id of ['1975', '1840'] as const) {
+  const ew = worldFor(id), g = ew.site.geom;
+  const ground = (x: number, z: number) => Math.max(0, ew.site.groundAt(x, z));
+  const alongOf = (x: number, z: number) => (x - g.shoreEast[0]) * g.dir[0] + (z - g.shoreEast[1]) * g.dir[1];
 
-test('frigatebirds: 60–120 m up, inside the frame', () => {
-  for (let c = 0; c < 900; c += 0.9) for (let i = 0; i < 3; i++) {
-    frigate(c, i, w, p);
-    expect(p.y).toBeGreaterThanOrEqual(60);
-    expect(p.y).toBeLessThanOrEqual(120);
-    expect(distToCrossing(w.site, p.x, p.z)).toBeLessThan(FRAME_RADIUS);
-    expect(p.flap).toBe(0);
-  }
-});
+  test(`flock ${id}: 3–8 m up, ≥ 2 m clear, inside the frame`, () => {
+    for (let c = 0; c < 900; c += 0.37) for (let i = 0; i < 4; i++) {
+      pelicanFlock(c, i, ew, p);
+      expect(p.y).toBeGreaterThanOrEqual(3 - 1e-6);
+      expect(p.y).toBeLessThanOrEqual(8 + 1e-6);
+      expect(p.y - ground(p.x, p.z)).toBeGreaterThanOrEqual(2);
+      expect(distToCrossing(ew.site, p.x, p.z)).toBeLessThan(FRAME_RADIUS);
+    }
+  });
+
+  test(`flock ${id}: each pass crosses the line 40–70 m ahead of a crossing ferry, inside the banks`, () => {
+    const st = createCrossingState();
+    let ahead = 0;
+    for (let k = 0; k < 60; k++) {
+      const a = flockAlong(k, ew);
+      expect(a).toBeGreaterThanOrEqual(FLOCK.margin);
+      expect(a).toBeLessThanOrEqual(g.span - FLOCK.margin);
+      crossingState((k + 0.5) * FLOCK.period, st, ew.T);
+      if (st.phase !== 'cross') continue;
+      const d = (a - g.span * st.s) * st.travel;
+      if (a > FLOCK.margin && a < g.span - FLOCK.margin) { expect(d).toBeGreaterThanOrEqual(40 - 1e-6); expect(d).toBeLessThanOrEqual(70 + 1e-6); ahead++; }
+    }
+    expect(ahead).toBeGreaterThan(5);
+  });
+
+  test(`frigatebirds ${id}: 60–68 m up, beyond their bank, inside the frame, continuous`, () => {
+    for (let i = 0; i < 3; i++) {
+      frigate(0, i, ew, q);
+      for (let c = 0.1; c < 900; c += 0.1) {
+        frigate(c, i, ew, p);
+        expect(p.y).toBeGreaterThanOrEqual(60);
+        expect(p.y).toBeLessThanOrEqual(68);
+        expect(distToCrossing(ew.site, p.x, p.z)).toBeLessThan(FRAME_RADIUS);
+        expect(p.flap).toBe(0);
+        const al = alongOf(p.x, p.z);
+        if (i & 1) expect(al).toBeGreaterThan(g.span + 30); else expect(al).toBeLessThan(-30);
+        expect(Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z)).toBeLessThan(1);
+        Object.assign(q, p);
+      }
+    }
+  });
+}
 
 test('fisher: circles at 11 m, dives to the water at the impact time, sits, takes off', () => {
   for (let i = 0; i < 2; i++) {

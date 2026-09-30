@@ -1,3 +1,4 @@
+import { createCrossingState, crossingState, mooredState } from '../ancon/crossing';
 import { u01 } from './clock';
 import { bankFor, smooth, yawOf, type FaunaPose } from './pose';
 import type { FaunaWorld } from './site';
@@ -17,15 +18,29 @@ const set = (o: FaunaPose, x: number, y: number, z: number, yaw: number, pitch: 
 
 /**
  * Pelican flock (spec 5 §3.1): an echelon along the river (across the crossing line), 3–8 m up. Each loop of
- * `period` s the leader flies from −half to +half across the view, then the next loop comes back the other way.
- * The ends lie ~280 m out to the side, outside the ride view.
+ * `period` s the leader flies from −half to +half along the river, then the next loop comes back the other way.
+ * It crosses the crossing line `ahead` m in front of the ferry, where the ferry is at mid-pass, in the direction the
+ * ride camera faces then (a pure function of the crossing clock, like the mullet); clamped to `margin` m inside the
+ * banks. The ends lie `half` m out to the side, outside the ride view.
  */
-export const FLOCK = { period: 70, speed: 8, half: 280, gapBack: 5, gapSide: 2.5, beatHz: 1.25, beats: 3, glide: 2.2, amp: 0.55 };
+export const FLOCK = {
+  period: 64, speed: 8, half: 240, ahead: [40, 70] as [number, number], margin: 20,
+  gapBack: 5, gapSide: 2.5, beatHz: 1.25, beats: 3, glide: 2.2, amp: 0.55,
+};
+const _fs = createCrossingState();
+/** Where loop k's flock crosses the crossing line: metres from the east landing along it. */
+export function flockAlong(k: number, w: FaunaWorld): number {
+  const g = w.site.geom, st = w.moored ? mooredState(_fs) : crossingState((k + 0.5) * FLOCK.period, _fs, w.T);
+  // Facing: the leg's travel direction, or the next leg's once the ferry is unloading (the camera swings round).
+  const facing = st.phase === 'unload' ? -st.travel : w.moored ? 1 : st.travel;
+  const ahead = FLOCK.ahead[0] + (FLOCK.ahead[1] - FLOCK.ahead[0]) * u01(k, 1, 71);
+  return Math.min(g.span - FLOCK.margin, Math.max(FLOCK.margin, g.span * st.s + facing * ahead));
+}
 export function pelicanFlock(clock: number, i: number, w: FaunaWorld, out: FaunaPose): FaunaPose {
-  const s0 = w.site, k = Math.floor(clock / FLOCK.period), t = clock - k * FLOCK.period, sgn = (k & 1) === 0 ? 1 : -1;
-  const along = (u01(k, 1, 71) - 0.5) * 80 + i * FLOCK.gapSide;
+  const s0 = w.site, g = s0.geom, k = Math.floor(clock / FLOCK.period), t = clock - k * FLOCK.period, sgn = (k & 1) === 0 ? 1 : -1;
+  const along = flockAlong(k, w) + i * FLOCK.gapSide;
   const s = sgn * (-FLOCK.half + FLOCK.speed * t - i * FLOCK.gapBack);
-  const x = s0.mid[0] + s0.geom.dir[0] * along + s0.lateral[0] * s, z = s0.mid[1] + s0.geom.dir[1] * along + s0.lateral[1] * s;
+  const x = g.shoreEast[0] + g.dir[0] * along + s0.lateral[0] * s, z = g.shoreEast[1] + g.dir[1] * along + s0.lateral[1] * s;
   const y = 3.6 + 3.8 * u01(k, 2, 71) + 0.6 * Math.sin(0.4 * t + i);
   return set(out, x, y, z, yawOf(s0.lateral[0] * sgn, s0.lateral[1] * sgn), 0, 0,
     flapGlide(t - i * 0.25, FLOCK.beatHz, FLOCK.beats, FLOCK.glide, FLOCK.amp), 0, 0);
@@ -73,23 +88,30 @@ export function pelicanFisher(clock: number, i: number, w: FaunaWorld, out: Faun
 }
 
 /**
- * Frigatebird (spec 5 §2, §3.1): a slow figure-eight 60–75 m up, wings held out (no flapping), banking in the
- * turns. Each circles `beyond` m past one landing (even birds the east bank, odd the west), so the ride camera,
- * looking toward the landing ahead, frames it about 10–15° above the horizon. Figure-eight a·sin t, b·sin 2t,
- * rotated per bird.
+ * Frigatebird (spec 5 §2, §3.1): a slow figure-eight 60–62.5 m up, wings held out (no flapping), banking in the
+ * turns. Even birds soar beyond the east bank, odd birds beyond the west. The figure-eight's centre keeps `ahead` m
+ * from the ferry toward its bank (a pure function of the crossing clock, like the mullet), so while the ride camera
+ * looks toward that bank the bird is about 230–250 m away: just under the top of the view and ≥ 10 px (spec §1.1).
+ * Its long axis (A) lies across the view (along the banks), the short one (B) along it. Figure-eight a·sin t, b·sin 2t.
  */
-export const FRIGATE = { w: 0.065, A: 50, B: 28, beyond: [190, 220] as [number, number], side: 20, y: 63, yVar: 9, bob: 3 };
+export const FRIGATE = { w: 0.065, A: 50, B: 12, ahead: 220, side: 20, y: 60.6, yVar: 1.4, bob: 0.6 };
+const _cs = createCrossingState();
 export function frigate(clock: number, i: number, w: FaunaWorld, out: FaunaPose): FaunaPose {
-  const s = w.site, g = s.geom, ph = TAU * u01(i, 1, 79), rot = Math.PI * u01(i, 2, 79);
-  const west = (i & 1) === 1, shore = west ? g.shoreWest : g.shoreEast, sgn = west ? 1 : -1;
-  const al = sgn * (FRIGATE.beyond[0] + (FRIGATE.beyond[1] - FRIGATE.beyond[0]) * u01(i, 3, 79)), la = (u01(i, 4, 79) - 0.5) * 2 * FRIGATE.side;
-  const cx = shore[0] + g.dir[0] * al + s.lateral[0] * la, cz = shore[1] + g.dir[1] * al + s.lateral[1] * la;
-  const t = FRIGATE.w * clock + ph, cr = Math.cos(rot), sr = Math.sin(rot);
+  const s = w.site, g = s.geom, lat = s.lateral, ph = TAU * u01(i, 1, 79);
+  const st = w.moored ? mooredState(_cs) : crossingState(clock, _cs, w.T);
+  const sgn = (i & 1) === 1 ? 1 : -1, la = (u01(i, 4, 79) - 0.5) * 2 * FRIGATE.side;
+  const al = g.span * st.s + sgn * FRIGATE.ahead, vAl = g.span * st.v;
+  const cx = g.shoreEast[0] + g.dir[0] * al + lat[0] * la, cz = g.shoreEast[1] + g.dir[1] * al + lat[1] * la;
+  const t = FRIGATE.w * clock + ph;
+  // a across the view (lateral), b along it (dir); derivatives in t.
   const a = FRIGATE.A * Math.sin(t), b = FRIGATE.B * Math.sin(2 * t);
   const da = FRIGATE.A * Math.cos(t), db = 2 * FRIGATE.B * Math.cos(2 * t);
   const dda = -FRIGATE.A * Math.sin(t), ddb = -4 * FRIGATE.B * Math.sin(2 * t);
-  const hx = da * cr - db * sr, hz = da * sr + db * cr, hx2 = dda * cr - ddb * sr, hz2 = dda * sr + ddb * cr;
+  const hx = da * lat[0] + db * g.dir[0], hz = da * lat[1] + db * g.dir[1];
+  const hx2 = dda * lat[0] + ddb * g.dir[0], hz2 = dda * lat[1] + ddb * g.dir[1];
   const h2 = hx * hx + hz * hz || 1, yawRate = (FRIGATE.w * (hz * hx2 - hx * hz2)) / h2, speed = FRIGATE.w * Math.sqrt(h2);
+  // Heading: the figure-eight's velocity plus the centre's drift with the ferry.
+  const vx = FRIGATE.w * hx + g.dir[0] * vAl, vz = FRIGATE.w * hz + g.dir[1] * vAl;
   const y = FRIGATE.y + FRIGATE.yVar * u01(i, 5, 79) + FRIGATE.bob * Math.sin(0.03 * clock + ph);
-  return set(out, cx + a * cr - b * sr, y, cz + a * sr + b * cr, yawOf(hx, hz), 0, bankFor(yawRate, speed, 0.45), 0, 0, 0);
+  return set(out, cx + a * lat[0] + b * g.dir[0], y, cz + a * lat[1] + b * g.dir[1], yawOf(vx, vz), 0, bankFor(yawRate, speed, 0.45), 0, 0, 0);
 }

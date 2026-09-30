@@ -12,25 +12,28 @@ export interface QualitySettings {
   ancon: { ropeSegments: number; ropeRadial: number; passengers: number };
   /** Phase 4c: cars on the open bridge at once (1986; spec 4c §6, §7). */
   traffic: { bridgeCars: number };
-  /** Phase 5: animals per tier (spec 5 §2). Mullet and manatee are on every tier. */
-  fauna: { flock: number; fishers: number; frigates: number; wadersPerLanding: number };
+  /**
+   * Phase 5: animals per tier (spec 5 §2). Mullet and manatee are on every tier. reflect: draw the animals in the
+   * water reflection (off on low, where the 0.25-scale mirror shows no bird: frame-rate budget, spec 5 §5).
+   */
+  fauna: { flock: number; fishers: number; frigates: number; wadersPerLanding: number; reflect: boolean };
 }
 export const QUALITY: Record<Quality, QualitySettings> = {
   // DPR capped at 1.75: at 2 the ride view sat on the 60 fps floor (the world alone ran 62–65 fps at 2880×1800).
   high: { dpr: [1, 1.75], nearSize: 512, farSize: 512, reflScale: 0.5, shadowMap: 4096, shadowHalf: 140, ao: true,
     veg: { density: 1, lod0: 220, reflLod0: 50, farCards: true, farRing: true, groundRadius: 60 },
     ancon: { ropeSegments: 40, ropeRadial: 6, passengers: 1 }, traffic: { bridgeCars: 10 },
-    fauna: { flock: 4, fishers: 2, frigates: 3, wadersPerLanding: 5 } },
+    fauna: { flock: 4, fishers: 2, frigates: 3, wadersPerLanding: 5, reflect: true } },
   medium: { dpr: [1, 1.5], nearSize: 384, farSize: 256, reflScale: 0.35, shadowMap: 2048, shadowHalf: 110, ao: true,
     veg: { density: 0.7, lod0: 150, reflLod0: 25, farCards: true, farRing: true, groundRadius: 45 },
     ancon: { ropeSegments: 32, ropeRadial: 6, passengers: 1 }, traffic: { bridgeCars: 10 },
-    fauna: { flock: 4, fishers: 2, frigates: 3, wadersPerLanding: 5 } },
+    fauna: { flock: 4, fishers: 2, frigates: 3, wadersPerLanding: 5, reflect: true } },
   low: { dpr: [1, 1], nearSize: 256, farSize: 192, reflScale: 0.25, shadowMap: 0, shadowHalf: 0, ao: false,
     // Low keeps cards beyond LOD0 (without them the banks past 90 m were bare while the water
     // still reflected cards) but skips the distant ring (placement cost on slow devices).
     veg: { density: 0.4, lod0: 90, reflLod0: 0, farCards: true, farRing: false, groundRadius: 25 },
     ancon: { ropeSegments: 20, ropeRadial: 4, passengers: 0.5 }, traffic: { bridgeCars: 6 },
-    fauna: { flock: 2, fishers: 1, frigates: 2, wadersPerLanding: 3 } },
+    fauna: { flock: 2, fishers: 1, frigates: 2, wadersPerLanding: 3, reflect: false } },
 };
 
 export function detectQuality(): Quality {

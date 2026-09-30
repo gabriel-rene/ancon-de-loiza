@@ -43,6 +43,38 @@ test('only waders cast shadows; rings are hidden in the reflection pass', () => 
   set.dispose();
 });
 
+test('low tier (reflect off): every animal is hidden in the reflection pass and restored after it', () => {
+  expect(QUALITY.low.fauna.reflect).toBe(false);
+  expect(QUALITY.high.fauna.reflect && QUALITY.medium.fauna.reflect).toBe(true);
+  const set = new FaunaSet(worldFor('1975'), QUALITY.low.fauna, false, false), ms = meshesOf(set);
+  const drawn = (m: THREE.Object3D) => { for (let o: THREE.Object3D | null = m; o; o = o.parent) if (!o.visible) return false; return true; };
+  let checked = 0;
+  for (let c = 0; c < 400; c += 7) {
+    set.update(c);
+    const before = ms.map(drawn);
+    set.beforeReflection();
+    for (const m of ms) expect(drawn(m), m.name).toBe(false);
+    set.afterReflection();
+    expect(ms.map(drawn)).toEqual(before);
+    checked += before.filter(Boolean).length;
+  }
+  expect(checked).toBeGreaterThan(0);
+  set.dispose();
+});
+
+test('reflect on (high, medium): the animals stay in the reflection pass; only rings are hidden', () => {
+  const set = new FaunaSet(worldFor('1975'), QUALITY.high.fauna, false, true), ms = meshesOf(set);
+  set.update(100);
+  const before = ms.map((m) => m.visible);
+  set.beforeReflection();
+  expect(set.group.visible).toBe(true);
+  expect(ms.map((m) => (m === set.rings ? true : m.visible))).toEqual(before.map((v, i) => (ms[i] === set.rings ? true : v)));
+  expect(set.rings.visible).toBe(false);
+  set.afterReflection();
+  expect(ms.map((m) => m.visible)).toEqual(before);
+  set.dispose();
+});
+
 test('same clock, same matrices', () => {
   const a = new FaunaSet(worldFor('1959'), QUALITY.high.fauna, false), b = new FaunaSet(worldFor('1959'), QUALITY.high.fauna, false);
   a.update(321.5); b.update(321.5);

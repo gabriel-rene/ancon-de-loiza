@@ -21,13 +21,13 @@ const at = (era: EraId, when: 'board' | 'mid' | 'unload') => {
   return when === 'board' ? Math.round(0.4 * load) : when === 'mid' ? Math.round(load + T.castOff + T.cross / 2) : Math.round(move + 6);
 };
 /**
- * Phase 5: 2 s after the ferry starts docking at the Loíza (east) landing on leg 1, when the landing's egrets and
- * herons are in the air. The ride view never frames the flush (the birds are 25–60 m to its sides; art gate), so
- * these shots use the station camera, which looks at that landing from the river.
+ * Phase 5: 4 s after the ferry starts docking at the Loíza (east) landing on leg 1, when the landing's egrets and
+ * herons fly across the front of the pad in the ride view (src/fauna/view.test.ts: all four flushers are in view
+ * then, in 1975 and 1840).
  */
 const flushAt = (era: EraId) => {
   const { load, unload } = DOCK_STOPS[era], leg = load + T.castOff + T.cross + T.dock + unload;
-  return leg + load + T.castOff + T.cross + 2;
+  return leg + load + T.castOff + T.cross + 4;
 };
 /** First manatee surfacing (mid-roll) and pelican-fisher dive (0.3 s after impact) after clock 300. */
 const manateeAt = () => { const k = Math.ceil(300 / MANATEE.period); return Math.round((manateeTime(k) + 0.5 * MANATEE.dur) * 10) / 10; };
@@ -84,9 +84,9 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string; slo
   { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'board'), name: '1984-ride-board' },
   { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'unload'), name: '1984-ride-unload' },
   { era: '1986', cam: 'bridge', t: golden('1986'), c: 40, name: '1986-bridge-traffic' },
-  // Phase 5: waders flushing at the Loíza landing (station camera), the manatee surfacing, a pelican-fisher dive.
-  { era: '1975', cam: 'station', t: golden('1975'), c: flushAt('1975'), name: '1975-station-flush', slow: true },
-  { era: '1840', cam: 'station', t: golden('1840'), c: flushAt('1840'), name: '1840-station-flush', slow: true },
+  // Phase 5: waders flushing at the Loíza landing, the manatee surfacing, a pelican-fisher dive.
+  { era: '1975', cam: 'ride', t: golden('1975'), c: flushAt('1975'), name: '1975-ride-flush', slow: true },
+  { era: '1840', cam: 'ride', t: golden('1840'), c: flushAt('1840'), name: '1840-ride-flush', slow: true },
   { era: '1975', cam: 'ride', t: golden('1975'), c: manateeAt(), name: '1975-ride-manatee', slow: true },
   { era: '1975', cam: 'ride', t: golden('1975'), c: diveAt(), name: '1975-ride-dive', slow: true },
 ];
@@ -94,7 +94,6 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string; slo
 for (const s of SHOTS) {
   test(`renders ${s.era} ${s.cam} @${s.t} c=${s.c}`, async ({ page }) => {
     // Station and town shots are too slow on the software GPU (close water reflection); taken with scripts/dev/shot.mjs (phase-4a-rulings.md, phase-4b-rulings.md).
-    // Phase 5's two station flush shots are marked slow and run here with the longer timeout.
     test.skip((s.cam === 'station' || s.cam === 'town') && !s.slow, 'station and town shots use the real GPU');
     if (s.slow) test.slow();
     const errors: string[] = [];

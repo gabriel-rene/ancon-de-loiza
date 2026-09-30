@@ -25,7 +25,8 @@ export class FaunaSet {
   private readonly m = new THREE.Matrix4(); private readonly q = new THREE.Quaternion();
   private readonly e = new THREE.Euler(0, 0, 0, 'YZX'); private readonly p = new THREE.Vector3(); private readonly s = new THREE.Vector3();
 
-  constructor(private readonly w: FaunaWorld, private readonly counts: Counts, castShadow: boolean) {
+  /** `reflect` false (low tier): the animals are left out of the water reflection pass altogether. */
+  constructor(private readonly w: FaunaWorld, private readonly counts: Counts, castShadow: boolean, private readonly reflect = true) {
     this.waders = waderSpecs(w.site, counts.wadersPerLanding);
     const cap = { pelican: counts.flock + counts.fishers, frigate: counts.frigates, wader: this.waders.length, mullet: 1, manatee: 1 };
     const make = (shape: Exclude<Shape, 'ring'>) => {
@@ -98,9 +99,9 @@ export class FaunaSet {
     this.rings.instanceMatrix.needsUpdate = true; this.ringAge.needsUpdate = true;
   }
 
-  /** Reflection pass: rings lie on the mirror plane — hide them there. */
-  beforeReflection = () => { this.rings.visible = false; };
-  afterReflection = () => { this.rings.visible = this.rings.count > 0; };
+  /** Reflection pass: rings lie on the mirror plane — hide them there; with `reflect` off, hide every animal. */
+  beforeReflection = () => { this.rings.visible = false; if (!this.reflect) this.group.visible = false; };
+  afterReflection = () => { this.rings.visible = this.rings.count > 0; this.group.visible = true; };
 
   dispose() {
     for (const o of [...this.group.children]) {
