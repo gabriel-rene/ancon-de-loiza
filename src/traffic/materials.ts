@@ -6,13 +6,15 @@ let mats: Record<TrafficMaterialId, THREE.Material> | null = null;
 /**
  * One set for the app's life (never disposed, like infraMaterials). Paint: clear-coated, colour per instance.
  * Glass: dark, tinted and glossy so it takes the sky, see-through (the 'hi' cabins are hollow; drivers show, spec §5);
- * no depth write, drawn after the opaque meshes (TrafficSet sets its renderOrder). Trim: chrome (vertex colours pick chrome, lamps).
+ * no depth write, drawn after the opaque meshes (TrafficSet sets its renderOrder); both sides in one pass (forceSinglePass:
+ * the panes share one tint, so their order hardly shows, and each glass mesh is one draw call, not two).
+ * Trim: chrome (vertex colours pick chrome, lamps).
  * Dark: rough vertex-coloured parts (grille, tyres' sidewalls, lamps' lenses, undercarriage). Hide: animal coat × instance tint.
  */
 export function trafficMaterials(): Record<TrafficMaterialId, THREE.Material> {
   return (mats ??= {
     paint: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.05, clearcoat: 0.7, clearcoatRoughness: 0.22 }),
-    glass: new THREE.MeshStandardMaterial({ color: 0x1a2226, roughness: 0.06, metalness: 0.35, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide }),
+    glass: new THREE.MeshStandardMaterial({ color: 0x1a2226, roughness: 0.06, metalness: 0.35, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }),
     trim: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0.85 }),
     dark: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 }),
     wheel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.25 }),

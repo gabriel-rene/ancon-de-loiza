@@ -58,21 +58,25 @@ Shots in `tests/snapshots/phase4c/` (the ten 4c shots listed in `tests/e2e/world
 
 ## Frame rate after (Task 14)
 
-`perf.mjs`, 10 s, vsync and cap off, `freeze=1`, dpr 2 (low dpr 1), real GPU (Metal), build of 0973a99.
+`perf.mjs`, 10 s, vsync and cap off, `freeze=1`, dpr 2 (low dpr 1), real GPU (Metal). Back to back: the Task 1 commit e9e2930 built in a scratch worktree on `:4174`, each query before then after.
 
-| query | tier | mean ms | baseline ms | change |
+After the perf fix (below), build of this commit:
+
+| query | tier | before ms | after ms | change |
 |---|---|---|---|---|
-| `?era=1975&cam=ride&t=17&c=95&freeze=1&q=high` | high | 14.59 | 12.39 | +17.8 % |
-| `?era=1984&cam=ride&t=17&c=95&freeze=1&q=high` | high | 14.68 | 12.19 | +20.4 % |
-| `?era=1984&cam=ride&t=17&c=5&freeze=1&q=high` | high | 14.55 | 12.16 | +19.7 % |
-| `?era=1975&cam=ride&t=17&c=95&freeze=1&q=medium` | medium | 8.76 | 7.63 | +14.8 % |
-| `?era=1984&cam=ride&t=17&c=95&freeze=1&q=medium` | medium | 8.57 | 7.37 | +16.3 % |
-| `?era=1984&cam=ride&t=17&c=5&freeze=1&q=medium` | medium | 8.39 | 6.96 | +20.5 % |
-| `?era=1975&cam=ride&t=17&c=95&freeze=1&q=low` | low | 2.49 | 2.35 | +6.0 % |
-| `?era=1984&cam=ride&t=17&c=95&freeze=1&q=low` | low | 2.42 | 2.34 | +3.4 % |
-| `?era=1984&cam=ride&t=17&c=5&freeze=1&q=low` | low | 2.65 | 2.51 | +5.6 % |
+| 1975 c=95 | high | 9.65 | 9.75 | +1.0 % |
+| 1984 c=95 | high | 9.46 | 9.74 | +3.0 % |
+| 1984 c=5 | high | 9.43 | 9.55 | +1.3 % |
+| 1975 c=95 | medium | 5.97 | 5.99 | +0.3 % |
+| 1984 c=95 | medium | 5.81 | 5.92 | +1.9 % |
+| 1984 c=5 | medium | 5.49 | 5.64 | +2.7 % |
+| 1975 c=95 | low | 1.95 | 1.81 | −7.2 % |
+| 1984 c=95 | low | 1.84 | 1.89 | +2.7 % |
+| 1984 c=5 | low | 2.07 | 2.02 | −2.4 % |
 
-Back to back (the Task 1 commit e9e2930 built in a scratch worktree on `:4174`, each query before then after):
+**Within the 5 % budget on every tier.** The machine ran faster than on the Task 1 day (the baseline build now takes 9.5 ms on high, not 12.2 ms; the GPU is shared with other apps and shifts between states), so the ratio against a back-to-back baseline is the measure. Low sits at 2 ms, where run-to-run noise is about ±0.05 ms (±2.5 %).
+
+Before the fix (build of 0973a99), for the record:
 
 | query | tier | before ms | after ms | change |
 |---|---|---|---|---|
@@ -86,7 +90,11 @@ Back to back (the Task 1 commit e9e2930 built in a scratch worktree on `:4174`, 
 | 1984 c=95 | low | 2.32 | 2.49 | +7.3 % |
 | 1984 c=5 | low | 2.53 | 2.67 | +5.5 % |
 
-**Fails the 5 % budget** on high and medium (+13 to +20 %) and marginally on low (two of three rows over 5 %). Stopped here as the brief says; open for the user. The art-gate fixes add no draw calls, and in 1975/1984 only a few boxes per car (split seat backs); the measured queries have no animals.
+### Perf fix
+
+- **Cause: N8AO's transparency mode.** N8AO switches on its transparency-aware path as soon as any material in the scene is `transparent`, checking every object whether visible or not. The cars' glass was the first transparent material in the app, so from 4c on AO drew the scene twice more per frame, into two full-resolution targets (29 → 33 renders per frame). That cost about 2 ms on high and 1 ms on medium even with every traffic mesh hidden. Low has no AO, so it was never affected. Fix: `opaqueAO` (`src/scene/post/opaqueAO.ts`), passed as the N8AO `ref`, keeps AO on the opaque-only path it used before 4c. The cabin seen through the 34 %-opaque glass takes the AO; side by side, the shots show no visible change.
+- **Glass in one pass.** The double-sided glass had drawn back faces and front faces in two draw calls per mesh and pass; `forceSinglePass` makes it one. The panes share one tint, so the order does not show. This saves about 0.05 ms on low.
+- Tested and not needed: glass or load shadows (≤ 0.1 ms), skipping `TrafficSet.update` (≤ 0.2 ms of CPU, no gain in frame time), 'lo' car geometry (no gain), hidden driver slots (≈ 0.1 ms). The bridge meshes mount only in 1986 (not in these queries). Bisect table: `.superpowers/sdd/2026-09-29-phase-4c-traffic/perf-report.md`.
 
 ## Fact check
 
