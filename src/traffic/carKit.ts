@@ -112,17 +112,27 @@ function vintage(model: CarModel, detail: Detail) {
   const d = DIMS[model], s = SILHOUETTES[model], wb2 = d.wheelbase / 2, xn = wb2 + d.front, xt = -(wb2 + rearOverhang(d));
   const W = d.width, cw = W * s.cabinW, seg = detail === 'hi' ? 12 : 6, R = d.wheelR + 0.06;
   const hoodW = W * 0.5, hoodL = xn - 0.12 - s.c1;
-  const fender = (xc: number, side: number) => new THREE.CylinderGeometry(R, R, 0.26, seg, 1, true, 0, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).translate(xc, d.wheelR, side * (W / 2 - 0.13));
+  // Fender: a closed half-ring shell (outer R, inner R - 0.03), so it has a real thickness from every side.
+  const fenderShape = new THREE.Shape(); fenderShape.absarc(0, 0, R, 0, Math.PI, false); fenderShape.absarc(0, 0, R - 0.03, Math.PI, 0, true);
+  const fender = (xc: number, side: number) => new THREE.ExtrudeGeometry(fenderShape, { depth: 0.26, bevelEnabled: false, curveSegments: detail === 'hi' ? seg : 3 }).translate(xc, d.wheelR, side * (W / 2 - 0.13) - 0.13);
+  // hi: bevelled body blocks (bevel kept inside the size); lo: plain boxes
+  const blk = (sx: number, sy: number, sz: number, x: number, y: number, z: number) => {
+    if (detail !== 'hi') return boxAt(sx, sy, sz, x, y, z);
+    const b = Math.min(0.03, sx / 4, sy / 4, sz / 4), hx = sx / 2, hy = sy / 2;
+    return extrude([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], sz, b, 'hi').translate(x, y, z);
+  };
+  const IN = 0.05;   // paint frame around each pane; the glass stands 6 mm proud of the cabin
+  const gTop = s.roof - 0.03 - IN, gBot = s.belt + IN, gH = gTop - gBot, gY = (gTop + gBot) / 2;
   const paint = merge([
-    boxAt(hoodL, s.hoodY - s.sill - 0.15, hoodW, s.c1 + hoodL / 2, (s.hoodY + s.sill + 0.15) / 2, 0),              // hood
-    boxAt(s.c1 - s.c0, s.roof - s.sill - 0.05, cw, (s.c0 + s.c1) / 2, (s.roof + s.sill + 0.05) / 2 - 0.03, 0),      // cabin block
-    boxAt(s.c0 - xt, s.deckY - s.sill, cw * 0.95, (s.c0 + xt) / 2, (s.deckY + s.sill) / 2, 0),                       // rear body
-    boxAt(s.c1 - s.c0 + 0.1, 0.06, cw + 0.06, (s.c0 + s.c1) / 2, s.roof, 0),                                         // roof cap
+    blk(hoodL, s.hoodY - s.sill - 0.15, hoodW, s.c1 + hoodL / 2, (s.hoodY + s.sill + 0.15) / 2, 0),              // hood
+    blk(s.c1 - s.c0, s.roof - s.sill - 0.05, cw, (s.c0 + s.c1) / 2, (s.roof + s.sill + 0.05) / 2 - 0.03, 0),      // cabin block
+    blk(s.c0 - xt, s.deckY - s.sill, cw * 0.95, (s.c0 + xt) / 2, (s.deckY + s.sill) / 2, 0),                       // rear body
+    blk(s.c1 - s.c0 + 0.1, 0.06, cw + 0.06, (s.c0 + s.c1) / 2, s.roof, 0),                                         // roof cap
     ...[-1, 1].flatMap((side) => [fender(-wb2, side), fender(wb2, side)]),
   ]);
   const glass = colored(merge([
-    boxAt(0.03, s.roof - s.belt - 0.2, cw - 0.12, s.c1 + 0.01, (s.roof + s.belt) / 2, 0),                             // upright windshield
-    boxAt(s.c1 - s.c0 - 0.3, s.roof - s.belt - 0.25, cw + 0.012, (s.c0 + s.c1) / 2, (s.roof + s.belt) / 2 + 0.02, 0),  // side glass slab
+    boxAt(0.03, gH, cw - 2 * IN, s.c1 + 0.01, gY, 0),                                   // upright windshield
+    boxAt(s.c1 - s.c0 - 2 * IN, gH, cw + 0.012, (s.c0 + s.c1) / 2, gY, 0),              // side glass slab
   ]), C.glassEdge);
   const trim = merge([
     colored(boxAt(0.06, s.hoodY - s.sill - 0.05, hoodW + 0.04, xn - 0.1, (s.hoodY + s.sill) / 2, 0), s.chrome ? C.chrome : C.black),   // radiator shell
