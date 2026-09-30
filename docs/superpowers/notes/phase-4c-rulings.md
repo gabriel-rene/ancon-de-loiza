@@ -31,9 +31,10 @@ Frame rate before 4c (`perf.mjs`, 10 s, vsync and cap off, `freeze=1`, dpr 2 exc
 The preflight scan (`.superpowers/sdd/2026-09-29-phase-4c-traffic/preflight.md`) found 18 blocking and 9 risky items in the first plan; each has a ruling (`progress.md`), applied in the amended plan and verified in a scratch copy.
 
 - **Deck speed (R4).** Spec §4.2 says 2 m/s on ramps and deck. At 2 m/s the 1984 load takes 57 s (cap 50). `SPEED.deck` = 2.8 m/s, the lowest speed ≤ 3 m/s (0.1 steps) that keeps every era within 50 s (at 2.7 m/s 1984 loads in 51 s). Spec §4.2 amended (Task 6). Horse and bicycles 1.3 m/s, oxen 0.9 m/s, cars 5.5 m/s on the road.
-- **Dock stops (R5).** Passengers stay serial (on after the load parks, off after it leaves), so every era with a load gets a longer stop: load/unload 1840 43/28, 1900 43/28, 1925 43/28, 1935 30/23, 1959 39/34, 1975 45/42, 1984 50/50 s; 1986 keeps 20/16. Spec §4.3 amended (Task 6). (The plan listed unload stops 1 s shorter; Task 8's fix round raised `PAX_UNLOAD` to 17 s, so each unload with a load grew by 1 s and 1984 sits on the 50 s cap.)
+- **Dock stops (R5).** Passengers stay serial (on after the load parks, off after it leaves), so every era with a load gets a longer stop: load/unload 1840 43/28, 1900 43/28, 1925 43/28, 1935 30/23, 1959 39/34, 1975 45/42, 1984 50/50 s; 1986 keeps 20/16. Spec §4.3 amended (Task 6). (The plan listed unload stops 1 s shorter; Task 8's fix round raised `PAX_UNLOAD` to 17 s, so each unload with a load grew by 1 s and 1984 sits on the 50 s cap. Known trip-wire: the 1984 unload is exactly 50 s with `PAX_UNLOAD` 17, so any longer passenger unload, deck speed drop or extra 1984 mover breaks the cap.)
 - **Lanes (B9, R1).** Roads keep right: the waiting line in the right-hand lane, leaving movers in the other, offset sideways along the road and pad connectors (mitred corners). Both story roads run 10–15 m beside their pad, so the lanes leave the road 28 m inland and run diagonally to the pad top. The queue head waits 10 m up the pad (spec §4.2 says "the top of the ramp"), where each mover lines up with its deck lane one wheelbase before the apron. Spec §4.2 amended (Task 6).
 - **Bicycles (B5; spec §4.1 deviation).** Spec §4.1 moves bicycles "like passengers, in the passenger lane". They ride the rail lane on deck and use the verge on the rail side ashore: they wait 2 m outside the lanes and leave 3.2 m outside them, in their own leave chain, never crossing the car lanes.
+- **Ox driver (spec §2, §5 deviation).** The ox driver walks ahead of the oxen, not beside them (`src/traffic/plan.ts`, `ahead`), on every deck with two polers (1840, 1900). Only on the 1925 platform, with one poler, does he walk beside the oxen, on the side the poler leaves free.
 - **Horse (spec §4.1, §5 deviations).** The led horse follows the vehicle route and parks on the cargo line (not the passenger lane); its leader walks without a hand target (spec §5 says "walk with hand targets").
 - **Spawns (B6).** Spawns are timed back from the docking deadline (5 s margin) and never let a mover catch the one ahead; places in line are measured back from each path's own queue head (B7).
 - **Passengers (B11, B12).** On two-lane decks nobody stands within 0.45 m of the centre corridor, and passengers take the spots at the deck ends first. A spot in the lane a mover drives off along keeps that passenger ashore for the leg.
@@ -92,10 +93,28 @@ Before the fix (build of 0973a99), for the record:
 
 ### Perf fix
 
-- **Cause: N8AO's transparency mode.** N8AO switches on its transparency-aware path as soon as any material in the scene is `transparent`, checking every object whether visible or not. The cars' glass was the first transparent material in the app, so from 4c on AO drew the scene twice more per frame, into two full-resolution targets (29 → 33 renders per frame). That cost about 2 ms on high and 1 ms on medium even with every traffic mesh hidden. Low has no AO, so it was never affected. Fix: `opaqueAO` (`src/scene/post/opaqueAO.ts`), passed as the N8AO `ref`, keeps AO on the opaque-only path it used before 4c. The cabin seen through the 34 %-opaque glass takes the AO; side by side, the shots show no visible change.
+- **Cause: N8AO's transparency mode.** N8AO switches on its transparency-aware path as soon as any material in the scene is `transparent`, checking every object whether visible or not. The cars' glass was the first transparent material in the app, so from 4c on AO drew the scene twice more per frame, into two full-resolution targets (29 → 33 renders per frame). That cost about 2 ms on high and 1 ms on medium even with every traffic mesh hidden. Low has no AO, so it was never affected. Fix: `opaqueAO` (`src/scene/post/opaqueAO.ts`), passed as the N8AO `ref`, keeps AO on the opaque-only path it used before 4c. The cabin seen through the 34 %-opaque glass takes the AO; side by side, the shots show no visible change. Consequence: any transparent material added later (water, foliage cards, more glass) also gets opaque-only AO, drawn as if it were opaque; if one ever needs transparency-aware AO, `opaqueAO` has to be revisited and its frame cost measured again.
 - **Glass in one pass.** The double-sided glass had drawn back faces and front faces in two draw calls per mesh and pass; `forceSinglePass` makes it one. The panes share one tint, so the order does not show. This saves about 0.05 ms on low.
 - Tested and not needed: glass or load shadows (≤ 0.1 ms), skipping `TrafficSet.update` (≤ 0.2 ms of CPU, no gain in frame time), 'lo' car geometry (no gain), hidden driver slots (≈ 0.1 ms). The bridge meshes mount only in 1986 (not in these queries). Bisect table: `.superpowers/sdd/2026-09-29-phase-4c-traffic/perf-report.md`.
 
 ## Fact check
 
-(pending)
+Spec §2 sources checked 2026-09-29 (`.superpowers/sdd/2026-09-29-phase-4c-traffic/factcheck.md`; S1, S4 and S4b opened, S3 not needed): **4 confirmed, 5 unconfirmed, none wrong, none blocked.**
+
+Confirmed: 1935 one-vehicle wooden platform [S4] (1930s caption); público car about 1959 [S4]; 1984 6–8 cars [S1][S4]; 1959 four cars in the S1 "two, four, six, eight" order (the exact count stays inferred L).
+
+Unconfirmed (flagged for the user):
+
+1. **1925 "1 car or ox cart plus people and horses" [S4].** The caption was not found in the collection; the nearest is a 1930s one-vehicle caption with no vehicle types.
+2. **1975 "TV vans crossed two at a time" [S1][S4].** S4 says a TV production crew crossed "con 2 vehículos"; "vans" is not in the source, and S1 only names the TV personalities.
+3. **1984 "bicycles pushed on by hand" [S4].** S4 shows bicycles at the station in the 1980s, none on the barge.
+4. **1986 "bridge open" [S1].** S1 gives no opening year; S4b gives 1985 for the opening and 1986 for the ferry's end, which agrees with the user ruling (in service by 1986, some say 1985).
+5. **1900 cane workers [S1], year.** The Iturregui family carried cane workers (S1), but no year is given; `eras.ts` already carries L.
+
+Controller ruling (applied in `src/data/eras.ts` `LOAD` and spec §2):
+
+- **1925 load: M → L**, because the [S4] caption is unconfirmed.
+- **1975 load: M → L**, because "vans" is unconfirmed (S4 says only "2 vehicles"). The TV vans stay in the load as inferred.
+- **1984 load: stays M**, because 6–8 cars are confirmed; a comment notes that the bicycles on the barge are inferred.
+- Spec §2 table: the 1925 row and the 1975 van claim now read L; the 1984 bicycles read inferred L.
+- Items 4 and 5: no ruling in this wave and no data change. The 1900 load already carries L in `eras.ts`; the spec §2 table still marks 1900 cane workers and 1986 "bridge open" [S1] as H (the fact check suggests L/M for 1900 and citing S4b for the 1985 opening).

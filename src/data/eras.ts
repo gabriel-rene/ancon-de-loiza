@@ -172,13 +172,16 @@ const leg = (r: Partial<LegRule>): LegRule => ({ cars: 0, fixed: [], pool: [], b
 const LOAD = {
   '1840': s([leg({ animal: 'oxCart' }), leg({ animal: 'horse' })], ['S3'], 'L', true),
   '1900': s([leg({ animal: 'caneCart' }), leg({})], ['S1'], 'L', true),
-  '1925': s([leg({ animal: 'oxCart' }), leg({ cars: 1, fixed: ['modelT'] }), leg({ animal: 'horse' })], ['S4'], 'M', true),
+  // L (fact check 2026-09-29): the [S4] "1 car or ox cart plus people and horses" caption could not be found.
+  '1925': s([leg({ animal: 'oxCart' }), leg({ cars: 1, fixed: ['modelT'] }), leg({ animal: 'horse' })], ['S4'], 'L', true),
   '1935': s([leg({ cars: 1, pool: ['modelA'] })], ['S4'], 'M', true),
   '1959': s([leg({ cars: 4, fixed: ['publico'], pool: ['sedan50'] })], ['S4'], 'M', true),
   '1975': s([
     leg({ cars: 6, fixed: ['tvVan', 'tvVan'], pool: ['sedan70', 'wagon70'] }),
     ...[1, 2, 3].map(() => leg({ cars: 6, pool: ['sedan70', 'wagon70'] })),
-  ], ['S1', 'S4'], 'M', true),
+  ], ['S1', 'S4'], 'L', true),   // L (fact check): S4 says a TV crew crossed "con 2 vehículos"; "vans" is inferred
+  // 6–8 cars confirmed [S1][S4] (fact check 2026-09-29); the bicycles on the barge are inferred (S4 shows bicycles at
+  // the station in the 1980s, none on board).
   '1984': s([leg({ cars: 8, pool: ['sedan80', 'compact80'], bicycles: 2 })], ['S1', 'S4'], 'M', true),
   '1986': s<LegRule[]>([], ['S1', 'S4'], 'H'),
 } satisfies Record<EraId, Sourced<LegRule[]>>;

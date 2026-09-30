@@ -43,11 +43,11 @@ All vehicle models, colours and mixes are inferred (L) unless a source is named.
 |---|---|---|---|
 | `1840` | 0 (cargo) | even legs: ox cart (2 yoked oxen + driver on foot); odd legs: led horse | carts and animals inferred from function [S3] L |
 | `1900` | 0 (cargo) | even legs: cane cart (2 yoked oxen + driver on foot); odd legs: cane workers only | cane workers [S1] H; cane cart inferred L |
-| `1925` | 1 | legs cycle: ox cart → Model T → led horse | "1 car or ox cart plus people and horses" [S4] H; model inferred L |
+| `1925` | 1 | legs cycle: ox cart → Model T → led horse | "1 car or ox cart plus people and horses" [S4] L (caption not found in the fact check, 2026-09-29); model inferred L |
 | `1935` | 1 | one car, Model A type | one-vehicle platform [S4] H; model inferred L |
 | `1959` | 4 | 4 cars, one of them a público (sedan with a roof sign) | público car ~1959 [S4] H; other models inferred L |
-| `1975` | 6 | 6 cars (sedans, station wagons); every 4th leg, 2 of them are TV vans | TV vans crossed two at a time [S1][S4] H; models inferred L |
-| `1984` | 8 | 8 cars (US sedans, Japanese compacts); 2 bicycles pushed on by hand | 6–8 cars [S1][S4] H; bicycles [S4] H; models inferred L |
+| `1975` | 6 | 6 cars (sedans, station wagons); every 4th leg, 2 of them are TV vans | a TV crew crossed with 2 vehicles [S4] L ("vans" unconfirmed, fact check 2026-09-29); models inferred L |
+| `1984` | 8 | 8 cars (US sedans, Japanese compacts); 2 bicycles pushed on by hand | 6–8 cars [S1][S4] H; bicycles on the barge inferred L (S4 shows bicycles at the station, none on board; fact check 2026-09-29); models inferred L |
 | `1986` | — | none (ferry moored); bridge traffic (§6) | bridge open [S1] H |
 
 Rules:
