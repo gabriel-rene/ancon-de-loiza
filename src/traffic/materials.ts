@@ -12,7 +12,7 @@ let mats: Record<TrafficMaterialId, THREE.Material> | null = null;
 export function trafficMaterials(): Record<TrafficMaterialId, THREE.Material> {
   return (mats ??= {
     paint: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.05, clearcoat: 0.7, clearcoatRoughness: 0.22 }),
-    glass: new THREE.MeshStandardMaterial({ color: 0x0e1215, roughness: 0.06, metalness: 0.4, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide }),
+    glass: new THREE.MeshStandardMaterial({ color: 0x1a2226, roughness: 0.06, metalness: 0.35, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide }),
     trim: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0.85 }),
     dark: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 }),
     wheel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.25 }),

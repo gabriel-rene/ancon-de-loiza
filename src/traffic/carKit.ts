@@ -35,7 +35,7 @@ export const SILHOUETTES: Record<CarModel, Silhouette> = {
 };
 
 type P2 = [number, number];
-const C = { chrome: 0xd8d8d4, black: 0x1c1c1c, grille: 0x2a2a28, lamp: 0xf2efe6, tail: 0x8a1a14, sign: 0xe8e2d0, under: 0x151515, glassEdge: 0x101214, cabin: 0x1e1c1a, seat: 0x3a3430 };
+const C = { chrome: 0xd8d8d4, black: 0x1c1c1c, grille: 0x2a2a28, lamp: 0xf2efe6, tail: 0x8a1a14, sign: 0xe8e2d0, under: 0x151515, glassEdge: 0x101214, cabin: 0x3a3632, seat: 0x6a5a4c };
 
 /** Arch over a wheel at x = xc (radius r, centre height wr) cut into the bottom edge at `sill`, from rear to front. */
 function arch(xc: number, wr: number, r: number, sill: number, steps: number): P2[] {
@@ -93,17 +93,23 @@ export function steeringWheel(model: CarModel): [number, number, number] {
   const [x, y, z] = driverSeat(model);
   return [x + STEER_REACH, y + STEER_UP, z];
 }
-/** Seat backs, the belt-line cover (the cabin floor seen through the glass), dash and steering wheel of a hollow cabin. */
+/**
+ * Seat backs, the belt-line cover (the cabin floor seen through the glass), dash and steering wheel of a hollow cabin.
+ * Seat backs are thin, warm upholstery (not black), stop well below the window tops and part in the middle (SEAT_GAP),
+ * so from behind the rear window shows the cabin, the gap between the backs and the drivers' heads, not a dark box.
+ */
+export const SEAT_BACK_MAX = 0.22, SEAT_GAP = 0.14;
 function interior(model: CarModel, x0: number, x1: number, cw: number, belt: number, lining: number, back2: boolean): THREE.BufferGeometry[] {
-  const [sx, , sz] = driverSeat(model), [wx, wy, wz] = steeringWheel(model), hb = Math.min(0.3, lining - belt - 0.15);   // seat backs reach the shoulders, below the windows' top
-  const seatBack = (x: number) => colored(new THREE.BoxGeometry(0.1, hb, cw - 0.12).translate(0, hb / 2, 0).rotateZ(0.18).translate(x, belt - 0.02, 0), C.seat);
+  const [sx, , sz] = driverSeat(model), [wx, wy, wz] = steeringWheel(model), hb = Math.min(SEAT_BACK_MAX, lining - belt - 0.2);   // up to the shoulder blades, well below the windows' top
+  const half = (cw - 0.12 - SEAT_GAP) / 2;
+  const seatBack = (x: number) => [-1, 1].map((side) => colored(new THREE.BoxGeometry(0.07, hb, half).translate(0, hb / 2, 0).rotateZ(0.18).translate(x, belt - 0.02, side * (SEAT_GAP + half) / 2), C.seat));
   const out = [
     colored(boxAt(x1 - x0, 0.03, cw - 0.06, (x0 + x1) / 2, belt - 0.005, 0), C.cabin),            // cabin floor at the belt
     colored(boxAt(0.22, 0.1, cw - 0.08, x1 - 0.13, belt + 0.05, 0), C.cabin),                        // dash under the windshield
-    seatBack(sx - 0.3),
+    ...seatBack(sx - 0.3),
     colored(new THREE.TorusGeometry(0.18, 0.018, 4, 10).rotateY(Math.PI / 2).rotateZ(-0.45).translate(wx, wy, wz), C.black),   // steering wheel
   ];
-  if (back2 && sx - 1.05 > x0 + 0.15) out.push(seatBack(sx - 1.05));                                // rear bench
+  if (back2 && sx - 1.05 > x0 + 0.15) out.push(...seatBack(sx - 1.05));                             // rear bench
   return out;
 }
 
@@ -204,10 +210,14 @@ function vintage(model: CarModel, detail: Detail) {
   // 'hi': hollow above the belt (spec 4c §5) — the lower cabin block, four corner posts and a door post, a solid back;
   // 'lo' (the bridge): one solid cabin block.
   const hi = detail === 'hi', cy0 = s.sill + 0.02, cy1 = s.roof - 0.03, cx = (s.c0 + s.c1) / 2, P = 0.07;
+  // The back wall carries a small rear window (period sedans had one), so from behind the cabin is not a blank box.
+  const RW = { w: 0.5, h: 0.24, top: cy1 - 0.12 }, rwY = RW.top - RW.h / 2, bwx = s.c0 + 0.025, sideW = (cw - RW.w) / 2;
   const cabin = hi ? [
     blk(s.c1 - s.c0, s.belt - cy0, cw, cx, (s.belt + cy0) / 2, 0),                                               // lower cabin
     ...[-1, 1].flatMap((side) => [s.c0 + P / 2, cx, s.c1 - P / 2].map((x) => boxAt(P, cy1 - s.belt, P, x, (cy1 + s.belt) / 2, side * (cw / 2 - P / 2)))),   // posts
-    boxAt(0.05, cy1 - s.belt, cw, s.c0 + 0.025, (cy1 + s.belt) / 2, 0),                                           // back wall
+    boxAt(0.05, RW.top - RW.h - s.belt, cw, bwx, (RW.top - RW.h + s.belt) / 2, 0),                              // back wall: below the rear window,
+    boxAt(0.05, cy1 - RW.top, cw, bwx, (cy1 + RW.top) / 2, 0),                                                     // above it,
+    ...[-1, 1].map((side) => boxAt(0.05, RW.h, sideW, bwx, rwY, side * (RW.w + sideW) / 2)),                       // and beside it
   ] : [blk(s.c1 - s.c0, s.roof - s.sill - 0.05, cw, cx, (s.roof + s.sill + 0.05) / 2 - 0.03, 0)];                 // cabin block
   const paint = merge([
     blk(hoodL, s.hoodY - s.sill - 0.15, hoodW, s.c1 + hoodL / 2, (s.hoodY + s.sill + 0.15) / 2, 0),              // hood
@@ -218,6 +228,7 @@ function vintage(model: CarModel, detail: Detail) {
   ]);
   const glass = colored(merge(hi ? [
     boxAt(0.012, cy1 - s.belt, cw - 2 * P, s.c1 - P / 2, (cy1 + s.belt) / 2, 0),                                   // upright windshield between the posts
+    boxAt(0.012, RW.h, RW.w, bwx, rwY, 0),                                                                          // rear window
     ...[-1, 1].map((side) => boxAt(s.c1 - s.c0 - 2 * P, cy1 - s.belt, 0.012, cx, (cy1 + s.belt) / 2, side * (cw / 2 - P / 2))),   // side panes
   ] : [
     boxAt(0.03, gH, cw - 2 * IN, s.c1 + 0.01, gY, 0),                                   // upright windshield
