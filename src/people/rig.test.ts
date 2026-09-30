@@ -1,10 +1,10 @@
 // src/people/rig.test.ts
 import * as THREE from 'three';
 import { describe, expect, test } from 'vitest';
-import { createFigurePose, FOOT_HEEL_Z, FOOT_TOE_Z, PART_INDEX, PARTS, poseFigure, proportions, skirtX, skirtZ, solveTwoBone, ZERO_MATRIX, type FigurePose, type PartName, type PoseKind, type V3 } from './rig';
+import { createFigurePose, FOOT_HEEL_Z, FOOT_TOE_Z, PART_INDEX, PARTS, poseFigure, proportions, sitHipHeight, skirtX, skirtZ, solveTwoBone, ZERO_MATRIX, type FigurePose, type PartName, type PoseKind, type V3 } from './rig';
 
 const body = { height: 1.7, build: 1, dress: false };
-const KINDS: PoseKind[] = ['stand', 'walk', 'haul', 'pole'];
+const KINDS: PoseKind[] = ['stand', 'walk', 'haul', 'pole', 'sit'];
 const mat = (p: FigurePose, n: PartName) => new THREE.Matrix4().fromArray(p.parts, PART_INDEX[n] * 16);
 const at = (p: FigurePose, n: PartName, x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(mat(p, n));
 /** Lowest heel / toe sole point of one foot. */
@@ -115,5 +115,18 @@ describe('poseFigure', () => {
       expect(a.parts.length).toBe(16 * PARTS.length);
     }
     expect(Object.isFrozen(ZERO_MATRIX.elements)).toBe(true);
+  });
+  test('sit: thighs level, shins upright, hands reach a wheel ahead', () => {
+    const body = { height: 1.72, build: 1, dress: false };
+    const hand: V3 = [0.17, sitHipHeight(body) + 0.36, 0.45];
+    const out = poseFigure(body, { kind: 'sit', phase: 0, handL: hand, handR: [-0.17, hand[1], hand[2]] }, createFigurePose());
+    const col = (name: PartName, c: number) => out.parts[PART_INDEX[name] * 16 + 12 + c];
+    const thighDir = (n: PartName) => { const e = out.parts.subarray(PART_INDEX[n] * 16, PART_INDEX[n] * 16 + 16); return [e[4], e[5], e[6]]; };
+    const [tx, ty, tz] = thighDir('thighL'), l = Math.hypot(tx, ty, tz);
+    expect(Math.abs(ty / l)).toBeLessThan(0.15);                 // near horizontal
+    const [sx, sy, sz] = thighDir('shinL'), m = Math.hypot(sx, sy, sz);
+    expect(Math.abs(sy / m)).toBeGreaterThan(0.95);              // near vertical
+    expect(col('hips', 1)).toBeCloseTo(sitHipHeight(body), 2);
+    expect(Math.hypot(out.handL[0] - hand[0], out.handL[1] - hand[1], out.handL[2] - hand[2])).toBeLessThan(0.02);
   });
 });
