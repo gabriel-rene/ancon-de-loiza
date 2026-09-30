@@ -41,7 +41,7 @@ export function BridgeTrafficMesh({ near, era, n, castShadow }: { near: WorldFie
     }
     const wheel = new THREE.InstancedMesh(buildWheel('lo'), mats.wheel, 4 * cars.length);
     const all = [...BRIDGE_MODELS.flatMap((m) => parts[m]), wheel];
-    for (const m of all) { if (m.material === mats.glass) m.renderOrder = GLASS_ORDER; m.castShadow = castShadow; m.receiveShadow = true; m.frustumCulled = false; group.add(m); }
+    for (const m of all) { const glass = m.material === mats.glass; if (glass) m.renderOrder = GLASS_ORDER; m.castShadow = castShadow && !glass; m.receiveShadow = true; m.frustumCulled = false; group.add(m); }
     return { group, parts, used, wheel, all };
   }, [cars, castShadow]);
   useEffect(() => () => { for (const m of set.all) { m.dispose(); m.geometry.dispose(); } }, [set]);
