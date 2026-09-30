@@ -35,6 +35,8 @@ function wing(root: number, tip: number, cRoot: number, cTip: number, sweep: num
     const t = p.getZ(k), c = cRoot + (cTip - cRoot) * t;
     p.setXYZ(k, x + p.getX(k) * c - sweep * t, y + p.getY(k) * 0.03, side * (root + (tip - root) * t));
   }
+  // Mirroring z (side −1) reverses the winding; flip it back so both wings face outward before normals are computed.
+  if (side < 0) { const ix = g.index!; for (let i = 0; i < ix.count; i += 3) { const b = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, b); } }
   g.computeVertexNormals();
   return tag(g, hex, side);
 }
