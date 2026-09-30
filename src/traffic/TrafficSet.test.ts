@@ -4,6 +4,7 @@ import type { CrewSet } from '../ancon/CrewSet';
 import { legDuration } from '../ancon/crossing';
 import { tris } from '../ancon/testing';
 import { ERAS, type CarModel } from '../data/eras';
+import { FIGURE_TRI_BUDGET_HI } from '../people/geometry';
 import { createFigurePose, sitHipHeight, type PoseInput } from '../people/rig';
 import { ROOF_CLEAR, SILHOUETTES, STEER_REACH, STEER_UP, UNDER_Y } from './carKit';
 import { isCar } from './models';
@@ -19,9 +20,12 @@ vi.mock('./materials', async () => {
 });
 
 describe('budget (spec 4c §7), measured on a real TrafficSet per era', () => {
-  test('at most 14 meshes (draw calls, shadow twins aside) and 80 000 triangles drawn at once', () => {
+  test('at most 14 meshes (draw calls, shadow twins aside) and 80 000 triangles drawn at once, people included', () => {
     for (const e of ERAS) {
-      const env = envFor(e.id), cache = new LegCache(env), crew = { setExtra() {}, hideExtra() {} } as unknown as CrewSet, set = new TrafficSet(env, cache, crew, false);
+      // Drivers and attendants go into the crew's figure batch: count the visible ones at the hi-tier figure budget.
+      const shown = new Set<number>();
+      const crew = { setExtra(k: number) { shown.add(k); }, hideExtra(k: number) { shown.delete(k); } } as unknown as CrewSet;
+      const env = envFor(e.id), cache = new LegCache(env), set = new TrafficSet(env, cache, crew, false);
       const meshes = set.group.children.filter((o): o is THREE.InstancedMesh => (o as THREE.InstancedMesh).isInstancedMesh);
       expect(meshes.length, e.id).toBe(set.group.children.length);
       expect(meshes.length, e.id).toBeLessThanOrEqual(14);
@@ -29,7 +33,7 @@ describe('budget (spec 4c §7), measured on a real TrafficSet per era', () => {
       let worst = 0;
       if (meshes.length) for (let c = 2 * Lg; c < 4 * Lg; c += 0.5) {
         set.update(poseFor(env, c));
-        worst = Math.max(worst, meshes.reduce((n, m) => n + (m.visible ? m.count * tris(m.geometry) : 0), 0));
+        worst = Math.max(worst, meshes.reduce((n, m) => n + (m.visible ? m.count * tris(m.geometry) : 0), shown.size * FIGURE_TRI_BUDGET_HI));
       }
       expect(worst, e.id).toBeLessThanOrEqual(80_000);
       set.dispose();

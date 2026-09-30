@@ -24,19 +24,6 @@ const modelsOf = (rules: readonly LegRule[]) => {
   for (const r of rules) { r.fixed.forEach((m) => s.add(m)); if (r.cars > r.fixed.length) r.pool.forEach((m) => s.add(m)); if (r.animal) s.add(r.animal); if (r.bicycles) s.add('bicycle'); }
   return s;
 };
-/** The meshes (= draw calls) an era's load needs. */
-export function eraMeshKeys(rules: readonly LegRule[]): MeshKey[] {
-  const out: MeshKey[] = [], k = modelsOf(rules);
-  let cars = false;
-  for (const m of k) if (isCar(m)) { cars = true; for (const p of CAR_PARTS) out.push(`${m}:${p}`); }
-  if (cars) out.push('wheel');
-  if (k.has('oxCart') || k.has('caneCart')) out.push('oxBody', 'oxLegUpper', 'oxLegLower', 'cartWheel');
-  if (k.has('oxCart')) out.push('cart:oxCart');
-  if (k.has('caneCart')) out.push('cart:caneCart');
-  if (k.has('horse')) out.push('horseBody', 'horseLegUpper', 'horseLegLower');
-  if (k.has('bicycle')) out.push('bicycle');
-  return out;
-}
 export const PEOPLE_PER_LEG = (rules: readonly LegRule[]) => Math.max(0, ...rules.map((r) => r.cars + r.bicycles + (r.animal ? 1 : 0)));
 /** Figure slots: 3 legs (n − 1, n, n + 1) × the most people any leg carries. Men in period dress (drivers, carters and horse leaders of the time, inferred L). */
 export function trafficLooks(env: DockEnv): FigureLook[] {
@@ -71,12 +58,12 @@ const WL: V3 = [0.17, 0, 0.45], WR: V3 = [-0.17, 0, 0.45], BAR_R: V3 = [-0.21, 0
 export function driverFeetY(kind: CarModel, seatY: number, hip: number, headTop: number): number {
   return Math.min(seatY - hip, SILHOUETTES[kind].roof - ROOF_CLEAR - headTop);
 }
+/** A driver's shins reach forward into the footwell (rad from upright, PoseInput.legFwd), so the feet stay up in the body. */
+export const DRIVER_LEGS = 1.2;
 /**
  * Poses a driver seated at `at` (model frame, driverSeat) in car `kind`, hands on the steering wheel's rim (the grips
  * ±0.17 m either side of its centre), and returns the feet-plane height (driverFeetY). `input` and `fp` are reused.
  */
-/** A driver's shins reach forward into the footwell (rad from upright, PoseInput.legFwd), so the feet stay up in the body. */
-export const DRIVER_LEGS = 1.2;
 export function seatDriver(kind: CarModel, at: readonly number[], body: Body, input: PoseInput, fp: FigurePose): number {
   const hip = sitHipHeight(body, DRIVER_LEGS), wheelY = at[1] + STEER_UP;
   input.kind = 'sit'; input.phase = 0; input.handL = WL; input.handR = WR; input.legFwd = DRIVER_LEGS;
@@ -90,7 +77,7 @@ export function seatDriver(kind: CarModel, at: readonly number[], body: Body, in
 interface Slot { key: MeshKey; mesh: THREE.InstancedMesh; used: number }
 
 /**
- * The ferry load of one era: instanced meshes per model part (created only for the kinds the era uses, eraMeshKeys),
+ * The ferry load of one era: instanced meshes per model part (created only for the kinds the era uses),
  * written every frame for legs n − 1, n, n + 1 from moverFrame; drivers and attendants go into the crew's figure
  * batch (extra slots). World space, like the crew. Allocation-free per frame.
  */
@@ -122,7 +109,7 @@ export class TrafficSet {
       const g = buildCar(k, 'hi'), cap = 3 * maxOf(k); carCap += cap;
       for (const p of CAR_PARTS) add(`${k}:${p}`, g[p], p, cap);
     }
-    add('wheel', buildWheel('hi'), 'wheel', 4 * carCap);
+    if (carCap) add('wheel', buildWheel('hi'), 'wheel', 4 * carCap);   // no cars: no wheel geometry to build or leak
     const carts = (kinds.has('oxCart') ? 3 : 0) + (kinds.has('caneCart') ? 3 : 0);
     if (carts) {
       add('oxBody', buildAnimalBody('ox'), 'hide', 2 * carts);

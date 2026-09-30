@@ -38,7 +38,7 @@ describe('moverFrame', () => {
           moverFrame(s, env, c, poseFor(env, c), fr);
           if (fr.visible !== prev) {
             const d = Math.min(...env.pads.map((p) => Math.hypot(fr.front.x - p.shore[0], fr.front.z - p.shore[1])));
-            expect(d, `${id} ${s.m.id} ${fr.visible ? 'appears' : 'vanishes'} @${c}`).toBeGreaterThan(PAD.length + 40);
+            expect(d, `${id} ${s.m.id} ${fr.visible ? 'appears' : 'vanishes'} @${c}`).toBeGreaterThanOrEqual(60);   // global constraint: road ends ≥ 60 m inland
           }
           prev = fr.visible;
         }

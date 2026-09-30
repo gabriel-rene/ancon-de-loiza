@@ -92,7 +92,8 @@ export function planLeg(env: DockEnv, leg: number): LegPlan {
     if (ahead) s.spawn.t0 = spawnAfter(ahead, s);
     lastOf[key] = s; out.push(s);
   }
-  // Spawn as early as SPAWN_AFTER s after the previous leg's cast-off, later only if everyone still arrives in time.
+  // Spawn SPAWN_AFTER s after the previous leg's cast-off, or earlier if the last mover would otherwise reach its place
+  // in line after the deadline (QUEUE_MARGIN s before the ferry docks). The shift only ever moves spawns earlier.
   const first = -Lg + T.load + T.castOff + SPAWN_AFTER, due = -T.unload - T.dock - QUEUE_MARGIN;
   const shift = Math.min(first, due - Math.max(...out.map((s) => s.spawn.t0 + tripDuration(s.spawn))));
   for (const s of out) s.spawn.t0 += shift;
