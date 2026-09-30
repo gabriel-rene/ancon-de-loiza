@@ -107,8 +107,8 @@ Three new facts, Spanish and English, in `src/data/facts.ts`. The 1984 and 1986 
 | Era | Fact | Sources |
 |---|---|---|
 | 1900 | Piñones has about 96 bird species, among them the endangered brown pelican. The Carmelita islet may be Puerto Rico's most important heron colony. | [S22] |
-| 1984 | The river also gave fish and crabs: a 1980s photo shows fishermen cleaning a shark at El Ancón, and Tony Croatto was filmed with a *cocolía* (blue crab) trap in the river. | [S4] |
-| 1986 | Manatees were trapped behind the closed river mouth in 1995 and in June 2026. In 2026 DRNA cut a channel to free them. | [S17][S18] |
+| 1984 | The river also gave fish and crabs: a photo in Archivo Negro’s “El Ancón de Loíza” collection shows fishermen scaling a shark, and in the 1980s Tony Croatto was photographed carrying a *cocolía* (blue crab) trap in the river. | [S4][S22] |
+| 1986 | In June 2026, manatees were trapped behind the river mouth after sand closed it. DRNA cut a channel about 8 feet wide so they could return to the sea. | [S17][S18] |
 
 `[S18]` (El Nuevo Día, "Atrapados entre el río y el mar…") is in the research list but not yet in `src/data/sources.ts`; add it. The 1986 era runs to today, so the 2026 fact belongs there. `facts.test.ts` checks 3–6 facts per era.
 
