@@ -129,4 +129,13 @@ describe('poseFigure', () => {
     expect(col('hips', 1)).toBeCloseTo(sitHipHeight(body), 2);
     expect(Math.hypot(out.handL[0] - hand[0], out.handL[1] - hand[1], out.handL[2] - hand[2])).toBeLessThan(0.02);
   });
+  test('sit with legFwd: shins stretched forward, the hip lower by the same amount sitHipHeight reports', () => {
+    const body = { height: 1.72, build: 1, dress: false }, legFwd = 1.1;
+    const out = poseFigure(body, { kind: 'sit', phase: 0, legFwd }, createFigurePose());
+    const shin = out.parts.subarray(PART_INDEX.shinL * 16, PART_INDEX.shinL * 16 + 16), m = Math.hypot(shin[4], shin[5], shin[6]);
+    expect(Math.acos(Math.abs(shin[5]) / m)).toBeCloseTo(legFwd, 1);                            // shin tilted legFwd from upright
+    expect(out.parts[PART_INDEX.footL * 16 + 14]).toBeGreaterThan(out.parts[PART_INDEX.shinL * 16 + 14]);   // foot ahead of the knee
+    expect(out.parts[PART_INDEX.hips * 16 + 13]).toBeCloseTo(sitHipHeight(body, legFwd), 2);
+    expect(sitHipHeight(body, legFwd)).toBeLessThan(sitHipHeight(body) - 0.1);
+  });
 });

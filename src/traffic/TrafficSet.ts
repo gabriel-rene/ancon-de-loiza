@@ -5,7 +5,7 @@ import type { CarModel, LegRule } from '../data/eras';
 import { dressFigure, type FigureLook } from '../people/palettes';
 import { createFigurePose, poseFigure, segmentMatrix, sitHipHeight, type Body, type FigurePose, type PoseInput, type V3 } from '../people/rig';
 import { buildAnimalBody, buildBicycle, buildCart, buildCartWheel, buildLegSegment, legMatrices, OXEN_Z, oxenCentreX } from './animals';
-import { buildCar, buildWheel, CAR_PARTS, SILHOUETTES, wheelMatrix, type CarPart } from './carKit';
+import { buildCar, buildWheel, CAR_PARTS, ROOF_CLEAR, SILHOUETTES, STEER_REACH, STEER_UP, wheelMatrix, type CarPart } from './carKit';
 import type { DockEnv } from './env';
 import { trafficMaterials, type TrafficMaterialId } from './materials';
 import { DIMS, isCar, type MoverKind } from './models';
@@ -44,8 +44,7 @@ export function trafficLooks(env: DockEnv): FigureLook[] {
   return Array.from({ length: n }, (_, k) => dressFigure(env.spec.clothing, Number(env.era.id) * 331 + k * 7 + 5, false));
 }
 
-const HALF_PI = Math.PI / 2, STRIDE = 1.1;
-export const ROOF_CLEAR = 0.06, FEET_HIDE = 0.1;
+const HALF_PI = Math.PI / 2, STRIDE = 1.1, GLASS_ORDER = 2;
 /** Speed (m/s) at which an animal's gait reaches full amplitude; below it the legs ease toward standing. */
 const GAIT_FULL = 0.4;
 /** Per car model, its part mesh keys in CAR_PARTS order (no string building per frame). */
@@ -64,13 +63,28 @@ const _c = new THREE.Color();
 const WL: V3 = [0.17, 0, 0.45], WR: V3 = [-0.17, 0, 0.45], BAR_R: V3 = [-0.21, 0.98, 0.14], BAR_L: V3 = [0.21, 0.98, 0.14], GA: V3 = [0, 0, 0], GB: V3 = [0, 0, 0];
 
 /**
- * Feet-plane height (model frame) of a seated driver: hip at the seat (`seatY` + 5 cm), then kept inside the solid
- * cabin — feet no lower than FEET_HIDE under the sill (a high vintage body would show the shins below it), head
- * ROOF_CLEAR under the roof (on the low 1970s–80s roofs the head wins over the feet). `headTop`: posed, figure-local.
+ * Feet-plane height (model frame) of a seated driver whose hip joint is `hip` above its feet: hip on the seat point
+ * `seatY` (carKit driverSeat), lowered only as far as its head needs to clear the roof lining by ROOF_CLEAR (a tall
+ * driver in a low 1970s–80s car sinks into the cushion; the shins, below the belt, pass into the body, the
+ * undercarriage and the deck). `headTop`: posed, figure-local.
  */
 export function driverFeetY(kind: CarModel, seatY: number, hip: number, headTop: number): number {
-  const s = SILHOUETTES[kind];
-  return Math.min(Math.max(seatY - hip + 0.05, s.sill - FEET_HIDE), s.roof - ROOF_CLEAR - headTop);
+  return Math.min(seatY - hip, SILHOUETTES[kind].roof - ROOF_CLEAR - headTop);
+}
+/**
+ * Poses a driver seated at `at` (model frame, driverSeat) in car `kind`, hands on the steering wheel's rim (the grips
+ * ±0.17 m either side of its centre), and returns the feet-plane height (driverFeetY). `input` and `fp` are reused.
+ */
+/** A driver's shins reach forward into the footwell (rad from upright, PoseInput.legFwd), so the feet stay up in the body. */
+export const DRIVER_LEGS = 1.2;
+export function seatDriver(kind: CarModel, at: readonly number[], body: Body, input: PoseInput, fp: FigurePose): number {
+  const hip = sitHipHeight(body, DRIVER_LEGS), wheelY = at[1] + STEER_UP;
+  input.kind = 'sit'; input.phase = 0; input.handL = WL; input.handR = WR; input.legFwd = DRIVER_LEGS;
+  WL[2] = WR[2] = STEER_REACH; WL[1] = WR[1] = wheelY - (at[1] - hip);
+  poseFigure(body, input, fp);
+  const y = driverFeetY(kind, at[1], hip, fp.headTop);
+  if (y < at[1] - hip - 1e-6) { WL[1] = WR[1] = wheelY - y; poseFigure(body, input, fp); }   // lowered: hands still on the wheel
+  return y;
 }
 
 interface Slot { key: MeshKey; mesh: THREE.InstancedMesh; used: number }
@@ -98,7 +112,8 @@ export class TrafficSet {
     const add = (key: MeshKey, geo: THREE.BufferGeometry, mat: TrafficMaterialId, cap: number) => {
       if (cap <= 0) return;
       const mesh = new THREE.InstancedMesh(geo, trafficMaterials()[mat], cap);
-      mesh.castShadow = castShadow; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0; mesh.visible = false;
+      mesh.castShadow = castShadow && mat !== 'glass'; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.count = 0; mesh.visible = false;
+      if (mat === 'glass') mesh.renderOrder = GLASS_ORDER;   // see-through panes after the opaque load and its people
       const slot = { key, mesh, used: 0 };
       this.slots.set(key, slot); this.list.push(slot); this.group.add(mesh); this.geos.push(geo);
     };
@@ -191,13 +206,9 @@ export class TrafficSet {
   /** A driver (seated in the model at `at`) or an attendant on foot (standing at `at`, facing forward). */
   private person(k: number, fr: MoverFrame, role: 'driver' | 'attendant', at: [number, number, number], goad: boolean, kind: MoverKind) {
     const body = this.bodies[k], fp = this.poses[k], input = this.inputs[k];
-    input.t = fr.dist; input.seed = k; input.handL = undefined; input.handR = undefined;
+    input.t = fr.dist; input.seed = k; input.handL = undefined; input.handR = undefined; input.legFwd = undefined;
     if (role === 'driver') {
-      const hip = sitHipHeight(body);
-      WL[1] = WR[1] = hip + 0.36;
-      input.kind = 'sit'; input.phase = 0; input.handL = WL; input.handR = WR;
-      poseFigure(body, input, fp);
-      _w.makeTranslation(at[0], isCar(kind) ? driverFeetY(kind, at[1], hip, fp.headTop) : at[1] - hip + 0.05, at[2]).multiply(_rot);
+      _w.makeTranslation(at[0], isCar(kind) ? seatDriver(kind, at, body, input, fp) : at[1], at[2]).multiply(_rot);
     } else {
       input.kind = fr.speed > 0.05 ? 'walk' : 'stand'; input.phase = (fr.dist / STRIDE) % 1;
       if (kind === 'bicycle') { if (at[2] > 0) input.handL = BAR_L; else input.handR = BAR_R; }   // the hand on the bicycle's side

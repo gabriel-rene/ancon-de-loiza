@@ -2,6 +2,7 @@ import type { SeatAnchor } from '../ancon/seats';
 import type { DeckLayout, VesselSpec } from '../ancon/spec';
 import type { CarModel, LegRule } from '../data/eras';
 import { hash3 } from '../vegetation/rng';
+import { driverSeat } from './carKit';
 import { DIMS, rearOverhang, type MoverDims, type MoverKind } from './models';
 
 /** A driver (seated, model-local seat point) or an attendant on foot (model-local stand point). */
@@ -43,8 +44,6 @@ const r01 = (era: number, leg: number, k: number, salt: number) => hash3(era * 1
 const pick = <T>(a: readonly T[], u: number) => a[Math.min(a.length - 1, Math.floor(u * a.length))];
 const origin = (d: MoverDims, centre: number) => centre - (d.front - rearOverhang(d)) / 2;
 
-/** Driver seat (model-local): left-hand drive, a third of the wheelbase behind the front axle, cushion 0.5 m up. */
-const seat = (d: MoverDims): [number, number, number] => [d.wheelbase / 2 - 0.62 * d.wheelbase, 0.5, -0.2 * d.width];
 
 /**
  * The movers of leg `leg`. Cars take the 'car' seat anchors, farthest from the entry end first, in `fixed` then
@@ -73,7 +72,7 @@ export function legMovers(rules: readonly LegRule[], spec: VesselSpec, L: DeckLa
     const kind: CarModel = k < rule.fixed.length ? rule.fixed[k] : pick(rule.pool, r01(era, leg, k, 1));
     const d = DIMS[kind], s = slots[k];
     const paint = FIXED_PAINT[kind] ?? pick(PAINT[era] ?? PAINT[1984], r01(era, leg, k, 2));
-    add(kind, { x: origin(d, s.pos[0]), z: s.pos[2] }, paint, [person('driver', seat(d))]);
+    add(kind, { x: origin(d, s.pos[0]), z: s.pos[2] }, paint, [person('driver', driverSeat(kind))]);
   }
   if (rule.bicycles) {
     const d = DIMS.bicycle, rows = Math.max(1, L.rows), last = -(rows / 2 - 0.5) * 4.4;   // nose behind the last car row's centre, walking in single file
