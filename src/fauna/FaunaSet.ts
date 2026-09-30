@@ -82,7 +82,7 @@ export class FaunaSet {
     this.done('pelican', n);
     n = 0; for (let i = 0; i < c.frigates; i++) { frigate(clock, i, w, o); n = this.put('frigate', n); }
     this.done('frigate', n);
-    n = 0; for (const ws of this.waders) { wader(clock, ws, w, o); n = this.put('wader', n); }
+    n = 0; for (let i = 0; i < this.waders.length; i++) { wader(clock, this.waders[i], w, o); n = this.put('wader', n); }
     this.done('wader', n);
     n = 0; if (mullet(clock, w, o).on) n = this.put('mullet', n);
     this.done('mullet', n);

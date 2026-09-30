@@ -29,7 +29,7 @@ export const VIEW = { fov: 42, aspect: 1.6, near: 1.5, far: 40000, maxDist: 400,
  * Spec 5 §1.1 (amendment 2026-09-30, closer): the size (m) each kind is judged by, and the least projected size (px)
  * that counts as seen. Wader size is 1 m × its WADER_LOOK scale; take-off counts flying waders at `takeoffPx`.
  */
-export const VIEW_SIZE = { pelican: 2.1, frigate: 2.2, wader: 1.0, manatee: 3 };
+export const VIEW_SIZE = { pelican: 2.1, frigate: 2.2, wader: 1.0 };
 export const VIEW_PX = { pelican: 25, frigate: 10, wader: 10, takeoff: 8 };
 /** Seconds after each dock start over which the flush is sampled (every 0.25 s). */
 export const TAKEOFF_WINDOW: [number, number] = [2, 6];

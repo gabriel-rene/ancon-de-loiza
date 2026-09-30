@@ -31,15 +31,16 @@ export const FLOCK = {
   gapBack: 5, gapSide: 2.5, beatHz: 1.25, beats: 3, glide: 2.2, amp: 0.55,
 };
 const _fs = createCrossingState();
+/** `a` (m along the crossing line) kept `FLOCK.margin` m inside the banks of a span `span` m long. */
+const inBanks = (a: number, span: number) => Math.min(span - FLOCK.margin, Math.max(FLOCK.margin, a));
 /** Where loop k's flock crosses the crossing line: metres from the east landing along it. */
 export function flockAlong(k: number, w: FaunaWorld): number {
   const g = w.site.geom, st = w.moored ? mooredState(_fs) : crossingState((k + 0.5) * FLOCK.period, _fs, w.T);
   // Facing: the leg's travel direction, or the next leg's once the ferry is unloading (the camera swings round).
   const facing = st.phase === 'unload' ? -st.travel : w.moored ? 1 : st.travel;
   const ahead = FLOCK.ahead[0] + (FLOCK.ahead[1] - FLOCK.ahead[0]) * u01(k, 1, 71), at = g.span * st.s;
-  const clamp = (a: number) => Math.min(g.span - FLOCK.margin, Math.max(FLOCK.margin, a));
-  const a = clamp(at + facing * ahead);
-  return facing * (a - at) >= FLOCK.near ? a : clamp(at - facing * ahead);
+  const a = inBanks(at + facing * ahead, g.span);
+  return facing * (a - at) >= FLOCK.near ? a : inBanks(at - facing * ahead, g.span);
 }
 export function pelicanFlock(clock: number, i: number, w: FaunaWorld, out: FaunaPose): FaunaPose {
   const s0 = w.site, g = s0.geom, k = Math.floor(clock / FLOCK.period), t = clock - k * FLOCK.period, sgn = (k & 1) === 0 ? 1 : -1;
@@ -93,7 +94,7 @@ export function pelicanFisher(clock: number, i: number, w: FaunaWorld, out: Faun
 }
 
 /**
- * Frigatebird (spec 5 §2, §3.1): a slow figure-eight 60–62.5 m up, wings held out (no flapping), banking in the
+ * Frigatebird (spec 5 §2, §3.1): a slow figure-eight 60–62.6 m up, wings held out (no flapping), banking in the
  * turns. Even birds soar beyond the east bank, odd birds beyond the west. The figure-eight's centre keeps `ahead` m
  * from the ferry toward its bank (a pure function of the crossing clock, like the mullet), so while the ride camera
  * looks toward that bank the bird is about 230–250 m away: just under the top of the view and ≥ 10 px (spec §1.1).

@@ -30,7 +30,10 @@ const flushAt = (era: EraId, after: number) => {
   const { load, unload } = DOCK_STOPS[era], leg = load + T.castOff + T.cross + T.dock + unload;
   return leg + load + T.castOff + T.cross + after;
 };
-/** First manatee surfacing (mid-roll) and pelican-fisher dive (0.3 s after impact) after clock 300. */
+/**
+ * Manatee: the surfacing k = ceil(300 / period), at mid-roll (with its jitter it can start up to 7.5 s before 300).
+ * Dive: pelican fisher 0's first impact after clock 300, + 0.3 s.
+ */
 const manateeAt = () => { const k = Math.ceil(300 / MANATEE.period); return Math.round((manateeTime(k) + 0.5 * MANATEE.dur) * 10) / 10; };
 const diveAt = () => Math.round((fisherEvents(0, 300).impact + 0.3) * 10) / 10;
 /** `heavy`: heavy on the software GPU (over 90 s to the ready flag, ~2 min alone); given test.slow() and a 300 s ready wait. */

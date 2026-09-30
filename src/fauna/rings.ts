@@ -3,10 +3,10 @@ import { createFaunaPose } from './pose';
 import type { FaunaWorld } from './site';
 import { manateeSpot, manateeTime, MANATEE, MULLET, mulletJump, type Jump } from './waterLife';
 
-/** Spec 5 §4.4: a fixed pool of rings. Worst case alive at once is ≤ 8 (see test). */
+/** Spec 5 §4.4: a fixed pool of rings. Worst case alive at once measured 6 (every era, 20 000 s). */
 export const RING_POOL = 12;
 /** [radius (m), life (s)] per ring source. */
-const R = { jumpIn: [0.8, 1.5], jumpOut: [1.4, 2.0], surfA: [1.5, 2.5], surfB: [2.8, 3.0], dive: [2.5, 2.5], takeoff: [1.8, 2.0] } as const;
+const R = { jumpIn: [1.0, 1.5], jumpOut: [1.4, 2.0], surfA: [1.5, 2.5], surfB: [2.8, 3.0], dive: [2.5, 2.5], takeoff: [1.8, 2.0] } as const;
 
 let n = 0;
 function push(out: Float32Array, clock: number, x: number, z: number, t0: number, r: readonly [number, number]) {

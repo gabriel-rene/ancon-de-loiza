@@ -23,8 +23,10 @@ test('mullet: jumps 3–6 s apart, in the river, off the crossing line, within 1
     crossingState(j.t0, st, w.T);
     const fx = g.shoreEast[0] + g.dir[0] * g.span * st.s, fz = g.shoreEast[1] + g.dir[1] * g.span * st.s;
     expect(Math.hypot(j.x - fx, j.z - fz)).toBeLessThanOrEqual(120 + 1e-6);
-    expect(j.h).toBeGreaterThanOrEqual(0.3);
-    expect(j.h).toBeLessThanOrEqual(0.6);
+    // Spec §3.2: the fish's centre peaks 0.3–0.6 m above the water (mid-jump).
+    mullet(j.t0 + MULLET.dur / 2, w, p);
+    expect(p.y).toBeGreaterThanOrEqual(0.3 - 1e-9);
+    expect(p.y).toBeLessThanOrEqual(0.6 + 1e-9);
   }
   expect(found).toBeGreaterThan(270);
 });
@@ -67,6 +69,8 @@ test('rings: every event starts one, the pool never overflows, all inside the fr
     for (let r = 0; r < Math.min(n, RING_POOL); r++) {
       expect(buf[r * 4 + 2]).toBeGreaterThanOrEqual(0);
       expect(buf[r * 4 + 2]).toBeLessThan(1);
+      expect(buf[r * 4 + 3]).toBeGreaterThanOrEqual(1);   // spec §4.4: rings grow to 1–3 m
+      expect(buf[r * 4 + 3]).toBeLessThanOrEqual(3);
       expect(distToCrossing(w.site, buf[r * 4], buf[r * 4 + 1])).toBeLessThan(FRAME_RADIUS);
     }
   }

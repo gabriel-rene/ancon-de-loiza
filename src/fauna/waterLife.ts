@@ -8,8 +8,12 @@ import type { FaunaWorld } from './site';
 const TAU = 2 * Math.PI;
 const _st = createCrossingState();
 
-/** Mullet (spec 5 §3.2): one jump every 3–6 s, within 120 m of the ferry, never within `clear` m of the crossing line. */
-export const MULLET = { period: 4.5, jitter: 0.75, dur: 0.45, len: 0.8, rMin: 20, rMax: 120, clear: 12 };
+/**
+ * Mullet (spec 5 §3.2): one jump every 3–6 s, within 120 m of the ferry, never within `clear` m of the crossing line.
+ * It leaves and re-enters the water `sink` m down, so its centre peaks `apex` m above the water.
+ */
+export const MULLET = { period: 4.5, jitter: 0.75, dur: 0.45, len: 0.8, rMin: 20, rMax: 120, clear: 12, sink: 0.12, apex: [0.3, 0.6] as [number, number] };
+/** `h`: the arc's height (m) above its ends, `sink` m under the water. */
 export interface Jump { x: number; z: number; hx: number; hz: number; h: number; t0: number }
 
 /** Jump k: false when no candidate spot passes (then there is no jump k). */
@@ -24,7 +28,7 @@ export function mulletJump(k: number, w: FaunaWorld, out: Jump): boolean {
     if (waterAt(w.site.fields, x, z) !== WATER.RIVER) continue;
     if (Math.abs((x - g.shoreEast[0]) * lat[0] + (z - g.shoreEast[1]) * lat[1]) < MULLET.clear) continue;
     const b = TAU * u01(k, 30 + j, 83);
-    out.x = x; out.z = z; out.hx = Math.cos(b); out.hz = Math.sin(b); out.h = 0.3 + 0.3 * u01(k, 40 + j, 83); out.t0 = t0;
+    out.x = x; out.z = z; out.hx = Math.cos(b); out.hz = Math.sin(b); out.h = MULLET.sink + MULLET.apex[0] + (MULLET.apex[1] - MULLET.apex[0]) * u01(k, 40 + j, 83); out.t0 = t0;
     return true;
   }
   return false;
@@ -38,7 +42,7 @@ export function mullet(clock: number, w: FaunaWorld, out: FaunaPose): FaunaPose 
     const p = (clock - _j.t0) / MULLET.dur;
     if (p < 0 || p >= 1) continue;
     out.x = _j.x + _j.hx * (p - 0.5) * MULLET.len; out.z = _j.z + _j.hz * (p - 0.5) * MULLET.len;
-    out.y = 4 * _j.h * p * (1 - p) - 0.12;
+    out.y = 4 * _j.h * p * (1 - p) - MULLET.sink;
     out.yaw = yawOf(_j.hx, _j.hz); out.pitch = Math.atan2(4 * _j.h * (1 - 2 * p), MULLET.len); out.roll = 0;
     out.scale = 1; out.flap = 0; out.fold = 0; out.legs = 0; out.on = true;
     return out;
