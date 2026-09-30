@@ -4,8 +4,8 @@ import { CROSSING_TIMINGS as T } from '../../src/ancon/crossing';
 import { goldenHourAST } from '../../src/geo/sun';
 import { DOCK_STOPS } from '../../src/traffic/dockStops';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase4c-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4c'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase5-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase5'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
