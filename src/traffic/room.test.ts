@@ -50,4 +50,49 @@ describe('crew and load', () => {
       for (const x of actors) expect(actorFrame(x, st, c, b, createActorFrame())).toEqual(actorFrame(x, st, c, a, createActorFrame()));
     }
   });
+
+  test('helmsman yaw is continuous when he steps back aboard', () => {
+    for (const id of ERAS_WITH_LOAD) {
+      const env = envFor(id);
+      if (!env.spec.helmsman) continue;
+      const T = env.spec.timings, Lg = legDuration(T), cache = new LegCache(env);
+      const h = castActors(env.spec, env.seats, Number(id)).find((a) => a.role === 'helmsman')!;
+      const ctx: ActorCtx = { spec: env.spec, layout: env.layout, loadAt: (l) => cache.get(l).load, groundLocal: () => 0 };
+      for (const leg of [2, 3]) {
+        const ld = cache.get(leg).load;
+        if (!ld.helmAshore) continue;
+        const back1 = ld.boardEnd + (Math.abs(ld.ashoreZ) + 1.5) / 1.4;   // back at his station (crew.ts: back0 + legA + legX)
+        let prev: number | null = null;
+        for (let t = back1 - 1; t < back1 + 2; t += 0.1) {
+          const c = leg * Lg + t, y = actorFrame(h, crossingState(c, createCrossingState(), T), c, ctx, createActorFrame()).yaw;
+          if (prev !== null) expect(Math.abs(Math.atan2(Math.sin(y - prev), Math.cos(y - prev))), `${id} leg ${leg} t=${t.toFixed(1)}`).toBeLessThan(0.5);
+          prev = y;
+        }
+      }
+    }
+  });
+
+  test('with a real load: boarders are at their spots before cast-off, leavers are gone before the leg ends, nobody walks through anybody', () => {
+    for (const id of ERAS_WITH_LOAD) {
+      const env = envFor(id), T = env.spec.timings, Lg = legDuration(T), cache = new LegCache(env);
+      const actors = castActors(env.spec, env.seats, Number(id));
+      const ctx: ActorCtx = { spec: env.spec, layout: env.layout, loadAt: (l) => cache.get(l).load, groundLocal: () => 0 };
+      const gap = id === '1925' || id === '1935' ? 0.34 : 0.44;
+      for (const leg of [2, 3]) {
+        const at = (a: (typeof actors)[number], t: number) => { const c = leg * Lg + t; return actorFrame(a, crossingState(c, createCrossingState(), T), c, ctx, createActorFrame()); };
+        for (const a of actors.filter((x) => x.role === 'passenger')) {
+          const f = at(a, T.load);
+          if (f.visible) expect(Math.hypot(f.pos[0] - a.spot!.pos[0], f.pos[2] - a.spot!.pos[2]), `${id} leg ${leg} pax${a.index} at spot`).toBeLessThan(0.05);
+          expect(at(a, Lg - 0.001).visible, `${id} leg ${leg} pax${a.index} gone`).toBe(false);
+        }
+        for (let t = 0; t < Lg; t += 0.2) {
+          const fs = actors.map((a) => at(a, t));
+          for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+            if (!fs[i].visible || !fs[j].visible) continue;
+            expect(Math.hypot(fs[i].pos[0] - fs[j].pos[0], fs[i].pos[2] - fs[j].pos[2]), `${id} leg ${leg} ${actors[i].role}${actors[i].index}/${actors[j].role}${actors[j].index} @${t.toFixed(1)}`).toBeGreaterThan(gap);
+          }
+        }
+      }
+    }
+  });
 });

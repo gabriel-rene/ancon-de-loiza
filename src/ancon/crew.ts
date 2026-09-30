@@ -398,14 +398,15 @@ function helmsman(st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame
       applyShape(poleShape('carry', x, z + 0.3, 0, tr, 0, L, sA), f);
       return;
     }
-    // Back at his station: the Phase 3 sequence (turn, lower the steering pole) runs from back1 instead of 0.
+    // Back at his station: the Phase 3 sequence (turn, lower the steering pole) runs from back1 instead of 0,
+    // turning from the way he arrived (facing +travel) so his yaw is continuous across the join.
     tau0 = back1;
   }
   const sweep = 0.22 * Math.sin(clock * 0.45) * (0.3 + 0.7 * st.effort);
   if (tau < MOVE_END) {
     const k = smooth(clamp01((tau - tau0) / TURN_S)), kp = smooth(clamp01((tau - tau0) / POLE_SWING));
     set3(f.pos, xEnd, L.deckY, 0);
-    f.yaw = lerpAngle(faceDir(-tr, 0), 0, k);
+    f.yaw = lerpAngle(faceDir(tau0 > 0 ? tr : -tr, 0), 0, k);
     f.pose.kind = 'stand'; f.pose.phase = fract(clock * 0.1);
     applyShape(mixShape(poleShape('carry', xEnd, 0.3, 0, tr, 0, L, sA), steerShape(xEnd, tr, sweep, L, sB, groundLocal), kp, sE), f);
     return;

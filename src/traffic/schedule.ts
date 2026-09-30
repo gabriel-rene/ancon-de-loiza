@@ -29,7 +29,7 @@ export const SPEED = { deck: 2.8, road: 5.5, oxen: 0.9, walk: 1.3, accel: 1 };
  * (Phase 3's whole stop). A stop is at most MAX_STOP s.
  */
 export const BOARD_START = 1, ASHORE_START = 3.2, BOARD_STAGGER = 0.8, OFF_START = 0.5, OFF_GAP = 1.1, QUEUE_GAP = 1.5;
-export const SPAWN_AFTER = 10, SPAWN_MIN = 1, SPAWN_STEP = 0.25, QUEUE_MARGIN = 5, PAX_LOAD = 20, PAX_UNLOAD = 16, MAX_STOP = 50;
+export const SPAWN_AFTER = 10, SPAWN_MIN = 1, SPAWN_STEP = 0.25, QUEUE_MARGIN = 5, PAX_LOAD = 20, PAX_UNLOAD = 17, MAX_STOP = 50;
 
 export interface MoverSched {
   m: Mover; board: Polyline; leave: Polyline;
