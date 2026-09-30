@@ -16,7 +16,9 @@ import { apronLift, computeVesselPose, makePoseContext } from './pose';
 import { RopeSet } from './RopeSet';
 import { seatAnchors } from './seats';
 import { vesselSpec } from './spec';
-import { eraTimings } from '../traffic/schedule';
+import { dockEnv } from '../traffic/env';
+import { eraTimings, LegCache } from '../traffic/schedule';
+import { TrafficSet, trafficLooks } from '../traffic/TrafficSet';
 import { anconTiming } from './stats';
 import { emitVesselPose, sharedVesselPose } from './vesselPose';
 import { buildVessel } from './vessels';
@@ -57,8 +59,14 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     [spec, layout, ctx, place, q.ancon.ropeSegments, q.ancon.ropeRadial]);
   useEffect(() => () => ropes.dispose(), [ropes]);
   const seats = useMemo(() => seatAnchors(spec, layout), [spec, layout]);
-  const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers)), [spec, seats, era.id, q.ancon.passengers]);
+  // Phase 4c: the load (movers on roads, landings and deck) and its people in the crew's figure batch.
+  const env = useMemo(() => dockEnv(era, ctx, ctx.groundAt!), [era, ctx]);
+  const legs = useMemo(() => new LegCache(env), [env]);
+  const loadAt = useMemo(() => (leg: number) => legs.get(leg).load, [legs]);
+  const crew = useMemo(() => new CrewSet(castActors(spec, seats, Number(era.id), q.ancon.passengers), trafficLooks(env)), [spec, seats, era.id, q.ancon.passengers, env]);
   useEffect(() => () => crew.dispose(), [crew]);
+  const traffic = useMemo(() => new TrafficSet(env, legs, crew, castShadow), [env, legs, crew, castShadow]);
+  useEffect(() => () => traffic.dispose(), [traffic]);
   useEffect(() => () => clearWakeUniforms(), []);
   const mats = vesselMaterials();
   const hull = useRef<THREE.Group>(null);
@@ -78,7 +86,8 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     }
     const cam = state.camera as THREE.PerspectiveCamera;
     ropes.update(pose, (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / state.size.height);
-    crew.update(pose, ctx);
+    traffic.update(pose);   // writes the load's people into the crew batch, which crew.update commits
+    crew.update(pose, ctx, loadAt);
     updateWakeUniforms(pose, ctx);
     anconTiming.add(performance.now() - t0);
     emitVesselPose(ctx);
@@ -99,6 +108,7 @@ export function Ancon({ near, era, q, frozen, castShadow }: {
     <primitive object={ropes.group} />
     {/* Crew and passengers: world space too (deck-local × the vessel pose, computed per figure). */}
     <primitive object={crew.group} />
+    <primitive object={traffic.group} />
     </>
   );
 }
