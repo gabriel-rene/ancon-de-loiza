@@ -47,7 +47,7 @@ for (const id of ['1840', '1975'] as const) describe(`site ${id}`, () => {
     });
   });
 
-  test('manatee zone: a strip of river along the crossing, 40–100 m from the crossing line, on the mouth side', () => {
+  test('manatee zone: a strip of river along the crossing, 25–40 m from the crossing line, on the mouth side', () => {
     const { c, a, b } = site.manatee, g = site.geom;
     expect(2 * a).toBeGreaterThanOrEqual(0.5 * g.span);      // spans most of the river width
     for (let al = -a; al <= a + 1e-9; al += 2.5) for (const la of [-b, 0, b]) {
@@ -55,8 +55,8 @@ for (const id of ['1840', '1975'] as const) describe(`site ${id}`, () => {
       expect(waterAt(f, x, z)).toBe(WATER.RIVER);
       const off = (x - g.shoreEast[0]) * site.lateral[0] + (z - g.shoreEast[1]) * site.lateral[1];
       expect(Math.sign(off)).toBe(site.mouthSide);
-      expect(Math.abs(off)).toBeGreaterThanOrEqual(40);
-      expect(Math.abs(off)).toBeLessThanOrEqual(100);
+      expect(Math.abs(off)).toBeGreaterThanOrEqual(25);
+      expect(Math.abs(off)).toBeLessThanOrEqual(40);
     }
   });
 });

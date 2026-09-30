@@ -20,7 +20,7 @@ Not in Phase 5: crabs, bats, osprey, kingfisher (not sourced for this site, rese
 
 Build only what the `ride` camera shows. Every animal stays within **300 m of the crossing line** (east landing to west landing) and inside the height band the ride view frames. Nothing is placed for the aerial or debug cameras.
 
-**Amendment 2026-09-30 (framing).** Being within 300 m is not enough: the animals must be where the ride camera looks. A ride-view test (`src/fauna/view.test.ts`) builds the app's un-orbited ride camera (fov 42°, aspect 1.6) for 1975 and 1840 over two full legs, 1 s steps, and counts an animal in view when it is inside the frustum and within 400 m (occlusion ignored, high-tier counts). Thresholds, as the share of samples with at least one of that kind in view: frigatebirds ≥ 40 %, pelicans (flock and fishers) ≥ 30 %, waders ≥ 50 %; manatee ≥ 40 % of its surfacings, framed at mid-roll (pending a ruling: see the task 10b report); mullet reported only.
+**Amendment 2026-09-30 (framing).** Being within 300 m is not enough: the animals must be where the ride camera looks. A ride-view test (`src/fauna/view.test.ts`) builds the app's un-orbited ride camera (fov 42°, aspect 1.6) for 1975 and 1840 over two full legs, 1 s steps, and counts an animal in view when it is inside the frustum and within 400 m (occlusion ignored, high-tier counts). Thresholds, as the share of samples with at least one of that kind in view: frigatebirds ≥ 40 %, pelicans (flock and fishers) ≥ 30 %, waders ≥ 50 %; manatee ≥ 35 % of its surfacings, long-run (300 surfacings, framed at mid-roll) — not yet met, pending a ruling (task 10b report); mullet reported only.
 
 ## 2. Animals and counts
 
@@ -33,7 +33,7 @@ Species and places are sourced (H) [S22] for the birds and fish and [S17][S18] f
 | Magnificent frigatebird | 3 / 3 / 2 | Soaring 60–120 m up (60–75 m used), circling 190–220 m beyond a landing (some over each bank), ahead of the ride camera |
 | Egrets and herons | 10 / 10 / 6 | At the waterline near the two landings: 5 per landing (3 on low). All but one per landing stand 12–40 m from the pad, in the landing clearing where no mangrove hides them, and fly up on docking (§3.3); the last one stands 42–55 m away and stays |
 | Mullet | 1 jump every 3–6 s | Water within 120 m of the ferry, never inside the ferry footprint or the rope line |
-| West Indian manatee | 1 | 40–100 m from the crossing line, on the river-mouth side: a long thin strip 41–54 m out, running along the crossing over most of the river width; it steps 10 m along the strip between surfacings, back and forth |
+| West Indian manatee | 1 | 25–40 m to the side of the crossing line on the river-mouth side (usually 40–100 m from the ferry, as approved in chat 2026-09-30): a long thin strip (25.5–29.5 m out) running along the crossing over most of the river width; it steps 10 m along the strip between surfacings, back and forth |
 
 Egrets and herons: great egret (*garza real*) and snowy egret (*garza blanca*), white; little blue heron (*garza azul*) and tricolored heron (*garza pechiblanca*), dark. 6 white, 4 dark on high; 4 white, 2 dark on low.
 
@@ -108,6 +108,8 @@ A review agent checks each fact against its source, as in 3b. The user sees only
   - Same clock and seed give the same pose for every animal.
   - Counts per tier match §2.
   - The §5 limits hold.
+  - Ride view (§1.1 amendment): the thresholds there, in `src/fauna/view.test.ts`.
+  - The manatee surfaces 25–40 m to the side of the crossing line on the river-mouth side (usually 40–100 m from the ferry), river only, 5–15 m between surfacings.
   - Every animal stays within §1.1: within 300 m of the crossing line; flying birds above the water or ground by at least 2 m (except the pelican dive and sit); bank birds on the bank strip; mullet never inside the ferry footprint or the rope line.
   - Docking: landing birds take off within 1.5 s of `dock` starting at their landing and land again 30–60 m away; in 1986 they never take off.
   - Rings: each dive, take-off, fish jump and manatee surfacing starts one ring; the pool never overflows.

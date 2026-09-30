@@ -79,11 +79,12 @@ function findFisher(f: WorldFields, g: CrossingGeometry, lat: XZ, i: number, sid
 }
 
 /**
- * Manatee zone (spec 5 §2): a long thin strip on the mouth side, 41–54 m from the crossing line, running along the
- * crossing over most of the river width, so a surfacing is often ahead of the ride camera. `a` (a multiple of
+ * Manatee zone (spec 5 §2): a long thin strip on the mouth side, 25.5–29.5 m from the crossing line (inside the
+ * approved 25–40 m, ≥ 20 m clear of the ferry and ropes; usually 40–100 m from the ferry), running along the crossing over most of the river width,
+ * so a surfacing is often ahead of the ride camera. `a` (a multiple of
  * MANATEE_SITE.step) shrinks until the whole strip is river.
  */
-export const MANATEE_SITE = { off: [41, 54] as [number, number], reach: 0.4, step: 5 };
+export const MANATEE_SITE = { off: [25.5, 29.5] as [number, number], reach: 0.4, step: 5 };
 function findManatee(f: WorldFields, g: CrossingGeometry, lat: XZ, mid: XZ, mouthSide: number): { c: XZ; a: number; b: number } {
   const S = MANATEE_SITE, off = (S.off[0] + S.off[1]) / 2 * mouthSide, b = (S.off[1] - S.off[0]) / 2;
   const c: XZ = [mid[0] + lat[0] * off, mid[1] + lat[1] * off];

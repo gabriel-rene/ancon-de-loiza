@@ -47,9 +47,10 @@ test('manatee: surfaces 60–90 s apart, moves 5–15 m between surfacings, insi
     const d = Math.hypot(a[0] - b[0], a[2] - b[2]);
     expect(d).toBeGreaterThanOrEqual(5);
     expect(d).toBeLessThanOrEqual(15);
-    const off = Math.abs(lateralOff(a[0], a[2]));
-    expect(off).toBeGreaterThanOrEqual(40);
-    expect(off).toBeLessThanOrEqual(100);
+    const off = lateralOff(a[0], a[2]);
+    expect(Math.sign(off)).toBe(w.site.mouthSide);
+    expect(Math.abs(off)).toBeGreaterThanOrEqual(25);
+    expect(Math.abs(off)).toBeLessThanOrEqual(40);
   }
   const t0 = manateeTime(5);
   expect(manatee(t0 + MANATEE.dur * 0.5, w, p).on).toBe(true);

@@ -10,7 +10,8 @@ for (const id of ['1975', '1840'] as const) describe(`ride view ${id}`, () => {
   test('frigatebirds in view ≥ 40 % of the time', () => expect(f.frigate).toBeGreaterThanOrEqual(0.4));
   test('pelicans (flock + fishers) in view ≥ 30 % of the time', () => expect(f.pelican).toBeGreaterThanOrEqual(0.3));
   test('waders in view ≥ 50 % of the time', () => expect(f.wader).toBeGreaterThanOrEqual(0.5));
-  // PENDING controller ruling (task 10b report): 40–55 m to the side, no point of the river is framed > ~33 % of
-  // the time, so ≥ 40 % of surfacings is out of reach for a manatee that surfaces independently of the ferry.
-  test.skip('manatee framed in ≥ 40 % of its surfacings', () => expect(f.manatee).toBeGreaterThanOrEqual(0.4));
+  // Controller ruling 2026-09-30: ≥ 35 % of surfacings, long-run (300 surfacings, mid-roll). NOT MET: the best
+  // placement allowed (a full-width strip 25.5–29.5 m out, no closer than 25 m) frames 32 % (1975) / 34 % (1840).
+  // Skipped pending the controller's decision (task 10b report, fix section).
+  test.skip('manatee framed in ≥ 35 % of its surfacings (long-run)', () => expect(f.manatee).toBeGreaterThanOrEqual(0.35));
 });
