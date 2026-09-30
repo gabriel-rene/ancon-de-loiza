@@ -8,7 +8,7 @@ User rulings in chat, 2026-09-30:
 
 - **Birds plus water life:** brown pelicans, frigatebirds, egrets and herons, jumping mullet, one manatee. No crabs (too small for the ride view).
 - **Same animals in every era.** The research has no counts per decade; we do not invent them.
-- **Four new info-panel facts** about animals (§6), checked by a review agent.
+- **Three new info-panel facts** about animals (§6), checked by a review agent. The per-era cap goes from 5 to 6 facts (ruling in chat 2026-09-30).
 - **One reaction to the ferry:** birds by a landing fly up when the ferry docks there (§3.3).
 - **Built in code**, like the 4c oxen and horse. No model files.
 
@@ -29,11 +29,11 @@ Species and places are sourced (H) [S22] for the birds and fish and [S17][S18] f
 | Brown pelican, flock | 4 / 4 / 2 | Low over the river, 3–8 m above the water, crossing the ride view |
 | Brown pelican, fisher | 2 / 2 / 1 | Circling 8–15 m above the water, 40–200 m from the crossing line |
 | Magnificent frigatebird | 3 / 3 / 2 | Soaring 60–120 m up, above the crossing |
-| Egrets and herons | 10 / 10 / 5 | On the mangrove edge and mud at the waterline, both banks; 3–4 of them by each landing (§3.3) |
+| Egrets and herons | 10 / 10 / 6 | At the waterline near the two landings: 5 per landing (3 on low). All but one per landing stand 12–40 m from the pad, in the landing clearing where no mangrove hides them, and fly up on docking (§3.3); the last one stands 42–55 m away and stays |
 | Mullet | 1 jump every 3–6 s | Water within 120 m of the ferry, never inside the ferry footprint or the rope line |
 | West Indian manatee | 1 | 40–100 m from the crossing line, on the river-mouth side |
 
-Egrets and herons: great egret (*garza real*) and snowy egret (*garza blanca*), white; little blue heron (*garza azul*) and tricolored heron (*garza pechiblanca*), dark. About 6 white, 4 dark on high; about 3 white, 2 dark on low.
+Egrets and herons: great egret (*garza real*) and snowy egret (*garza blanca*), white; little blue heron (*garza azul*) and tricolored heron (*garza pechiblanca*), dark. 6 white, 4 dark on high; 4 white, 2 dark on low.
 
 Low tier counts are about half (user ruling). The manatee and the mullet stay on every tier.
 
@@ -55,7 +55,7 @@ All motion is a pure function of the scene clock (the same clock the crossing us
 
 ### 3.3 Reaction to docking
 
-- At each landing, 3–4 birds stand on the bank within 40 m of the pad.
+- At each landing, 4 birds (2 on low) stand on the bank 12–40 m from the pad.
 - When the crossing enters its `dock` phase at that landing, they take off one after another (0–1.5 s apart), fly low along the bank, and land again 30–60 m away. They walk back toward the pad over the next legs.
 - In 1986 the ferry is moored and does not dock, so these birds only stand, walk and peck.
 
@@ -68,7 +68,7 @@ A new folder `src/fauna/`: one module per animal kind (geometry, path function, 
 ### 4.2 Geometry and draw calls
 
 - One `InstancedMesh` per shape: pelican, frigatebird, egret/heron (one shape, colour per instance), mullet, manatee, rings. At most **8 draw calls** (plus shadows and the reflection pass).
-- Wings flap and fold in the vertex shader, from a per-instance phase and a per-instance "mode" (flap, glide, fold, stand). The CPU writes one matrix and two numbers per animal per frame.
+- Wings flap and fold, and legs trail, in the vertex shader, from per-instance values. The CPU writes one matrix and three numbers (wing angle, wing fold, legs back) per animal per frame.
 - All animals together: **30 000 triangles or fewer** on high.
 
 ### 4.3 Reflection and shadows
@@ -88,16 +88,15 @@ A flat ring on the water surface that grows (to 1–3 m) and fades over 1.5–3 
 
 ## 6. Info-panel facts
 
-Four new facts, Spanish and English, in `src/data/facts.ts`:
+Three new facts, Spanish and English, in `src/data/facts.ts`. The 1984 and 1986 eras already had 5 facts, the old cap; the user ruled (2026-09-30): raise the cap to 6, join the shark and *cocolía* facts, and put the birds fact in 1900 next to the 1918 Piñones forest fact.
 
 | Era | Fact | Sources |
 |---|---|---|
-| 1984 | A 1980s photo shows fishermen cleaning a shark at El Ancón. | [S4] |
-| 1984 | In the 1980s Tony Croatto was filmed with a *cocolía* (blue crab) trap in the river. | [S4] |
-| 1986 | Piñones has about 96 bird species, among them the brown pelican (endangered). The Carmelita islet may be Puerto Rico's most important heron nesting place. | [S22] |
+| 1900 | Piñones has about 96 bird species, among them the endangered brown pelican. The Carmelita islet may be Puerto Rico's most important heron colony. | [S22] |
+| 1984 | The river also gave fish and crabs: a 1980s photo shows fishermen cleaning a shark at El Ancón, and Tony Croatto was filmed with a *cocolía* (blue crab) trap in the river. | [S4] |
 | 1986 | Manatees were trapped behind the closed river mouth in 1995 and in June 2026. In 2026 DRNA cut a channel to free them. | [S17][S18] |
 
-`[S18]` (El Nuevo Día, "Atrapados entre el río y el mar…") is in the research list but not yet in `src/data/sources.ts`; add it. The 1986 era runs to today, so the 2026 fact belongs there.
+`[S18]` (El Nuevo Día, "Atrapados entre el río y el mar…") is in the research list but not yet in `src/data/sources.ts`; add it. The 1986 era runs to today, so the 2026 fact belongs there. `facts.test.ts` checks 3–6 facts per era.
 
 A review agent checks each fact against its source, as in 3b. The user sees only flagged facts.
 
@@ -119,6 +118,6 @@ A review agent checks each fact against its source, as in 3b. The user sees only
 ## 8. Done when
 
 - Every era shows the animals in §2 behaving as in §3, including the docking reaction.
-- The four facts are in the panel and pass the fact check (or the user rules on flagged ones).
+- The three facts are in the panel and pass the fact check (or the user rules on flagged ones).
 - The §5 limits hold.
 - All tests pass, and the review has no open Important items.
