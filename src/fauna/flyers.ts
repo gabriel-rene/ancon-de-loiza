@@ -73,20 +73,23 @@ export function pelicanFisher(clock: number, i: number, w: FaunaWorld, out: Faun
 }
 
 /**
- * Frigatebird (spec 5 §3.1): a slow figure-eight 60–120 m up over the crossing, wings held out (no flapping),
- * banking in the turns. Figure-eight a·sin t, b·sin 2t, rotated per bird.
+ * Frigatebird (spec 5 §2, §3.1): a slow figure-eight 60–75 m up, wings held out (no flapping), banking in the
+ * turns. Each circles `beyond` m past one landing (even birds the east bank, odd the west), so the ride camera,
+ * looking toward the landing ahead, frames it about 10–15° above the horizon. Figure-eight a·sin t, b·sin 2t,
+ * rotated per bird.
  */
-export const FRIGATE = { w: 0.065, A: 80, B: 45 };
+export const FRIGATE = { w: 0.065, A: 50, B: 28, beyond: [190, 220] as [number, number], side: 20, y: 63, yVar: 9, bob: 3 };
 export function frigate(clock: number, i: number, w: FaunaWorld, out: FaunaPose): FaunaPose {
-  const s = w.site, ph = TAU * u01(i, 1, 79), rot = Math.PI * u01(i, 2, 79);
-  const al = (u01(i, 3, 79) - 0.5) * 80, la = (u01(i, 4, 79) - 0.5) * 120;
-  const cx = s.mid[0] + s.geom.dir[0] * al + s.lateral[0] * la, cz = s.mid[1] + s.geom.dir[1] * al + s.lateral[1] * la;
+  const s = w.site, g = s.geom, ph = TAU * u01(i, 1, 79), rot = Math.PI * u01(i, 2, 79);
+  const west = (i & 1) === 1, shore = west ? g.shoreWest : g.shoreEast, sgn = west ? 1 : -1;
+  const al = sgn * (FRIGATE.beyond[0] + (FRIGATE.beyond[1] - FRIGATE.beyond[0]) * u01(i, 3, 79)), la = (u01(i, 4, 79) - 0.5) * 2 * FRIGATE.side;
+  const cx = shore[0] + g.dir[0] * al + s.lateral[0] * la, cz = shore[1] + g.dir[1] * al + s.lateral[1] * la;
   const t = FRIGATE.w * clock + ph, cr = Math.cos(rot), sr = Math.sin(rot);
   const a = FRIGATE.A * Math.sin(t), b = FRIGATE.B * Math.sin(2 * t);
   const da = FRIGATE.A * Math.cos(t), db = 2 * FRIGATE.B * Math.cos(2 * t);
   const dda = -FRIGATE.A * Math.sin(t), ddb = -4 * FRIGATE.B * Math.sin(2 * t);
   const hx = da * cr - db * sr, hz = da * sr + db * cr, hx2 = dda * cr - ddb * sr, hz2 = dda * sr + ddb * cr;
   const h2 = hx * hx + hz * hz || 1, yawRate = (FRIGATE.w * (hz * hx2 - hx * hz2)) / h2, speed = FRIGATE.w * Math.sqrt(h2);
-  const y = 70 + 40 * u01(i, 5, 79) + 10 * Math.sin(0.03 * clock + ph);
+  const y = FRIGATE.y + FRIGATE.yVar * u01(i, 5, 79) + FRIGATE.bob * Math.sin(0.03 * clock + ph);
   return set(out, cx + a * cr - b * sr, y, cz + a * sr + b * cr, yawOf(hx, hz), 0, bankFor(yawRate, speed, 0.45), 0, 0, 0);
 }

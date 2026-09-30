@@ -48,14 +48,16 @@ export function mullet(clock: number, w: FaunaWorld, out: FaunaPose): FaunaPose 
 }
 
 /**
- * Manatee (spec 5 §3.2): surfaces every 60–90 s at spots on an ellipse in its zone, `step` rad apart (5–15 m).
+ * Manatee (spec 5 §3.2): surfaces every 60–90 s at spots in its strip (site.ts), stepping `step` m along the
+ * crossing each time and turning back at the strip's ends, with a slow sideways wander (≤ b). 5–15 m apart.
  * Snout up (first quarter), then the back rolls over and it goes down, moving `fwd` m.
  */
-export const MANATEE = { period: 75, jitter: 7.5, dur: 4.2, step: 0.3, fwd: 1.5 };
+export const MANATEE = { period: 75, jitter: 7.5, dur: 4.2, step: 10, wander: 0.7, fwd: 1.5 };
 export const manateeTime = (k: number) => eventTime(k, MANATEE.period, MANATEE.jitter, 89);
 export function manateeSpot(k: number, w: FaunaWorld, out: number[]) {
-  const { c, a, b } = w.site.manatee, d = w.site.geom.dir, l = w.site.lateral, ph = k * MANATEE.step;
-  const al = a * Math.cos(ph), la = b * Math.sin(ph);
+  const { c, a, b } = w.site.manatee, d = w.site.geom.dir, l = w.site.lateral;
+  const n = Math.round((2 * a) / MANATEE.step), m = (((k % (2 * n)) + 2 * n) % (2 * n));
+  const al = -a + MANATEE.step * (m <= n ? m : 2 * n - m), la = b * Math.sin(k * MANATEE.wander);
   out[0] = c[0] + d[0] * al + l[0] * la; out[1] = 0; out[2] = c[1] + d[1] * al + l[1] * la;
 }
 const _a = [0, 0, 0], _b = [0, 0, 0];

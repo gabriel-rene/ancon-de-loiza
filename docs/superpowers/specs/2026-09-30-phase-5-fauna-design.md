@@ -20,6 +20,8 @@ Not in Phase 5: crabs, bats, osprey, kingfisher (not sourced for this site, rese
 
 Build only what the `ride` camera shows. Every animal stays within **300 m of the crossing line** (east landing to west landing) and inside the height band the ride view frames. Nothing is placed for the aerial or debug cameras.
 
+**Amendment 2026-09-30 (framing).** Being within 300 m is not enough: the animals must be where the ride camera looks. A ride-view test (`src/fauna/view.test.ts`) builds the app's un-orbited ride camera (fov 42°, aspect 1.6) for 1975 and 1840 over two full legs, 1 s steps, and counts an animal in view when it is inside the frustum and within 400 m (occlusion ignored, high-tier counts). Thresholds, as the share of samples with at least one of that kind in view: frigatebirds ≥ 40 %, pelicans (flock and fishers) ≥ 30 %, waders ≥ 50 %; manatee ≥ 40 % of its surfacings, framed at mid-roll (pending a ruling: see the task 10b report); mullet reported only.
+
 ## 2. Animals and counts
 
 Species and places are sourced (H) [S22] for the birds and fish and [S17][S18] for the manatee at the river mouth. Numbers, paths, timings and colours are inferred (L).
@@ -27,11 +29,11 @@ Species and places are sourced (H) [S22] for the birds and fish and [S17][S18] f
 | Animal | Count (high / medium / low) | Where |
 |---|---|---|
 | Brown pelican, flock | 4 / 4 / 2 | Low over the river, 3–8 m above the water, crossing the ride view |
-| Brown pelican, fisher | 2 / 2 / 1 | Circling 8–15 m above the water, 40–200 m from the crossing line |
-| Magnificent frigatebird | 3 / 3 / 2 | Soaring 60–120 m up, above the crossing |
+| Brown pelican, fisher | 2 / 2 / 1 | Circling 8–15 m above the water, 20–200 m from the crossing line: one near each end of the crossing (≈ 0.2 and 0.8 of the span), 40–60 m to the side, the first on the river-mouth side |
+| Magnificent frigatebird | 3 / 3 / 2 | Soaring 60–120 m up (60–75 m used), circling 190–220 m beyond a landing (some over each bank), ahead of the ride camera |
 | Egrets and herons | 10 / 10 / 6 | At the waterline near the two landings: 5 per landing (3 on low). All but one per landing stand 12–40 m from the pad, in the landing clearing where no mangrove hides them, and fly up on docking (§3.3); the last one stands 42–55 m away and stays |
 | Mullet | 1 jump every 3–6 s | Water within 120 m of the ferry, never inside the ferry footprint or the rope line |
-| West Indian manatee | 1 | 40–100 m from the crossing line, on the river-mouth side |
+| West Indian manatee | 1 | 40–100 m from the crossing line, on the river-mouth side: a long thin strip 41–54 m out, running along the crossing over most of the river width; it steps 10 m along the strip between surfacings, back and forth |
 
 Egrets and herons: great egret (*garza real*) and snowy egret (*garza blanca*), white; little blue heron (*garza azul*) and tricolored heron (*garza pechiblanca*), dark. 6 white, 4 dark on high; 4 white, 2 dark on low.
 

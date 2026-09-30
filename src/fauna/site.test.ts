@@ -30,21 +30,27 @@ for (const id of ['1840', '1975'] as const) describe(`site ${id}`, () => {
     for (let u = -40; u <= 40; u += 0.7) if (bankAt(b, u, out)) expect(Number.isFinite(out[0] + out[1] + out[2])).toBe(true);
   });
 
-  test('fisher circles lie over the river and inside the frame', () => {
+  test('fisher circles lie over the river, 20–200 m from the crossing line, inside the frame', () => {
     expect(site.fishers.length).toBe(2);
-    for (const { c, r } of site.fishers) {
+    const g = site.geom;
+    site.fishers.forEach(({ c, r }, i) => {
+      const side = (c[0] - g.shoreEast[0]) * site.lateral[0] + (c[1] - g.shoreEast[1]) * site.lateral[1];
+      expect(Math.sign(side)).toBe(i === 0 ? site.mouthSide : -site.mouthSide);
       for (let a = 0; a < 32; a++) {
         const x = c[0] + r * Math.cos(a * Math.PI / 16), z = c[1] + r * Math.sin(a * Math.PI / 16);
         expect(waterAt(f, x, z)).toBe(WATER.RIVER);
+        const off = Math.abs((x - g.shoreEast[0]) * site.lateral[0] + (z - g.shoreEast[1]) * site.lateral[1]);
+        expect(off).toBeGreaterThanOrEqual(20);
+        expect(off).toBeLessThanOrEqual(200);
         expect(distToCrossing(site, x, z)).toBeLessThan(FRAME_RADIUS);
       }
-    }
+    });
   });
 
-  test('manatee zone: river, 40–100 m from the crossing line, on the mouth side', () => {
+  test('manatee zone: a strip of river along the crossing, 40–100 m from the crossing line, on the mouth side', () => {
     const { c, a, b } = site.manatee, g = site.geom;
-    for (let k = 0; k < 24; k++) {
-      const th = k * Math.PI / 12, al = a * Math.cos(th), la = b * Math.sin(th);
+    expect(2 * a).toBeGreaterThanOrEqual(0.5 * g.span);      // spans most of the river width
+    for (let al = -a; al <= a + 1e-9; al += 2.5) for (const la of [-b, 0, b]) {
       const x = c[0] + g.dir[0] * al + site.lateral[0] * la, z = c[1] + g.dir[1] * al + site.lateral[1] * la;
       expect(waterAt(f, x, z)).toBe(WATER.RIVER);
       const off = (x - g.shoreEast[0]) * site.lateral[0] + (z - g.shoreEast[1]) * site.lateral[1];
