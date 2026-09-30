@@ -32,7 +32,7 @@ Controller changes to the plan, 2026-09-30:
 - **Task 11 shots:** the four new shots are marked `heavy` in `world.spec.ts` (renamed from `slow` in Task 11b, which clashed with the `@slow` tag): they need about 2 min each on the software GPU, over the 90 s wait, so they get `test.slow()` and a 300 s ready wait. Task 11 moved the flush shots to the `station` camera; Task 10c moved them back to `ride` (below).
 - **Task 10c added: the animals brought closer** (user decision "bring them closer", 2026-09-30; spec §1.1 amendment "closer").
   - Size-aware ride-view gates (projected size on a 900 px tall view): pelicans ≥ 30 % of the time at ≥ 25 px, frigatebirds ≥ 40 % at ≥ 10 px, waders ≥ 40 % at ≥ 10 px; take-off ≥ 2 flying waders in view (≥ 8 px) 2–6 s after each dock; manatee ≥ 30 % of its surfacings.
-  - Pelican flock: each pass crosses the crossing line 40–70 m ahead of the ferry, in the direction the ride camera faces.
+  - Pelican flock: each pass crosses the crossing line 40–70 m ahead of the ferry, in the direction the ride camera faces (behind the ferry when it has < 30 m of room ahead).
   - Pelican fishers: circles at 0.3 and 0.7 of the span, 32–40 m out to the side, radius 10–12 m.
   - Waders: flushers stand 10–22 m from the pad in pairs (the stay-behind bird 22–30 m), and fly across the front of the pad, ≥ 4 m over the docked deck, landing ≤ 30 m from it.
   - Frigatebirds: the figure-eight's centre keeps ~220 m ahead of the ferry toward its bank, 60–63 m up.
@@ -76,9 +76,15 @@ Fauna shots in `tests/snapshots/phase5/`: `1975-ride-flush`, `1840-ride-flush`, 
   - Ride-view gates: pelican 1975 40 → 39 %, 1840 37 → 36 % (gate 30 %). The other kinds are unchanged.
 - **Re-shot:** only the two shots whose flock loop changed, `1975-ride-flush` and `1959-ride-unload`. The latter is pixel-identical apart from a frigatebird, since its flock was out of frame either way.
 
+**Re-shot in the final fix wave** (after the waders were made to keep apart): `1975-ride-flush` and `1840-ride-flush`, 2 passed.
+- 1840 (c = 396): four separate birds in flight across the top of the frame, two left, two right; none overlap.
+- 1975: tried + 4 s (c = 414) again, and 412.5, 413.5 and 415 in scratch shots. At + 4 s only one egret shows clearly, just over the gable of the landing house (the others are small dark herons against the trees); at 413.5 an egret sits right on the roof ridge. The shot stays at **+ 3 s (c = 413)**: two white egrets well apart against the sky and a dark heron by the church, none on a roof. The birds still read small in this era (Task 11b concern).
+
 **Still open from Task 11 (not changed here):** at the east landing the red-mangrove fringe begins 22 m from the pad (`LANDING_CLEARING`). The stay-behind birds (22–30 m) and the flush landings (≤ 30 m) can sit at its edge.
 
 ## Frame rate — after
+
+The Task 1 table at the top is the original reading, taken on another day; the comparison here is against a same-day rebuild of 8375a76.
 
 Measured in Task 11b on the final placements (Task 10c + the 11b flock fix). The Task 11 table (2 runs per side, before 10c) is superseded.
 
@@ -113,4 +119,19 @@ Measured in Task 11b on the final placements (Task 10c + the 11b flock fix). The
 
 ## Review
 
+Final whole-branch review (2026-09-30): Ready to merge with fixes — 1 Important (landing waders overlapped each other in flight and on the ground) plus cheap constraint/spec-drift items; all fixed in the final fix wave (1e5a88b `fix(5): landing waders keep apart in flight and on the ground`, 2ef6511 `fix(5): no per-frame closures; spec drift in rings and mullet`, and the docs commit that re-shot the flush shots and filled this note). Leak test (tests/e2e/leak.spec.ts) passed on the branch.
+
 ## Deferred
+
+- Fisher animation pops: the roll steps at dive start and at y = 1 m, the climb's flap ends mid-stroke, and the fold is a hard step.
+- The two fishers drift in phase and sometimes dive together.
+- The flock's loop wrap can be framed during the landing half-turn (~8 px).
+- The frigatebird's bank ignores its drift with the ferry.
+- Normals keep the rest pose in flap and fold.
+- The snowy egret's bill should be black.
+- Frigate wing: a 7 cm step at the wrist.
+- The view test looks at the target (the app looks at the pivot) when the eye is clamped.
+- `MANATEE.step` and `MANATEE_SITE.step` are coupled.
+- The facts test checks keywords in English only.
+- Thin tests: pose helpers, geometry attributes, some gates on 1975/1840 only, the 1986 moored mullet.
+- The 1986 ride view still does not frame the bridge (from 4c).
