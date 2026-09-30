@@ -3,9 +3,11 @@ import { getEra, type EraId } from '../../src/data/eras';
 import { CROSSING_TIMINGS as T } from '../../src/ancon/crossing';
 import { goldenHourAST } from '../../src/geo/sun';
 import { DOCK_STOPS } from '../../src/traffic/dockStops';
+import { fisherEvents } from '../../src/fauna/flyers';
+import { MANATEE, manateeTime } from '../../src/fauna/waterLife';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase4c-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4c'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase5-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase5'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
@@ -18,7 +20,24 @@ const at = (era: EraId, when: 'board' | 'mid' | 'unload') => {
   const { load } = DOCK_STOPS[era], move = load + T.castOff + T.cross + T.dock;
   return when === 'board' ? Math.round(0.4 * load) : when === 'mid' ? Math.round(load + T.castOff + T.cross / 2) : Math.round(move + 6);
 };
-const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] = [
+/**
+ * Phase 5: `after` s after the ferry starts docking at the Loíza (east) landing on leg 1, when the landing's egrets and
+ * herons fly across the front of the pad in the ride view (all four flushers are in the frustum 3–4 s after, in 1975
+ * and 1840). 1975 uses 3 s: at 4 s two egrets cross right over the landing house's roof and the other two are behind
+ * it (art gate, Task 11b).
+ */
+const flushAt = (era: EraId, after: number) => {
+  const { load, unload } = DOCK_STOPS[era], leg = load + T.castOff + T.cross + T.dock + unload;
+  return leg + load + T.castOff + T.cross + after;
+};
+/**
+ * Manatee: the surfacing k = ceil(300 / period), at mid-roll (with its jitter it can start up to 7.5 s before 300).
+ * Dive: pelican fisher 0's first impact after clock 300, + 0.3 s.
+ */
+const manateeAt = () => { const k = Math.ceil(300 / MANATEE.period); return Math.round((manateeTime(k) + 0.5 * MANATEE.dur) * 10) / 10; };
+const diveAt = () => Math.round((fisherEvents(0, 300).impact + 0.3) * 10) / 10;
+/** `heavy`: heavy on the software GPU (over 90 s to the ready flag, ~2 min alone); given test.slow() and a 300 s ready wait. */
+const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string; heavy?: boolean }[] = [
   { era: '1935', cam: 'ride', t: golden('1935'), c: 95 },                        // 1-car platform on two taut ropes
   { era: '1975', cam: 'bank', t: golden('1975'), c: 95 },
   { era: '1984', cam: 'aerial', t: +(golden('1984') - 1).toFixed(2), c: 95 },     // wake from above
@@ -69,17 +88,23 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'board'), name: '1984-ride-board' },
   { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'unload'), name: '1984-ride-unload' },
   { era: '1986', cam: 'bridge', t: golden('1986'), c: 40, name: '1986-bridge-traffic' },
+  // Phase 5: waders flushing at the Loíza landing, the manatee surfacing, a pelican-fisher dive.
+  { era: '1975', cam: 'ride', t: golden('1975'), c: flushAt('1975', 3), name: '1975-ride-flush', heavy: true },
+  { era: '1840', cam: 'ride', t: golden('1840'), c: flushAt('1840', 4), name: '1840-ride-flush', heavy: true },
+  { era: '1975', cam: 'ride', t: golden('1975'), c: manateeAt(), name: '1975-ride-manatee', heavy: true },
+  { era: '1975', cam: 'ride', t: golden('1975'), c: diveAt(), name: '1975-ride-dive', heavy: true },
 ];
 
 for (const s of SHOTS) {
   test(`renders ${s.era} ${s.cam} @${s.t} c=${s.c}`, async ({ page }) => {
     // Station and town shots are too slow on the software GPU (close water reflection); taken with scripts/dev/shot.mjs (phase-4a-rulings.md, phase-4b-rulings.md).
-    test.skip(s.cam === 'station' || s.cam === 'town', 'station and town shots use the real GPU');
+    test.skip((s.cam === 'station' || s.cam === 'town') && !s.heavy, 'station and town shots use the real GPU');
+    if (s.heavy) test.slow();
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await page.goto(`?era=${s.era}&cam=${s.cam}&t=${s.t}&c=${s.c}&freeze=1&q=medium`);
-    await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
+    await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: s.heavy ? 300_000 : 90_000 });
     await page.screenshot({ path: `${DIR}/${s.name ?? `${s.era}-${s.cam}`}.png` });
     expect(errors).toEqual([]);
   });
