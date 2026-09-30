@@ -51,22 +51,19 @@ describe('crew and load', () => {
     }
   });
 
-  test('helmsman yaw is continuous when he steps back aboard', () => {
+  // Polers keep Phase 3's smooth half turn at each stroke end (0.8 s ease, peak 0.59 rad per 0.1 s; a snap is 3.14).
+  test('nobody snaps their yaw over a whole leg (helmsman, haulers, passengers; every load era)', () => {
     for (const id of ERAS_WITH_LOAD) {
-      const env = envFor(id);
-      if (!env.spec.helmsman) continue;
-      const T = env.spec.timings, Lg = legDuration(T), cache = new LegCache(env);
-      const h = castActors(env.spec, env.seats, Number(id)).find((a) => a.role === 'helmsman')!;
+      const env = envFor(id), T = env.spec.timings, Lg = legDuration(T), cache = new LegCache(env);
+      const actors = castActors(env.spec, env.seats, Number(id));
       const ctx: ActorCtx = { spec: env.spec, layout: env.layout, loadAt: (l) => cache.get(l).load, groundLocal: () => 0 };
-      for (const leg of [2, 3]) {
-        const ld = cache.get(leg).load;
-        if (!ld.helmAshore) continue;
-        const back1 = ld.boardEnd + (Math.abs(ld.ashoreZ) + 1.5) / 1.4;   // back at his station (crew.ts: back0 + legA + legX)
+      for (const leg of [2, 3]) for (const a of actors) {
         let prev: number | null = null;
-        for (let t = back1 - 1; t < back1 + 2; t += 0.1) {
-          const c = leg * Lg + t, y = actorFrame(h, crossingState(c, createCrossingState(), T), c, ctx, createActorFrame()).yaw;
-          if (prev !== null) expect(Math.abs(Math.atan2(Math.sin(y - prev), Math.cos(y - prev))), `${id} leg ${leg} t=${t.toFixed(1)}`).toBeLessThan(0.5);
-          prev = y;
+        for (let t = 0; t < Lg; t += 0.1) {
+          const c = leg * Lg + t, f = actorFrame(a, crossingState(c, createCrossingState(), T), c, ctx, createActorFrame());
+          if (!f.visible) { prev = null; continue; }
+          if (prev !== null) expect(Math.abs(Math.atan2(Math.sin(f.yaw - prev), Math.cos(f.yaw - prev))), `${id} leg ${leg} ${a.role}${a.index} t=${t.toFixed(1)}`).toBeLessThan(a.role === 'poler' ? 0.6 : 0.5);
+          prev = f.yaw;
         }
       }
     }

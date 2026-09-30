@@ -386,12 +386,18 @@ function helmsman(st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame
     const xA = -tr * (L.halfLength + 1.0), zA = load.ashoreZ, legA = Math.abs(zA) / WALK_SPEED, legX = Math.abs(xA - xEnd) / WALK_SPEED;
     const out1 = legX + legA, back0 = load.boardEnd, back1 = back0 + legA + legX;
     if (tau < back1) {
-      let x = xA, z = zA, dir = 0, walking = true;
-      if (tau < legX) { x = xEnd + (xA - xEnd) * (tau / legX); z = 0; dir = faceDir(xA - xEnd, 0); }
-      else if (tau < out1) { z = zA * ((tau - legX) / legA); dir = faceDir(0, zA); }
-      else if (tau < back0) { walking = false; dir = faceDir(0, -zA); }
-      else if (tau < back0 + legA) { z = zA * (1 - (tau - back0) / legA); dir = faceDir(0, -zA); }
-      else { x = xA + (xEnd - xA) * ((tau - back0 - legA) / legX); z = 0; dir = faceDir(xEnd - xA, 0); }
+      let x = xA, z = zA, walking = true;
+      if (tau < legX) { x = xEnd + (xA - xEnd) * (tau / legX); z = 0; }
+      else if (tau < out1) { z = zA * ((tau - legX) / legA); }
+      else if (tau < back0) walking = false;
+      else if (tau < back0 + legA) z = zA * (1 - (tau - back0) / legA);
+      else x = xA + (xEnd - xA) * ((tau - back0 - legA) / legX);
+      // Yaw: along the deck out, across to the ashore spot, a turn on the spot (twice TURN_S for the half turn) to face
+      // the load, back across, along the deck home; every join blends over TURN_S so he never snaps.
+      let dir = faceDir(xA - xEnd, 0);
+      dir = lerpAngle(dir, faceDir(0, zA), smooth(clamp01((tau - legX) / TURN_S)));
+      dir = lerpAngle(dir, faceDir(0, -zA), smooth(clamp01((tau - out1) / (2 * TURN_S))));
+      dir = lerpAngle(dir, faceDir(xEnd - xA, 0), smooth(clamp01((tau - back0 - legA) / TURN_S)));
       const onDeck = Math.abs(x) <= L.halfLength, y = onDeck || !groundLocal ? L.deckY : groundLocal(x, z);
       set3(f.pos, x, y, z); f.yaw = dir;
       f.pose.kind = walking ? 'walk' : 'stand'; f.pose.phase = fract(walking ? (Math.abs(x - xEnd) + Math.abs(z)) / STRIDE : clock * 0.1);
