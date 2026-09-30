@@ -21,10 +21,13 @@ const set = (o: FaunaPose, x: number, y: number, z: number, yaw: number, pitch: 
  * `period` s the leader flies from −half to +half along the river, then the next loop comes back the other way.
  * It crosses the crossing line `ahead` m in front of the ferry, where the ferry is at mid-pass, in the direction the
  * ride camera faces then (a pure function of the crossing clock, like the mullet); clamped to `margin` m inside the
- * banks. The ends lie `half` m out to the side, outside the ride view.
+ * banks. When the banks leave less than `near` m ahead (the ferry near the bank it faces), the pass crosses behind the
+ * ferry instead, out of the ride view: a pelican a few metres from the camera reads as a toy (art gate, Task 11b).
+ * It starts `half` m out to the side and flies speed·period = 512 m, so the ends lie ≤ 272 m out to the side,
+ * outside the ride view.
  */
 export const FLOCK = {
-  period: 64, speed: 8, half: 240, ahead: [40, 70] as [number, number], margin: 20,
+  period: 64, speed: 8, half: 240, ahead: [40, 70] as [number, number], margin: 20, near: 30,
   gapBack: 5, gapSide: 2.5, beatHz: 1.25, beats: 3, glide: 2.2, amp: 0.55,
 };
 const _fs = createCrossingState();
@@ -33,8 +36,10 @@ export function flockAlong(k: number, w: FaunaWorld): number {
   const g = w.site.geom, st = w.moored ? mooredState(_fs) : crossingState((k + 0.5) * FLOCK.period, _fs, w.T);
   // Facing: the leg's travel direction, or the next leg's once the ferry is unloading (the camera swings round).
   const facing = st.phase === 'unload' ? -st.travel : w.moored ? 1 : st.travel;
-  const ahead = FLOCK.ahead[0] + (FLOCK.ahead[1] - FLOCK.ahead[0]) * u01(k, 1, 71);
-  return Math.min(g.span - FLOCK.margin, Math.max(FLOCK.margin, g.span * st.s + facing * ahead));
+  const ahead = FLOCK.ahead[0] + (FLOCK.ahead[1] - FLOCK.ahead[0]) * u01(k, 1, 71), at = g.span * st.s;
+  const clamp = (a: number) => Math.min(g.span - FLOCK.margin, Math.max(FLOCK.margin, a));
+  const a = clamp(at + facing * ahead);
+  return facing * (a - at) >= FLOCK.near ? a : clamp(at - facing * ahead);
 }
 export function pelicanFlock(clock: number, i: number, w: FaunaWorld, out: FaunaPose): FaunaPose {
   const s0 = w.site, g = s0.geom, k = Math.floor(clock / FLOCK.period), t = clock - k * FLOCK.period, sgn = (k & 1) === 0 ? 1 : -1;

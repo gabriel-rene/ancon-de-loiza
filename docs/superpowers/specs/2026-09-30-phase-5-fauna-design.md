@@ -57,9 +57,9 @@ All motion is a pure function of the scene clock (the same clock the crossing us
 
 ### 3.1 Birds
 
-- **Pelican flock:** flies in a line (echelon), 4–6 m apart, flap-flap-glide, along the river. Each loop (60–90 s; 64 s used) it crosses the crossing line 40–70 m ahead of the ferry, in the direction the ride camera faces, and enters and leaves the ride view at points the camera does not frame in steady headings (§1.1), ≤ 240 m out to the side.
+- **Pelican flock:** flies in a line (echelon), 4–6 m apart, flap-flap-glide, along the river. Each loop (60–90 s; 64 s used) it crosses the crossing line 40–70 m ahead of the ferry, in the direction the ride camera faces (when the banks leave less than 30 m ahead, it crosses behind the ferry instead, out of the ride view: art gate, Task 11b), and enters and leaves the ride view at points the camera does not frame in steady headings (§1.1), ≤ 272 m out to the side (it starts 240 m out and flies 8 m/s × 64 s = 512 m).
 - **Pelican fisher:** circles, then dives: wings fold, a steep drop, a splash ring (§4.4), sits on the water 4–8 s, runs across the water and takes off. One cycle 25–40 s. The two fishers are out of phase.
-- **Frigatebird:** slow circles and figure-eights, wings held out, no flapping, a slight bank in the turns. The figure-eight drifts with the ferry (at its speed, ≤ ~1.5 m/s) so it stays the same distance ahead. Black, long narrow bent wings, forked tail.
+- **Frigatebird:** slow circles and figure-eights, wings held out, no flapping, a slight bank in the turns. The figure-eight drifts with the ferry (at its speed, ≤ 1.3 m/s) so it stays the same distance ahead. Black, long narrow bent wings, forked tail.
 - **Egrets and herons:** stand, walk a few steps along the waterline, stop, peck at the water. They stay on the bank strip between the mangrove edge and the water.
 
 ### 3.2 Water life
@@ -120,7 +120,7 @@ A review agent checks each fact against its source, as in 3b. The user sees only
   - Same clock and seed give the same pose for every animal.
   - Counts per tier match §2.
   - The §5 limits hold.
-  - Ride view (§1.1 amendments): the thresholds there, in `src/fauna/view.test.ts`; the flock's pass ends are outside the steady ride view.
+  - Ride view (§1.1 amendments): the thresholds there, in `src/fauna/view.test.ts`; the flock's pass ends are outside the steady ride view; a flock pass never crosses 0–30 m ahead of the ferry (`flyers.test.ts`).
   - The manatee surfaces 25–40 m to the side of the crossing line on the river-mouth side (usually 40–100 m from the ferry), river only, 5–15 m between surfacings.
   - Every animal stays within §1.1: within 300 m of the crossing line; flying birds above the water or ground by at least 2 m (except the pelican dive and sit); bank birds on the bank strip; mullet never inside the ferry footprint or the rope line.
   - Docking: landing birds take off within 1.5 s of `dock` starting at their landing and land again 30–60 m away, on the other side of the pad, ≤ 30 m from it; their flights pass ≥ 4 m above the docked deck in every era; in 1986 they never take off.

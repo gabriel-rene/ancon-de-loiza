@@ -32,7 +32,7 @@ for (const id of ['1975', '1840'] as const) {
     }
   });
 
-  test(`flock ${id}: each pass crosses the line 40–70 m ahead of a crossing ferry, inside the banks`, () => {
+  test(`flock ${id}: each pass ahead of a crossing ferry crosses the line 40–70 m ahead, inside the banks`, () => {
     const st = createCrossingState();
     let ahead = 0;
     for (let k = 0; k < 60; k++) {
@@ -42,9 +42,22 @@ for (const id of ['1975', '1840'] as const) {
       crossingState((k + 0.5) * FLOCK.period, st, ew.T);
       if (st.phase !== 'cross') continue;
       const d = (a - g.span * st.s) * st.travel;
+      if (d < 0) continue;                                          // no room ahead: it crosses behind (next test)
       if (a > FLOCK.margin && a < g.span - FLOCK.margin) { expect(d).toBeGreaterThanOrEqual(40 - 1e-6); expect(d).toBeLessThanOrEqual(70 + 1e-6); ahead++; }
     }
     expect(ahead).toBeGreaterThan(5);
+  });
+
+  test(`flock ${id}: a pass never crosses less than ${FLOCK.near} m ahead of the ferry (then it crosses behind)`, () => {
+    const st = createCrossingState();
+    let behind = 0;
+    for (let k = 0; k < 200; k++) {
+      const a = flockAlong(k, ew);
+      crossingState((k + 0.5) * FLOCK.period, st, ew.T);
+      const facing = st.phase === 'unload' ? -st.travel : st.travel, d = (a - g.span * st.s) * facing;
+      if (d < FLOCK.near) { expect(d, `loop ${k}`).toBeLessThan(0); behind++; }
+    }
+    expect(behind).toBeGreaterThan(0);
   });
 
   test(`frigatebirds ${id}: 60–68 m up, beyond their bank, inside the frame, continuous`, () => {
