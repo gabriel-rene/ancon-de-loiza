@@ -121,3 +121,53 @@ test('flush flights pass ≥ 4 m above the deck wherever they cross the docked f
     expect(over, id).toBeGreaterThan(0);
   }
 });
+
+test('landing waders keep apart: ≥ 1.0 m while both stand or walk, ≥ 1.5 m while either flies (every era, 5 and 3 per landing)', () => {
+  for (const id of ERA_IDS) {
+    const ww = worldFor(id), Lw = legDuration(ww.T);
+    for (const per of [5, 3]) {
+      const ws = waderSpecs(ww.site, per), poses = ws.map(() => createFaunaPose());
+      let ground = Infinity, air = Infinity, atGround = '', atAir = '';
+      for (let c = 0; c < 2 * Lw; c += 0.25) {
+        ws.forEach((s, i) => wader(c, s, ww, poses[i]));
+        for (let i = 0; i < ws.length; i++) for (let j = i + 1; j < ws.length; j++) {
+          const a = poses[i], b = poses[j], d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z), at = `${ws[i].landing}/${ws[i].rank}–${ws[j].landing}/${ws[j].rank} c ${c}`;
+          if (a.legs === 1 || b.legs === 1) { if (d < air) { air = d; atAir = at; } }
+          else if (d < ground) { ground = d; atGround = at; }
+        }
+      }
+      expect(ground, `${id} ${per}/landing, both on the ground (${atGround})`).toBeGreaterThanOrEqual(1.0);
+      expect(air, `${id} ${per}/landing, one flying (${atAir})`).toBeGreaterThanOrEqual(1.5);
+    }
+  }
+});
+
+test('every landing spot is ≥ 2 m from every other bird\'s home (with its idle step) and landing spot', () => {
+  for (const per of [5, 3]) {
+    const ws = waderSpecs(w.site, per);
+    for (const s of ws.filter((x) => x.flush)) for (const o of ws) {
+      if (o === s || o.landing !== s.landing) continue;
+      const L = s.u + s.flee;
+      expect(Math.max(o.u - L, L - o.u - WADE.step), `${s.landing}/${s.rank} vs home of ${o.rank}`).toBeGreaterThanOrEqual(2);
+      if (o.flush) expect(Math.abs(L - o.u - o.flee), `${s.landing}/${s.rank} vs landing of ${o.rank}`).toBeGreaterThanOrEqual(2);
+    }
+  }
+});
+
+test('waders turn smoothly: ≤ 25° per 0.05 s at take-off, on landing, at the turn back and walk → idle (every era)', () => {
+  const q = createFaunaPose();
+  for (const id of ERA_IDS) {
+    const ww = worldFor(id), Lw = legDuration(ww.T);
+    let worst = 0, at = '';
+    for (const s of waderSpecs(ww.site, 5)) {
+      wader(0, s, ww, q);
+      for (let c = 0.05; c < 2 * Lw; c += 0.05) {
+        wader(c, s, ww, p);
+        const d = Math.abs(Math.atan2(Math.sin(p.yaw - q.yaw), Math.cos(p.yaw - q.yaw))) * (180 / Math.PI);
+        if (d > worst) { worst = d; at = `${s.landing}/${s.rank} c ${c.toFixed(2)}`; }
+        Object.assign(q, p);
+      }
+    }
+    expect(worst, `${id} ${at}`).toBeLessThanOrEqual(25);
+  }
+});
