@@ -24,7 +24,8 @@ const ellipsoid = (rx: number, ry: number, rz: number, x: number, y: number, z: 
 const limb = (a: V3, b: V3, r0: number, r1: number, seg = 6) =>
   new THREE.CylinderGeometry(r0, r1, 1, seg).translate(0, -0.5, 0).applyMatrix4(segmentMatrix(a, b, 1, 1, new THREE.Matrix4()));
 const boxy = (sx: number, sy: number, sz: number, x: number, y: number, z: number, rotZ: number) => new THREE.BoxGeometry(sx, sy, sz).rotateZ(rotZ).translate(x, y, z);
-const merge = (list: THREE.BufferGeometry[]) => { const m = mergeGeometries(list, false)!; list.forEach((g) => g.dispose()); m.computeVertexNormals(); return m; };
+/** Merge non-indexed pieces; their own (smooth, matrix-transformed) normals are kept. */
+const merge = (list: THREE.BufferGeometry[]) => { const m = mergeGeometries(list, false)!; list.forEach((g) => g.dispose()); return m; };
 
 export function buildAnimalBody(sp: Species): THREE.BufferGeometry {
   if (sp === 'ox') return merge([
@@ -47,25 +48,29 @@ export function buildAnimalBody(sp: Species): THREE.BufferGeometry {
   ]);
 }
 
-/** Unit leg segment (y 0 → −1, radius 1 at the top, 0.8 at the bottom); the lowest 12 % dark (the hoof, on the lower segment). */
-export function buildLegSegment(): THREE.BufferGeometry {
-  const g = new THREE.CylinderGeometry(1, 0.8, 1, 6, 1).translate(0, -0.5, 0).toNonIndexed();
-  const p = g.attributes.position, a = new Float32Array(p.count * 3), coat = new THREE.Color(COAT), hoof = new THREE.Color(HOOF);
-  for (let i = 0; i < p.count; i++) { const c = p.getY(i) < -0.88 ? hoof : coat; a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
-  g.setAttribute('color', new THREE.BufferAttribute(a, 3));
-  g.computeVertexNormals();
-  return g;
+/**
+ * Unit leg segment (y 0 → −1, radius 1 at the top, 0.8 at the bottom). With `hoof` (the lower segment, default) the lowest 12 %
+ * (y < −0.88) is a dark hoof band, a hard step at a split ring; `hoof = false` (the upper segment) is coat all the way, so the knee stays clean.
+ */
+export const HOOF_Y = -0.88;
+export function buildLegSegment(hoof = true): THREE.BufferGeometry {
+  const cyl = (y0: number, y1: number, hex: number) => tint(new THREE.CylinderGeometry(1 - 0.2 * -y0, 1 - 0.2 * -y1, y0 - y1, 6, 1).translate(0, (y0 + y1) / 2, 0), hex);
+  return merge(hoof ? [cyl(0, HOOF_Y, COAT), cyl(HOOF_Y, -1, HOOF)] : [cyl(0, -1, COAT)]);
 }
 
-/** Lateral-sequence walk: left hind, left fore, right hind, right fore, a quarter stride apart. Order of `out`: LF, RF, LH, RH (upper), then the same four lower. */
+/**
+ * Lateral-sequence walk: right hind, right fore, left hind, left fore, a quarter stride apart (+Z is the right-hand side in the mover frame).
+ * Order of `out`: RF, LF, RH, LH (upper), then the same four lower. `moving` is a gait amplitude 0..1 (true = 1, false = 0) scaling swing and lift,
+ * so a mover easing between walk and stand does not snap its legs.
+ */
 const OFF = [0.25, 0.75, 0, 0.5];
 const _j: V3 = [0, 0, 0], _k: V3 = [0, 0, 0], _f: V3 = [0, 0, 0], _m = new THREE.Matrix4();
-export function legMatrices(sp: Species, dist: number, moving: boolean, world: THREE.Matrix4, out: THREE.Matrix4[]) {
-  const A = ANATOMY[sp], ph = dist / A.stride;
+export function legMatrices(sp: Species, dist: number, moving: boolean | number, world: THREE.Matrix4, out: THREE.Matrix4[]) {
+  const A = ANATOMY[sp], ph = dist / A.stride, amp = moving === true ? 1 : moving === false ? 0 : Math.min(1, Math.max(0, moving));
   for (let i = 0; i < 4; i++) {
     const fore = i < 2, side = i % 2 === 0 ? 1 : -1, [jx, jy] = fore ? A.shoulder : A.hip;
     const c = Math.sin(2 * Math.PI * (ph + OFF[i]));
-    const swing = moving ? 0.32 * c : 0, lift = moving ? Math.max(0, Math.sin(2 * Math.PI * (ph + OFF[i]) + 0.9)) : 0;
+    const swing = 0.32 * c * amp, lift = amp * Math.max(0, Math.sin(2 * Math.PI * (ph + OFF[i]) + 0.9));
     const bend = (fore ? 1 : -1) * 0.9 * lift;   // fore knees fold back, hocks forward
     _j[0] = jx; _j[1] = jy; _j[2] = side * A.legZ;
     _k[0] = jx + A.upper * Math.sin(swing); _k[1] = jy - A.upper * Math.cos(swing); _k[2] = _j[2];
@@ -88,8 +93,9 @@ export function buildCart(kind: 'oxCart' | 'caneCart'): THREE.BufferGeometry {
   for (const s of [-1, 1]) b.box([bedL, 0.3, 0.05], [ax, bedY + 0.19, s * (bedW / 2)], tone);
   b.box([0.05, 0.3, bedW], [ax - bedL / 2, bedY + 0.19, 0], tone);
   b.box([0.14, 0.14, 0.2], [ax, d.wheelR, 0], dark);                      // axle block
+  b.box([0.08, 0.08, 2 * d.track], [ax, d.wheelR, 0], dark);              // axle between the wheels, under the bed
   const yokeX = oxenCentreX(kind) + 1.05, yokeY = 1.18, tongue0 = ax + bedL / 2;
-  b.cylinder(0.05, 0.05, yokeX - tongue0, [(tongue0 + yokeX) / 2, (bedY + yokeY) / 2, 0], dark, 'x', 6);   // tongue (slight slope ignored)
+  b.add(limb([tongue0 - 0.1, bedY, 0], [yokeX, yokeY, 0], 0.05, 0.05, 6), dark, { grain: 'x' });   // tongue, sloping from the bed up to the yoke, ends buried in both
   b.box([0.12, 0.1, 2 * OXEN_Z + 0.5], [yokeX, yokeY, 0], dark);         // yoke across both necks
   if (kind === 'caneCart') {
     for (const s of [-1, 1]) for (let i = 0; i < 5; i++) b.cylinder(0.025, 0.025, 1.0, [ax - bedL / 2 + 0.2 + i * 0.5, bedY + 0.55, s * (bedW / 2)], dark, 'y', 5);
@@ -97,7 +103,7 @@ export function buildCart(kind: 'oxCart' | 'caneCart'): THREE.BufferGeometry {
   }
   return b.build();
 }
-/** Solid country cart wheel (unit radius, axle along z): plank disc, rim, hub. */
+/** Solid country cart wheel (unit radius, axle along z): plank disc and hub. */
 export function buildCartWheel(): THREE.BufferGeometry {
   const b = new PartBuilder(), tone = WOOD.base.getHex();
   b.cylinder(1, 1, 0.16, [0, 0, 0], tone, 'z', 16);
