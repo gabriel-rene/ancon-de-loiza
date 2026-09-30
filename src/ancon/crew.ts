@@ -2,11 +2,11 @@
 import { dressFigure, type FigureLook } from '../people/palettes';
 import type { PoseInput, PoseKind, V3 } from '../people/rig';
 import { hash3 } from '../vegetation/rng';
-import { CROSSING_TIMINGS as T, type CrossingState } from './crossing';
+import { type CrossingState, type CrossingTimings } from './crossing';
 import { clamp01, fract, lerp, lerpAngle, smooth } from './ease';
 import { POLE_LEN } from './pole';
 import { haulerStationX, haulerZ, type SeatAnchor } from './seats';
-import { deckLayout, type DeckLayout, type VesselSpec } from './spec';
+import { CAR_SLOT, deckLayout, type DeckLayout, type VesselSpec } from './spec';
 import { GUNWALE_TOP } from './vessels/timberBarge';
 
 export type Role = 'hauler' | 'poler' | 'helmsman' | 'passenger';
@@ -17,7 +17,7 @@ export interface Actor {
 }
 /**
  * A passenger's route: along the lane (deck-local z = `lane`) from the departure end to the spot's x, then across
- * to the spot; leaving, the reverse toward the arrival end. Start times (s into the leg) per travel direction
+ * to the spot; leaving, the reverse toward the arrival end. Start times per travel direction (boarding: s into the leg; leaving: s after unload starts)
  * (index 0: travel +1, 1: travel −1), scheduled so nobody walks through anybody (planWalks).
  */
 export interface PassengerWalk { lane: number; board: [number, number]; leave: [number, number] }
@@ -36,7 +36,22 @@ export interface ActorCtx {
   spec: VesselSpec; layout: DeckLayout;
   /** Deck-local ground height (m) under deck-local (x, z); omitted = no ground (poles may go anywhere). */
   groundLocal?: (x: number, z: number) => number;
+  /** Phase 4c: this leg's load (src/traffic/schedule.ts); omitted = none. */
+  loadAt?: (leg: number) => DeckLoad;
 }
+/** What the crew and passengers need from one leg's load (built by src/traffic/schedule.ts; defined here so the crew does not import src/traffic). */
+export interface DeckLoad {
+  /** Parked, deck-local [x0, x1, z0, z1]. */
+  rects: [number, number, number, number][];
+  /** s into the leg when the last mover is parked; s after unload starts when the last mover is off the deck. */
+  boardEnd: number; offEnd: number;
+  helmAshore: boolean;
+  /** Deck-local z where the helmsman waits ashore (away from the waiting line). */
+  ashoreZ: number;
+}
+export const NO_LOAD: DeckLoad = { rects: [], boardEnd: 0, offEnd: 0, helmAshore: false, ashoreZ: 0 };
+/** Haulers step this far outboard toward the rope (m) while a load moves on or off (spec 4c §2 fit ruling). */
+export const HAUL_ASIDE = 0.25;
 
 export const HAUL_HZ = 0.5, STROKE_S = 7, PUSH = 0.65, POLE_BED = 2.1, STEER_DEPTH = 0.5;
 /** A pole tip on the ground rests this far above it. */
@@ -51,7 +66,7 @@ export const WALK_SPEED = 1.4, STRIDE = 1.1, TURN_S = 0.8;
 /** Haulers turn toward their rope line by atan(HAUL_TURN) ≈ 30°. */
 export const HAUL_TURN = 0.58;
 /** Seconds into a leg when unloading starts. */
-export const MOVE_END = T.load + T.castOff + T.cross + T.dock;
+export const moveEnd = (T: CrossingTimings) => T.load + T.castOff + T.cross + T.dock;
 
 export const createActorFrame = (): ActorFrame => ({
   visible: true, pos: [0, 0, 0], yaw: 0, pose: { kind: 'stand', phase: 0 }, handL: [0, 0, 0], handR: [0, 0, 0],
@@ -79,8 +94,12 @@ export function castActors(spec: VesselSpec, seats: SeatAnchor[], eraSeed: numbe
   }
   // Passengers take the standing spots farthest from where the crew work first (ties: the seats' own shuffled order).
   const L = deckLayout(spec), room = crewRoom(spec, L);
-  const standing = seats.filter((s) => s.kind === 'standing').map((s, k) => ({ s, k, r: room(s.pos[0], s.pos[2]) }))
-    .sort((a, b) => b.r - a.r || a.k - b.k).map((e) => e.s);
+  // Two car lanes (spec 4c): passengers walk the centre corridor (laneZ), so nobody stands within CORRIDOR of it, and
+  // they take the spots at the deck ends first — beside the cars the load would block the walk, and ahead of them
+  // the cars drive off through the spot (paxBlocked).
+  const two = L.lanes === 2, rowsHalf = (L.rows * CAR_SLOT.length) / 2, end = (s: SeatAnchor) => (two && Math.abs(s.pos[0]) > rowsHalf ? 1 : 0);
+  const standing = seats.filter((s) => s.kind === 'standing' && (!two || Math.abs(s.pos[2]) >= CORRIDOR)).map((s, k) => ({ s, k, e: end(s), r: room(s.pos[0], s.pos[2]) }))
+    .sort((a, b) => b.e - a.e || b.r - a.r || a.k - b.k).map((e) => e.s);
   const n = Math.min(standing.length, Math.round(spec.passengers * passengerScale));
   for (let i = 0; i < n; i++) add('passenger', i, hash3(eraSeed, i, 9) / 2 ** 32 < 0.45, standing[i]);
   planWalks(out.filter((a) => a.role === 'passenger'), spec, L);
@@ -104,10 +123,13 @@ function crewRoom(spec: VesselSpec, L: DeckLayout) {
   };
 }
 
-/** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers. */
-export const laneZ = (spec: VesselSpec, L: DeckLayout) => (spec.propulsion === 'ropes' ? Math.min(LANE_Z, Math.abs(haulerZ(1, L)) - 0.5) : LANE_Z);
-/** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start; spacing in single file (m). */
-export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = MOVE_END + 0.3, FILE_GAP = 0.8;
+/** Passengers walk 0.6 m off the centre line (clear of the helmsman on it at the ends); on the narrow 1935 deck, 0.5 m from the haulers; between two car lanes, on the centre line. */
+export const laneZ = (spec: VesselSpec, L: DeckLayout) =>
+  (L.lanes === 2 ? 0 : spec.propulsion === 'ropes' ? Math.min(LANE_Z, Math.abs(haulerZ(1, L)) - 0.5) : LANE_Z);
+/** On two-lane decks no standing spot lies within this of the centre corridor (a walker passes 0.44 m clear). */
+export const CORRIDOR = 0.45;
+/** Boarding: first start (s into the leg) and the interval between passengers; leaving: earliest start (s after unload starts); spacing in single file (m). */
+export const BOARD0 = 1, BOARD_GAP = 0.9, LEAVE0 = 0.3, FILE_GAP = 0.8;
 
 /**
  * Collision-free boarding and leaving. Boarding, the farthest spot boards first (ties: the spot farther from the lane),
@@ -258,9 +280,12 @@ function ropeHand(p: number, tr: number, x: number, side: number, L: DeckLayout,
   const h = pull ? 0.4 - 0.6 * smooth(u) : -0.2 + 0.6 * smooth(u);
   return set3(out, x + tr * h, L.guideY + (pull ? 0 : 0.08 * Math.sin(Math.PI * u)), side * L.ropeZ);
 }
-function hauler(a: Actor, st: CrossingState, clock: number, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+function hauler(a: Actor, st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L } = ctx;
   const side = a.index % 2 === 0 ? 1 : -1, perSide = Math.ceil(spec.crew / 2), x = haulerStationX(Math.floor(a.index / 2), perSide, L, side);
-  set3(f.pos, x, L.deckY, haulerZ(side, L));
+  const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD, moving = load.rects.length > 0;
+  const aside = moving ? HAUL_ASIDE * smooth(clamp01((st.slack - 0.5) / 0.5)) : 0;
+  set3(f.pos, x, L.deckY, haulerZ(side, L) + side * aside);
   const w = smooth(clamp01(st.effort / 0.3));
   // Hauling: face along the rope, turned ~30° toward it so both hands reach forward to it (no arm across the chest).
   f.yaw = lerpAngle(side > 0 ? Math.PI : 0, faceDir(st.travel, side * HAUL_TURN), w);
@@ -299,6 +324,7 @@ function stroke(t: number, i: number, side: number, z: number, tr: number, L: De
   return strokeOut;
 }
 function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: ActorFrame) {
+  const T = spec.timings, MOVE_END = moveEnd(T);
   const rail = L.deckY + (spec.kind === 'timberBarge' ? GUNWALE_TOP : 0);
   const i = a.index, side = i % 2 === 0 ? 1 : -1, z = side * (L.halfBeam - 0.45), tr = st.travel, tau = st.tLeg;
   const inboard = side > 0 ? Math.PI : 0, tEnd = MOVE_END - T.load;
@@ -340,29 +366,59 @@ function poler(a: Actor, st: CrossingState, { spec, layout: L }: ActorCtx, f: Ac
   else applyShape(mixShape(poleShape('upright', x, z, side, tr, 0, L, sB), poleShape('carry', x, z, side, tr, 0, L, sA), clamp01((tau - tw) / LIFT_SWING), sE, true), f);
 }
 /** Polers start back to their next stroke position once the helmsman is on his way (his pole shipped). */
-const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L) : MOVE_END) + 0.5;
+const polerWalkStart = (spec: VesselSpec, L: DeckLayout) => (spec.helmsman ? helmWalkStart(L, spec.timings) : moveEnd(spec.timings)) + 0.5;
 
 // ---- helmsman ----
 /** The helmsman crosses the deck at the very end of unloading, after the passengers have gone ashore (they leave by ≈ MOVE_END + 8 s). */
-const helmWalkStart = (L: DeckLayout) => MOVE_END + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
+const helmWalkStart = (L: DeckLayout, T: CrossingTimings) => moveEnd(T) + T.unload - 0.5 - (2 * (L.halfLength - 0.5)) / WALK_SPEED;
 /**
  * He carries the pole tip-first to the far end (tip toward +travel of the leg just ended), so at the start of the
  * next leg he only lowers the tip into the water astern. The one reversal per leg is the swing when he ships the
  * steering pole (in front of him, across the empty deck) just before setting off.
  */
-function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: ActorCtx, f: ActorFrame) {
+function helmsman(st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L, groundLocal } = ctx, T = spec.timings, MOVE_END = moveEnd(T);
   const tr = st.travel, tau = st.tLeg, xEnd = -tr * (L.halfLength - 0.5);
+  let tau0 = 0;
+  const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD;
+  if (load.helmAshore) {
+    // Step ashore beside the trailing end (away from the waiting line), wait while the load drives on, step back.
+    const xA = -tr * (L.halfLength + 1.0), zA = load.ashoreZ, legA = Math.abs(zA) / WALK_SPEED, legX = Math.abs(xA - xEnd) / WALK_SPEED;
+    const out1 = legX + legA, back0 = load.boardEnd, back1 = back0 + legA + legX;
+    if (tau < back1) {
+      let x = xA, z = zA, walking = true;
+      if (tau < legX) { x = xEnd + (xA - xEnd) * (tau / legX); z = 0; }
+      else if (tau < out1) { z = zA * ((tau - legX) / legA); }
+      else if (tau < back0) walking = false;
+      else if (tau < back0 + legA) z = zA * (1 - (tau - back0) / legA);
+      else x = xA + (xEnd - xA) * ((tau - back0 - legA) / legX);
+      // Yaw: along the deck out, across to the ashore spot, a turn on the spot (twice TURN_S for the half turn) to face
+      // the load, back across, along the deck home; every join blends over TURN_S so he never snaps.
+      let dir = faceDir(xA - xEnd, 0);
+      dir = lerpAngle(dir, faceDir(0, zA), smooth(clamp01((tau - legX) / TURN_S)));
+      dir = lerpAngle(dir, faceDir(0, -zA), smooth(clamp01((tau - out1) / (2 * TURN_S))));
+      dir = lerpAngle(dir, faceDir(xEnd - xA, 0), smooth(clamp01((tau - back0 - legA) / TURN_S)));
+      const onDeck = Math.abs(x) <= L.halfLength, y = onDeck || !groundLocal ? L.deckY : groundLocal(x, z);
+      set3(f.pos, x, y, z); f.yaw = dir;
+      f.pose.kind = walking ? 'walk' : 'stand'; f.pose.phase = fract(walking ? (Math.abs(x - xEnd) + Math.abs(z)) / STRIDE : clock * 0.1);
+      applyShape(poleShape('carry', x, z + 0.3, 0, tr, 0, L, sA), f);
+      return;
+    }
+    // Back at his station: the Phase 3 sequence (turn, lower the steering pole) runs from back1 instead of 0,
+    // turning from the way he arrived (facing +travel) so his yaw is continuous across the join.
+    tau0 = back1;
+  }
   const sweep = 0.22 * Math.sin(clock * 0.45) * (0.3 + 0.7 * st.effort);
   if (tau < MOVE_END) {
-    const k = smooth(clamp01(tau / TURN_S)), kp = smooth(clamp01(tau / POLE_SWING));
+    const k = smooth(clamp01((tau - tau0) / TURN_S)), kp = smooth(clamp01((tau - tau0) / POLE_SWING));
     set3(f.pos, xEnd, L.deckY, 0);
-    f.yaw = lerpAngle(faceDir(-tr, 0), 0, k);
+    f.yaw = lerpAngle(faceDir(tau0 > 0 ? tr : -tr, 0), 0, k);
     f.pose.kind = 'stand'; f.pose.phase = fract(clock * 0.1);
     applyShape(mixShape(poleShape('carry', xEnd, 0.3, 0, tr, 0, L, sA), steerShape(xEnd, tr, sweep, L, sB, groundLocal), kp, sE), f);
     return;
   }
   // Unload: keep steering at the trailing end, ship the pole, then walk the centreline to the far end.
-  const t0 = helmWalkStart(L), d = 2 * (L.halfLength - 0.5), walked = clamp01((tau - t0) / (d / WALK_SPEED)) * d, x = xEnd + tr * walked;
+  const t0 = helmWalkStart(L, T), d = 2 * (L.halfLength - 0.5), walked = clamp01((tau - t0) / (d / WALK_SPEED)) * d, x = xEnd + tr * walked;
   const kShip = clamp01((tau - t0 + SHIP_S) / SHIP_S), kTurn = smooth(clamp01((tau - t0) / TURN_S));
   set3(f.pos, x, L.deckY, 0);
   f.yaw = lerpAngle(0, faceDir(tr, 0), kTurn);
@@ -376,12 +432,34 @@ function helmsman(st: CrossingState, clock: number, { layout: L, groundLocal }: 
 
 // ---- passengers ----
 const LANE_Z = 0.6, SPOT_TURN = 1.2 * TURN_S;
-function passenger(a: Actor, st: CrossingState, clock: number, { layout: L }: ActorCtx, f: ActorFrame) {
+const PAX_R = 0.25 + 0.05;
+const inRect = (x: number, z: number, r: [number, number, number, number]) => x > r[0] - PAX_R && x < r[1] + PAX_R && z > r[2] - PAX_R && z < r[3] + PAX_R;
+/**
+ * A passenger stays ashore this leg when their walk to the spot (made after the load has parked) meets the parked
+ * load, or when the spot lies where a mover drives off (its rectangle stretched to the leading deck end: the load
+ * leaves before the passengers do). Allocation-free.
+ */
+export function paxBlocked(a: Actor, load: DeckLoad, spec: VesselSpec, L: DeckLayout, travel: 1 | -1): boolean {
+  if (!load.rects.length) return false;
+  const sx = a.spot!.pos[0], sz = a.spot!.pos[2], lz = a.walk!.lane, xIn = -travel * L.halfLength;
+  for (const r of load.rects) {
+    for (let u = 0; u <= 1.0001; u += 0.02) if (inRect(xIn + (sx - xIn) * u, lz, r)) return true;
+    for (let u = 0; u <= 1.0001; u += 0.1) if (inRect(sx, lz + (sz - lz) * u, r)) return true;
+    _sweep[0] = travel > 0 ? r[0] : -L.halfLength; _sweep[1] = travel > 0 ? L.halfLength : r[1]; _sweep[2] = r[2]; _sweep[3] = r[3];
+    if (inRect(sx, sz, _sweep)) return true;
+  }
+  return false;
+}
+const _sweep: [number, number, number, number] = [0, 0, 0, 0];
+function passenger(a: Actor, st: CrossingState, clock: number, ctx: ActorCtx, f: ActorFrame) {
+  const { spec, layout: L } = ctx, T = spec.timings, MOVE_END = moveEnd(T);
   const w = a.walk!, k = st.travel > 0 ? 0 : 1, spot = a.spot!, tau = st.tLeg, tr = st.travel, V = WALK_SPEED;
+  const load = ctx.loadAt?.(st.legIndex) ?? NO_LOAD;
+  if (paxBlocked(a, load, spec, L, st.travel)) { f.visible = false; f.pose.kind = 'stand'; return; }
   const sx = spot.pos[0], sz = spot.pos[2], lz = w.lane, xIn = -tr * L.halfLength, xOut = tr * L.halfLength;
   const lat = Math.abs(sz - lz), toSpot = Math.sign(sz - lz);
-  const b0 = w.board[k], bc = b0 + Math.abs(sx - xIn) / V, b1 = bc + lat / V;
-  const l0 = w.leave[k], lc = l0 + lat / V, l1 = lc + Math.abs(xOut - sx) / V;
+  const b0 = load.boardEnd + w.board[k], bc = b0 + Math.abs(sx - xIn) / V, b1 = bc + lat / V;
+  const l0 = MOVE_END + load.offEnd + w.leave[k], lc = l0 + lat / V, l1 = lc + Math.abs(xOut - sx) / V;
   const along = faceDir(tr, 0), across = lat > 1e-6 ? faceDir(0, toSpot) : along, back = lat > 1e-6 ? faceDir(0, -toSpot) : along;
   f.pose.kind = 'walk';
   if (tau < b0 || tau >= l1) { f.visible = false; set3(f.pos, xIn, L.deckY, lz); f.yaw = along; return; }

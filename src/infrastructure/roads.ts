@@ -31,7 +31,7 @@ const way = (geo: GeoBundle, id: string) => {
 export const bridgeWay = (geo: GeoBundle) => way(geo, BRIDGE_WAY).points;
 
 /** Index of the PR-187 point where the Antigua PR-187 branches off (its first point). */
-function antiguaJunction(geo: GeoBundle) {
+export function antiguaJunction(geo: GeoBundle) {
   const [ax, az] = way(geo, STORY_WAYS.antigua).points[0], p = way(geo, PR187_WAY).points;
   let best = 0;
   for (let k = 1; k < p.length; k++) if (Math.hypot(p[k][0] - ax, p[k][1] - az) < Math.hypot(p[best][0] - ax, p[best][1] - az)) best = k;

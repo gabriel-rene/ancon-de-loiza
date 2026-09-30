@@ -5,6 +5,7 @@ import { useEffect, useMemo, type ReactElement } from 'react';
 import type { Sun } from '../useSun';
 import { GradeEffect } from './GradeEffect';
 import { HeightFogEffect } from './HeightFogEffect';
+import { opaqueAO } from './opaqueAO';
 
 export function Post({ sun, ao }: { sun: Sun; ao: boolean }) {
   const camera = useThree((s) => s.camera);
@@ -17,7 +18,7 @@ export function Post({ sun, ao }: { sun: Sun; ao: boolean }) {
     <EffectComposer multisampling={0}>
       {(
         [
-          ao ? <N8AO key="ao" aoRadius={3} distanceFalloff={1.5} intensity={2.2} halfRes /> : null,
+          ao ? <N8AO key="ao" ref={opaqueAO} aoRadius={3} distanceFalloff={1.5} intensity={2.2} halfRes /> : null,
           <primitive key="fog" object={fog} />,
           // Threshold ~1 (HDR, pre-tonemap): the sun disc, the glow around it and the water
           // glint bloom softly; the lit landscape (well under 1) does not.

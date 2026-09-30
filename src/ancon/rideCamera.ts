@@ -98,7 +98,7 @@ export class RideRig {
       const k = Math.exp(-(dt / R.returnTau) * sm(clamp01((this.idle - R.returnDelay) / R.returnRamp)));
       o.az = wrapPi(o.az) * k; o.pol *= k; o.logScale *= k;
     }
-    rideView(pose, ctx.layout, rideYaw(pose.clock, ctx.spec.moored), this.pos, this.target);
+    rideView(pose, ctx.layout, rideYaw(pose.clock, ctx.spec.moored, ctx.spec.timings), this.pos, this.target);
     ridePivot(pose, ctx.layout, this.pos, this.target, this.pivot);
     // Orbit about the pivot, limits applied to the stored offset so a drag past them does not wind up.
     this.sph.setFromVector3(this.v.subVectors(this.pos, this.pivot));

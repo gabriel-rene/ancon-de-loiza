@@ -11,6 +11,7 @@ import { Vegetation } from '../vegetation/Vegetation';
 import { Ancon } from '../ancon/Ancon';
 import { Infrastructure } from '../infrastructure/Infrastructure';
 import { Town } from '../town/TownMeshes';
+import { BridgeTrafficMesh } from '../traffic/BridgeTrafficMesh';
 
 export function World() {
   const { near, far } = useWorldFields();
@@ -27,6 +28,7 @@ export function World() {
       <Vegetation near={near} far={far} era={era} q={q} bankOffset={era.river.bankOffset.value} />
       <Infrastructure near={near} era={era} castShadow={q.shadowMap > 0} />
       <Town near={near} era={era} castShadow={q.shadowMap > 0} />
+      {era.infrastructure.bridge.value === 'open' && <BridgeTrafficMesh near={near} era={era} n={q.traffic.bridgeCars} castShadow={q.shadowMap > 0} />}
       {showAncon && <Ancon near={near} era={era} q={q} frozen={frozen} castShadow={q.shadowMap > 0} />}
       <Water near={near} far={far} sun={sun} flow={era.river.flow.value} reflScale={q.reflScale} frozen={frozen} />
       <Post sun={sun} ao={q.ao} />

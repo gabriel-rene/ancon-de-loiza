@@ -192,3 +192,24 @@ describe('choreography', () => {
     }
   });
 });
+
+import { moveEnd } from './crew';
+
+describe('per-era timings', () => {
+  test('a longer dock stop moves the whole choreography with it', () => {
+    const era = getEra('1975'), T2 = { ...T, load: 40, unload: 30 };
+    const spec = vesselSpec(era, T2), layout = deckLayout(spec), actors = castActors(spec, seatAnchors(spec, layout), 1975);
+    const ctx = { spec, layout };
+    const at = (c: number, a: Actor) => actorFrame(a, crossingState(c, createCrossingState(), T2), c, ctx, createActorFrame());
+    const pax = actors.filter((a) => a.role === 'passenger');
+    // Nobody leaves before unload starts, and everybody is off before the leg ends.
+    const U = moveEnd(T2), Lg = legDuration(T2);
+    for (const a of pax) {
+      expect(at(U - 0.5, a).visible).toBe(true);
+      expect(at(Lg - 0.01, a).visible).toBe(false);
+    }
+    // Haulers still haul mid-crossing.
+    const mid = T2.load + T2.castOff + T2.cross / 2;
+    for (const a of actors.filter((x) => x.role === 'hauler')) expect(at(mid, a).pose.kind).toBe('haul');
+  });
+});

@@ -8,7 +8,8 @@ export const CROSSING_TIMINGS: CrossingTimings = { load: 20, castOff: 8, cross: 
 /** Smooth acceleration / deceleration ramps (s) of the moving part (castOff + cross + dock). */
 export const RAMP_UP = 18, RAMP_DOWN = 20;
 /** Default crossing clock at page load: 8 s before cast-off, so the first thing seen is the ferry leaving. */
-export const DEFAULT_CROSSING_START = 12;
+export const defaultCrossingStart = (T: CrossingTimings) => T.load - 8;
+export const DEFAULT_CROSSING_START = defaultCrossingStart(CROSSING_TIMINGS);
 export const legDuration = (T: CrossingTimings = CROSSING_TIMINGS) => T.load + T.castOff + T.cross + T.dock + T.unload;
 
 export interface CrossingState {

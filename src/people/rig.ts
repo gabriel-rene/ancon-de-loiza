@@ -6,14 +6,22 @@ export const PARTS = ['hips', 'torso', 'tail', 'head', 'upperArmL', 'foreArmL', 
   'thighL', 'shinL', 'thighR', 'shinR', 'footL', 'footR', 'skirt'] as const;
 export type PartName = (typeof PARTS)[number];
 export const PART_INDEX = Object.fromEntries(PARTS.map((p, i) => [p, i])) as Record<PartName, number>;
-export type PoseKind = 'stand' | 'walk' | 'haul' | 'pole';
+export type PoseKind = 'stand' | 'walk' | 'haul' | 'pole' | 'sit';
+/** Seated thigh angle (rad from straight down) — a touch below level, as on a car bench. */
+const SIT_SW = 1.45, _SIT = {} as Proportions;
+/** Hip joint height above the feet plane when seated: the thigh drops a little, the shin stands upright (or `legFwd` rad forward, PoseInput). Allocation-free. */
+export const sitHipHeight = (b: Body, legFwd = 0) => { const P = proportions(b, _SIT); return P.thigh * Math.cos(SIT_SW) + P.shin * Math.cos(legFwd) + P.footH; };
 export interface Body { height: number; build: number; dress: boolean }
 /**
  * `phase` drives the gait / effort cycle (0–1). `t` (s, default 0) drives idle motion — breathing, weight
  * shift, head turns — and `seed` de-synchronises it between people. Hand targets are figure-local; when
  * given they override the FK arm for any kind. Everything is a pure function of the input.
  */
-export interface PoseInput { kind: PoseKind; phase: number; lean?: number; handL?: V3; handR?: V3; t?: number; seed?: number }
+export interface PoseInput {
+  kind: PoseKind; phase: number; lean?: number; handL?: V3; handR?: V3; t?: number; seed?: number;
+  /** 'sit' only: shins this far (rad) forward of upright, the legs stretched out as in a car's footwell (default 0: a bench). */
+  legFwd?: number;
+}
 export interface FigurePose { parts: Float32Array; handL: V3; handR: V3; headTop: number }
 export const createFigurePose = (): FigurePose => ({ parts: new Float32Array(16 * PARTS.length), handL: [0, 0, 0], handR: [0, 0, 0], headTop: 0 });
 
@@ -147,6 +155,14 @@ export function poseFigure(body: Body, input: PoseInput, out: FigurePose): Figur
       headNod = -0.15;
       break;
     }
+    case 'sit':
+      // Driver on a bench seat: thighs forward, shins upright, a slight lean back; arms go to the wheel via hand targets.
+      SW[0] = SW[1] = SIT_SW; KN[0] = KN[1] = SIT_SW - (input.legFwd ?? 0);
+      stanceHalf = 1.2 * P.hipHalf;
+      lean = input.lean ?? -0.08;
+      headYaw = 0.12 * Math.sin(TAU * t / 10 + seed);
+      elbow = 0.6;
+      break;
     case 'haul':
       // Braced: lead leg forward and bent, rear leg straight with the heel down, weight rocking with the pull.
       // In a dress the stance is shorter (a hem limits it) and the brace comes more from the lean.

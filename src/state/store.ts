@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { DEFAULT_CROSSING_START } from '../ancon/crossing';
 import { getEra, type EraId } from '../data/eras';
 import { goldenHourAST } from '../geo/sun';
 import { detectQuality, type Quality } from '../quality';
@@ -9,7 +8,7 @@ import { parseUrlState, type CameraPreset, type DebugView } from './url';
 interface AppState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
   debugView: DebugView | undefined;
-  crossingStart: number; crossingSpeed: number; showAncon: boolean; perf: boolean; lang: Lang;
+  crossingStart: number | null; crossingSpeed: number; showAncon: boolean; perf: boolean; lang: Lang;
   setEra: (id: EraId) => void; setTime: (t: number) => void; setCamera: (c: CameraPreset) => void; setQuality: (q: Quality) => void;
   setCrossingSpeed: (v: number) => void; setLang: (l: Lang) => void;
 }
@@ -25,7 +24,7 @@ export const shiftTime = (t: number, from: EraId, to: EraId) => Math.min(24, Mat
 
 export const useStore = create<AppState>((set) => ({
   eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: detectQuality(), debug: false, frozen: false, debugView: undefined,
-  crossingStart: DEFAULT_CROSSING_START, crossingSpeed: 1, showAncon: true, perf: false, lang: detectLang(typeof navigator !== 'undefined' ? navigator.language : undefined),
+  crossingStart: null, crossingSpeed: 1, showAncon: true, perf: false, lang: detectLang(typeof navigator !== 'undefined' ? navigator.language : undefined),
   ...fromUrl,
   setEra: (eraId) => set((s) => ({ eraId, timeOfDay: shiftTime(s.timeOfDay, s.eraId, eraId) })),
   setTime: (timeOfDay) => set({ timeOfDay }),

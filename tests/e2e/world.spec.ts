@@ -1,13 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { getEra, type EraId } from '../../src/data/eras';
+import { CROSSING_TIMINGS as T } from '../../src/ancon/crossing';
 import { goldenHourAST } from '../../src/geo/sun';
+import { DOCK_STOPS } from '../../src/traffic/dockStops';
 
-/** Output folder under tests/snapshots (SNAP_DIR=phase4b-before for the baseline run). */
-const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4b'}`;
+/** Output folder under tests/snapshots (SNAP_DIR=phase4c-before for the baseline run). */
+const DIR = `tests/snapshots/${process.env.SNAP_DIR ?? 'phase4c'}`;
 
 // Times follow the sun, not the clock: each era has its own calendar date, so a fixed
 // hour is golden in February but mid-afternoon in July (research §1.3).
 const golden = (era: EraId, side: 'am' | 'pm' = 'pm') => goldenHourAST(getEra(era).date, 6, side);
+/**
+ * Crossing clock at a moment of an era's leg 0: 40 % into boarding (the load on the ramp and deck; at 6 s it is still
+ * up the road, out of frame — art gate), mid-crossing (the waiting line ahead), 6 s into unloading.
+ */
+const at = (era: EraId, when: 'board' | 'mid' | 'unload') => {
+  const { load } = DOCK_STOPS[era], move = load + T.castOff + T.cross + T.dock;
+  return when === 'board' ? Math.round(0.4 * load) : when === 'mid' ? Math.round(load + T.castOff + T.cross / 2) : Math.round(move + 6);
+};
 const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] = [
   { era: '1935', cam: 'ride', t: golden('1935'), c: 95 },                        // 1-car platform on two taut ropes
   { era: '1975', cam: 'bank', t: golden('1975'), c: 95 },
@@ -48,6 +58,17 @@ const SHOTS: { era: EraId; cam: string; t: number; c: number; name?: string }[] 
   { era: '1925', cam: 'town', t: 12, c: 95, name: '1925-town-noon' },          // wood on zocos, thatch and zinc
   { era: '1959', cam: 'town', t: golden('1959'), c: 95, name: '1959-town' },   // zinc roofs, first concrete
   { era: '1986', cam: 'town', t: 12, c: 95, name: '1986-town-noon' },          // mostly concrete
+  // Phase 4c: the load driving on, riding, driving off; the waiting line; the 1986 bridge traffic.
+  { era: '1840', cam: 'ride', t: golden('1840'), c: at('1840', 'board'), name: '1840-ride-board' },
+  { era: '1900', cam: 'ride', t: golden('1900'), c: at('1900', 'mid'), name: '1900-ride-cane' },
+  { era: '1925', cam: 'bank', t: 12, c: at('1925', 'board'), name: '1925-bank-board' },
+  { era: '1935', cam: 'ride', t: golden('1935'), c: at('1935', 'mid'), name: '1935-ride-car' },
+  { era: '1959', cam: 'ride', t: golden('1959'), c: at('1959', 'unload'), name: '1959-ride-unload' },
+  { era: '1975', cam: 'ride', t: golden('1975'), c: at('1975', 'mid'), name: '1975-ride-line' },
+  { era: '1975', cam: 'bank', t: golden('1975'), c: at('1975', 'board'), name: '1975-bank-board' },
+  { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'board'), name: '1984-ride-board' },
+  { era: '1984', cam: 'ride', t: golden('1984'), c: at('1984', 'unload'), name: '1984-ride-unload' },
+  { era: '1986', cam: 'bridge', t: golden('1986'), c: 40, name: '1986-bridge-traffic' },
 ];
 
 for (const s of SHOTS) {
