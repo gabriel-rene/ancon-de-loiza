@@ -43,6 +43,8 @@ export const RIDE_ORBIT = {
   waterClear: 1.5,
   /** Seconds after the last input before the return starts; its ease-in (s) and time constant (s). */
   returnDelay: 1, returnRamp: 0.8, returnTau: 0.8,
+  /** Offset (rad, or log-scale) past which the view counts as turned away from the front (shows Recenter). */
+  frontEps: 0.02,
 };
 
 /** Keep the camera above the water surface and the bank. Writes `out` (may be `pos`). */
@@ -63,7 +65,7 @@ export function ridePivot(pose: VesselPose, L: DeckLayout, pos: THREE.Vector3, t
 }
 
 export interface RideOrbit { az: number; pol: number; logScale: number }
-const wrapPi = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+export const wrapPi = (a: number) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 
 /**
  * The ride camera's per-frame state, kept apart from what is rendered: `pos`/`target` are always the

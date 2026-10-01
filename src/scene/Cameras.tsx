@@ -3,32 +3,8 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RIDE_ORBIT, RideRig } from '../ancon/rideCamera';
 import { onVesselPose } from '../ancon/vesselPose';
-import { landmarkXZ } from '../data/landmarks';
 import { useStore } from '../state/store';
-import type { CameraPreset } from '../state/url';
-
-const [ex, ez] = landmarkXZ('eastLanding');
-const [wx, wz] = landmarkXZ('westLanding');
-const [mx, mz] = landmarkXZ('mouth');
-
-export const CAMERA_POSES: Record<CameraPreset, { pos: [number, number, number]; target: [number, number, number] }> = {
-  // Fallback for `ride` when the ferry is hidden (?ancon=0): behind and above mid-river, looking at the far landing.
-  ride: { pos: [ex * 0.35, 4.2, ez * 0.35], target: [wx, 1.5, wz] },
-  // Standing at the Loíza landing (eye height above the local bank elevation, ~1.7m here).
-  shore: { pos: [ex + 10, 3.6, ez + 8], target: [wx - 40, 2.5, wz - 30] },
-  sky: { pos: [520, 380, 640], target: [0, 0, 0] },
-  mouth: { pos: [mx - 180, 22, mz + 260], target: [mx, 0, mz] },
-  // Dev view (phase 2c): over the west bank, looking south-west across the grassland (cane land).
-  fields: { pos: [-500, 170, 250], target: [-1800, 0, 1500] },
-  // Dev preset: 150 m out, 60 m up, looking at the farm block centred at (160, -400).
-  farm: { pos: [265, 60, -295], target: [160, 0, -400] },
-  // Dev view (phase 4a): from the river, looking at the Loíza landing, the station and its road.
-  station: { pos: [ex * 0.3, 6, ez * 0.3], target: [ex + 12, 2, ez + 10] },
-  // Dev view (phase 4a): from the Loíza bank, looking upstream at the PR-187 bridge line.
-  bridge: { pos: [60, 30, 230], target: [-164, 4, 120] },
-  // Dev view (phase 4b): low over the river, looking past the station at the town and church (≈ 285, 171).
-  town: { pos: [ex * 0.3, 5, ez * 0.3], target: [285, 6, 171] },
-};
+import { VIEW_POSES } from './views';
 
 export function Cameras() {
   const ref = useRef<CameraControls>(null);
@@ -40,7 +16,7 @@ export function Cameras() {
   // Fixed presets (and `ride` when the ferry is hidden with ?ancon=0).
   useEffect(() => {
     if (riding) return;
-    const p = CAMERA_POSES[preset];
+    const p = VIEW_POSES[preset];
     ref.current?.setLookAt(...p.pos, ...p.target, !first.current);
     first.current = false;
   }, [preset, riding]);
