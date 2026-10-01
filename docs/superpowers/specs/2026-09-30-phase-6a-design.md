@@ -29,7 +29,7 @@ Replaces `src/ui/DecadePicker.tsx` (the "decade rail").
 - A thin horizontal line at the bottom of the screen, 1820 at the left, 1986 at the right.
 - The x position of each era is linear in its year (`ERAS[i].id` as a number). Real gaps show: 1840→1900 is long, 1984→1986 is short.
 - 8 marks, one per era. Each mark shows the year and the era label (`t(e.label)`) in the current language.
-- Labels that would overlap (1984 and 1986; any pair closer than the label width) are staggered: alternate labels sit above and below the line. The layout function decides this from measured widths, not from a hard-coded list.
+- Labels never overlap and every label stays a ≥ 44 px touch target. The dot for each era sits at its true x on the line; its label is spread along the line as close to the dot as it can be, and a thin leader joins dot and label (1984 and 1986 are only 2 years apart, so their dots nearly touch). When the labels do not fit in one row, odd and even labels go in two rows. The layout function decides this from measured widths, not from a hard-coded list. *(Amended 2026-09-30 while planning: staggering alone cannot keep 1984 and 1986 apart.)*
 - The current era's mark is highlighted and carries a knob.
 
 ### 2.2 Input
@@ -91,7 +91,7 @@ Replaces `src/ui/DecadePicker.tsx` (the "decade rail").
 
 - Old URL values `bank` and `aerial` still load (mapped to `shore` and `sky`); the URL is then rewritten to the new name.
 - Poses for Shore and Sky start from the current `bank` and `aerial` poses in `src/scene/Cameras.tsx`; they may be retuned for the art check (§6) but stay at the same places.
-- Dev views (`mouth`, `fields`, `farm`, `station`, `bridge`, `town`) keep working **only with `?debug=1`**. Without it, those `cam=` values fall back to `ride`.
+- Dev views (`mouth`, `fields`, `farm`, `station`, `bridge`, `town`) keep working **only with a dev flag: `?debug=1` or `?freeze=1`**. Without one, those `cam=` values fall back to `ride`. *(Amended 2026-09-30 while planning: the screenshot tests use `freeze=1` and must not show the debug panel.)*
 
 ### 4.2 Switching and 360° look
 
@@ -106,8 +106,9 @@ Replaces `src/ui/DecadePicker.tsx` (the "decade rail").
 ### 4.3 Limits
 
 - **No truck/pan in any public view.** Right-drag and three-finger drag do nothing; two-finger drag is dolly (zoom) only. This keeps the visitor at the view's place, so the empty edges of the world never show.
-- **Zoom** is limited per view: a small range around the view's distance (Ride: the existing `RIDE_ORBIT` range; Shore and Sky: ±30 % of the start distance, fixed numbers set in code).
-- Shore and Sky orbit about their own target, like Ride orbits about its pivot. The camera never goes under the water or the ground (existing water clearance for Ride; each fixed view gets a min height).
+- **Zoom** is limited per view: a small range around the view's distance (Ride: the existing `RIDE_ORBIT` range; Sky: ±30 % of the start distance; Shore: lens zoom 1×–1.3×).
+- **Shore turns in place**: the visitor stands still and turns their head (the target sits 1 m ahead of the eye). Its zoom is a lens zoom, 1×–1.3×. *(Amended 2026-09-30 while planning: orbiting Shore's far target would carry the visitor off the bank.)*
+- Sky orbits about its own target, like Ride orbits about its pivot. The camera never goes under the water or the ground (existing water clearance for Ride; each fixed view gets a min height).
 - In `?debug=1`, the dev views keep today's free controls.
 
 ## 5. Performance
