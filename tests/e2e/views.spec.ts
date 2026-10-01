@@ -29,14 +29,21 @@ test('a drag turns the view and it stays; Recenter (button or R) brings back the
   const recenter = page.getByRole('button', { name: 'Recenter' });
   await expect(recenter).toBeHidden();
   const c = (await page.locator('canvas').boundingBox())!;
-  await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(c.x + c.width / 2 + 300, c.y + c.height / 2, { steps: 10 });
-  await page.mouse.up();
+  const drag = async () => {
+    await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.width / 2 + 300, c.y + c.height / 2, { steps: 10 });
+    await page.mouse.up();
+  };
+  await drag();
   await expect(recenter).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(3_000);
   await expect(recenter).toBeVisible();                 // no ease-back
   await page.keyboard.press('r');
+  await expect(recenter).toBeHidden({ timeout: 10_000 });
+  await drag();                                         // and the button does the same
+  await expect(recenter).toBeVisible({ timeout: 10_000 });
+  await recenter.click();
   await expect(recenter).toBeHidden({ timeout: 10_000 });
 });
 
@@ -45,4 +52,7 @@ test('dev views need a dev flag', async ({ page }) => {
   await ready(page);
   await expect(page).not.toHaveURL(/cam=fields/);
   await expect(page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Ride' })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('?cam=fields&debug=1&q=low');
+  await ready(page);
+  await expect(page).toHaveURL(/cam=fields/);
 });

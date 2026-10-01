@@ -47,14 +47,18 @@ test('phone: the timeline strip scrolls inside itself and centres the chosen era
   }
   // An interior mark can be centred; the end marks cannot (the strip's scroll clamps at its ends).
   // The scroll centres the mark (the knob), not the label: spread labels sit up to ~115 px off their dots.
+  const start = await strip.evaluate((e) => e.scrollLeft);   // era=1840 sits near the strip's start, so 1935 needs a real scroll
   await page.getByRole('button', { name: /^1935/ }).dispatchEvent('click');
   await expect(page).toHaveURL(/era=1935/);
+  await expect.poll(() => strip.evaluate((e) => e.scrollLeft), { timeout: 15_000 }).toBeGreaterThan(start + 100);
   await expect.poll(async () => {
     const k = (await page.locator('.timeline__knob').boundingBox())!;
     return Math.abs(k.x + k.width / 2 - 375 / 2);
   }, { timeout: 15_000 }).toBeLessThan(60);
+  const before = await strip.evaluate((e) => e.scrollLeft);
   await page.getByRole('button', { name: /^1986/ }).dispatchEvent('click');
   await expect(page).toHaveURL(/era=1986/);
+  await expect.poll(() => strip.evaluate((e) => e.scrollLeft), { timeout: 15_000 }).toBeGreaterThan(before);
   await expect.poll(async () => {
     const b = (await page.getByRole('button', { name: /^1986/ }).boundingBox())!;
     const s = (await strip.boundingBox())!;
