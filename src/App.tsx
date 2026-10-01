@@ -9,6 +9,7 @@ import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
 import { Timeline } from './ui/Timeline';
+import { SoundGate } from './sound/SoundGate';
 import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
@@ -35,6 +36,7 @@ export function App() {
           <Cameras />
           <ReadySignal />
           <DipFrameSignal />
+          <SoundGate />
           {debug && <StatsGl className="stats-gl" />}
           {perf && <FrameSampler />}
           {(debug || perf) && <RendererInfo />}
