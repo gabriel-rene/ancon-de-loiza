@@ -107,7 +107,8 @@ export function Timeline() {
             );
           })}
           <div className="timeline__knob" aria-hidden="true" style={{ left: width ? knobX : `${FRACS[ci] * 100}%` }}
-            onPointerDown={onKnobDown} onPointerMove={onKnobMove} onPointerUp={onKnobUp} onPointerCancel={() => setDragX(null)} />
+            onPointerDown={onKnobDown} onPointerMove={onKnobMove} onPointerUp={onKnobUp} onPointerCancel={() => setDragX(null)}
+            onLostPointerCapture={() => setDragX(null)} />
         </div>
       </div>
     </nav>
