@@ -7,7 +7,7 @@ const mix = (p: Partial<MixInput>) => mixLevels({ ...base, ...p }, createLevels(
 test('water is loudest on the ferry and quietest from the sky, and always a quiet bed', () => {
   const ride = mix({ view: 'ride' }), shore = mix({ view: 'shore' }), sky = mix({ view: 'sky' });
   expect(ride.water).toBeGreaterThan(shore.water); expect(shore.water).toBeGreaterThan(sky.water);
-  expect(ride.water).toBeLessThanOrEqual(0.2);
+  expect(ride.water).toBeLessThanOrEqual(0.05);
 });
 test('dev views mix like Shore', () => {
   expect(mix({ view: 'bridge' })).toEqual(mix({ view: 'shore' }));
