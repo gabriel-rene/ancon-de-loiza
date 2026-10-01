@@ -8,7 +8,8 @@ import { FrameSampler, RendererInfo } from './scene/FrameSampler';
 import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
-import { DecadePicker } from './ui/DecadePicker';
+import { Timeline } from './ui/Timeline';
+import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';
@@ -33,14 +34,17 @@ export function App() {
           <World />
           <Cameras />
           <ReadySignal />
+          <DipFrameSignal />
           {debug && <StatsGl className="stats-gl" />}
           {perf && <FrameSampler />}
           {(debug || perf) && <RendererInfo />}
         </Canvas>
+        <EraDipOverlay />
+        <EraAnnouncer />
       </SceneBoundary>
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
-      <DecadePicker />
+      <Timeline />
       <Toolbar />
     </>
   );

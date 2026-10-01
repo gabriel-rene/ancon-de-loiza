@@ -134,32 +134,77 @@ test('water floor: the camera never goes below the water surface + waterClear (m
   } finally { RIDE.up = up; }
 });
 
-test('a drag orbits within the polar limits, holds ~1 s after release, then eases back smoothly', () => {
-  const rig = new RideRig(), user = new THREE.Vector3(), v = new THREE.Vector3(), sph = new THREE.Spherical(), prev = new THREE.Vector3();
-  const dt = 1 / 60;
-  let clock = 60;
-  rig.frame(poseAt2(clock), ctx, null, null, false, dt);
-  // Drag: turn 1.2 rad and try to dive far below the horizon, over 30 frames.
-  for (let i = 0; i < 30; i++) {
+/** Drags the rig by (dTheta, dPhi) per frame for `n` frames from `clock`; returns the new clock. */
+function drag(rig: RideRig, clock: number, n: number, dTheta: number, dPhi: number, dt = 1 / 60) {
+  const user = new THREE.Vector3(), v = new THREE.Vector3(), sph = new THREE.Spherical();
+  for (let i = 0; i < n; i++) {
     clock += dt;
-    sph.setFromVector3(v.subVectors(rig.eye, rig.pivot)); sph.theta += 0.04; sph.phi += 0.05;
+    sph.setFromVector3(v.subVectors(rig.eye, rig.pivot)); sph.theta += dTheta; sph.phi += dPhi;
     user.setFromSpherical(sph).add(rig.pivot);
     rig.frame(poseAt2(clock), ctx, user, rig.pivot, true, dt);
     sph.setFromVector3(v.subVectors(rig.eye, rig.pivot));
     expect(sph.phi).toBeLessThanOrEqual(RIDE_ORBIT.maxPolar + 1e-9);
     expect(rig.eye.y).toBeGreaterThanOrEqual(WATER_Y + RIDE_ORBIT.waterClear - 1e-9);
   }
+  return clock;
+}
+
+test('a drag orbits within the polar limits and the angle stays where it was left (spec 6a §4.2)', () => {
+  const rig = new RideRig(), dt = 1 / 60;
+  let clock = 60;
+  rig.frame(poseAt2(clock), ctx, null, null, false, dt);
+  expect(rig.offFront).toBe(false);
+  clock = drag(rig, clock, 30, 0.04, 0.05);
   expect(rig.orbit.az).toBeCloseTo(1.2, 6);
-  // Released: the offset holds for returnDelay, then decays to nothing without a jump.
+  expect(rig.offFront).toBe(true);
+  for (let i = 0; i < 10 / dt; i++) { clock += dt; rig.frame(poseAt2(clock), ctx, rig.eye, rig.pivot, false, dt); }
+  expect(rig.orbit.az).toBeCloseTo(1.2, 6);   // 10 s idle: no ease-back
+  expect(rig.offFront).toBe(true);
+});
+
+test('recenter glides the offset back to the front without a jump; instant recenter snaps', () => {
+  const rig = new RideRig(), dt = 1 / 60, prev = new THREE.Vector3();
+  let clock = 60;
+  rig.frame(poseAt2(clock), ctx, null, null, false, dt);
+  clock = drag(rig, clock, 30, 0.04, 0.05);
+  rig.recenter(false);
   let maxStep = 0;
-  for (let i = 0; i < 9 / dt; i++) {
+  for (let i = 0; i < 3 / dt; i++) {
     clock += dt; prev.copy(rig.eye);
     rig.frame(poseAt2(clock), ctx, rig.eye, rig.pivot, false, dt);
-    if (i === Math.floor(0.9 / dt)) expect(rig.orbit.az).toBeCloseTo(1.2, 6);
     maxStep = Math.max(maxStep, rig.eye.distanceTo(prev));
   }
-  expect(Math.abs(rig.orbit.az) + Math.abs(rig.orbit.pol)).toBeLessThan(1e-3);
-  expect(maxStep).toBeLessThan(0.3);   // ≤ 18 m/s at 60 fps round an ~18 m orbit: a glide, not a snap
+  expect(Math.abs(rig.orbit.az) + Math.abs(rig.orbit.pol) + Math.abs(rig.orbit.logScale)).toBe(0);
+  expect(rig.offFront).toBe(false);
+  expect(maxStep).toBeLessThan(1.5);   // a quick glide (τ 0.25 s round an ~18 m orbit), not a one-frame snap
+  clock = drag(rig, clock, 30, 0.04, 0);
+  rig.recenter(true);
+  rig.frame(poseAt2(clock + dt), ctx, rig.eye, rig.pivot, false, dt);
+  expect(Math.abs(rig.orbit.az)).toBe(0);
+});
+
+test('new input cancels a recenter in progress', () => {
+  const rig = new RideRig(), dt = 1 / 60;
+  let clock = 60;
+  rig.frame(poseAt2(clock), ctx, null, null, false, dt);
+  clock = drag(rig, clock, 30, 0.04, 0);
+  rig.recenter(false);
+  clock += dt; rig.frame(poseAt2(clock), ctx, rig.eye, rig.pivot, false, dt);
+  clock = drag(rig, clock, 10, 0.04, 0);
+  const az = rig.orbit.az;
+  for (let i = 0; i < 120; i++) { clock += dt; rig.frame(poseAt2(clock), ctx, rig.eye, rig.pivot, false, dt); }
+  expect(rig.orbit.az).toBeCloseTo(az, 9);
+});
+
+test('a spin of several turns recenters the short way', () => {
+  const rig = new RideRig(), dt = 1 / 60;
+  let clock = 60;
+  rig.frame(poseAt2(clock), ctx, null, null, false, dt);
+  clock = drag(rig, clock, 160, 0.1, 0);            // 16 rad ≈ 2.5 turns
+  rig.recenter(false);
+  let worst = 0;
+  for (let i = 0; i < 3 / dt; i++) { clock += dt; rig.frame(poseAt2(clock), ctx, rig.eye, rig.pivot, false, dt); worst = Math.max(worst, Math.abs(rig.orbit.az)); }
+  expect(worst).toBeLessThanOrEqual(Math.PI + 1e-9);
 });
 
 test('the steepest, widest drag stays a raised deck view, not a top-down aerial (every era)', () => {

@@ -4,6 +4,7 @@ import { withLang, type Lang } from '../i18n/text';
 import { useT } from '../i18n/useT';
 import { useStore } from '../state/store';
 import { InfoPanel } from './InfoPanel';
+import { ViewSwitch } from './ViewSwitch';
 
 /** Language names stay in their own language, whatever the current one. */
 const LANG_BUTTONS: { lang: Lang; short: string; name: string }[] = [
@@ -44,6 +45,7 @@ export function Toolbar() {
             </button>
           ))}
         </div>
+        <ViewSwitch />
       </div>
       {open && <InfoPanel onClose={close} />}
     </>

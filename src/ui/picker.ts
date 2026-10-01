@@ -19,3 +19,10 @@ export function isTypingTarget(t: EventTarget | null): boolean {
   if (typeof HTMLElement === 'undefined' || !(t instanceof HTMLElement)) return false;
   return t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
 }
+
+/** New search string with `cam` set; other params survive. */
+export function withCam(search: string, cam: string): string {
+  const p = new URLSearchParams(search);
+  p.set('cam', cam);
+  return `?${p.toString()}`;
+}

@@ -32,7 +32,8 @@ const rows = [];
 rows.push({ at: 'load', ...(await snap()) });
 for (let c = 0; c < Number(cycles); c++) {
   for (const id of [...ERAS.slice(1), ERAS[0]]) {
-    await page.locator('.decade-rail__btn', { hasText: id }).first().click();
+    await page.locator('.timeline__btn', { hasText: id }).first().click();
+    await page.waitForTimeout(800);
     await frames(20);
     if (process.env.VERBOSE) rows.push({ at: `c${c + 1} ${id}`, ...(await snap()) });
   }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { isTypingTarget, stepEra, withEra } from './picker';
+import { isTypingTarget, stepEra, withEra, withCam } from './picker';
 
 test('stepEra walks the eras and stops at both ends', () => {
   expect(stepEra('1840', -1)).toBe('1840'); expect(stepEra('1840', 1)).toBe('1900');
@@ -11,3 +11,7 @@ test('withEra sets the era, keeps other params, rewrites t only when the URL pin
   expect(withEra('', '1900', 18)).toBe('?era=1900');
 });
 test('isTypingTarget is false without an element', () => { expect(isTypingTarget(null)).toBe(false); });
+test('withCam sets cam and keeps other params', () => {
+  expect(withCam('?era=1984&cam=ride&q=low', 'sky')).toBe('?era=1984&cam=sky&q=low');
+  expect(withCam('', 'shore')).toBe('?cam=shore');
+});
