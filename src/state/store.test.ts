@@ -35,3 +35,16 @@ test('language defaults from the browser and setLang changes it', () => {
   useStore.getState().setLang('en');
   expect(useStore.getState().lang).toBe('en');
 });
+
+test('recenter bumps a counter; off-front is set only on change and cleared by a view change', () => {
+  const st = useStore.getState(), seq = st.recenterSeq;
+  st.recenter();
+  expect(useStore.getState().recenterSeq).toBe(seq + 1);
+  st.setOffFront(true);
+  const snap = useStore.getState();
+  snap.setOffFront(true);
+  expect(useStore.getState()).toBe(snap);          // no new state object when nothing changes
+  st.setCamera('sky');
+  expect(useStore.getState().offFront).toBe(false);
+  st.setCamera('ride');
+});
