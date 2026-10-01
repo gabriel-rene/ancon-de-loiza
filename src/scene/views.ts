@@ -22,8 +22,11 @@ function inPlace(pos: [number, number, number], toward: [number, number, number]
 export const VIEW_POSES: Record<CameraPreset, ViewPose> = {
   // Fallback for `ride` when the ferry is hidden (?ancon=0): behind and above mid-river, looking at the far landing.
   ride: { pos: [ex * 0.35, 4.2, ez * 0.35], target: [wx, 1.5, wz] },
-  // Standing at the Loíza landing, eye height, looking across at the far landing (was `bank`).
-  shore: inPlace([ex + 10, 3.6, ez + 8], [wx - 40, 2.5, wz - 30]),
+  // Standing on the Loíza landing bank (eye ~1.7 m over the ground), looking across at the far landing (was
+  // `bank`), ~5° down so the bank shows. The eye is ~14 m inland of the ferry's shore point and 3 m beside its
+  // pad, in front of the station and the neighbour's house: no building is within 45° of the view line in any
+  // era (phase 6a art check; it stood behind the neighbour's house before).
+  shore: inPlace([ex + 3, 2.7, ez - 6.5], [wx - 40, -20, wz - 30]),
   // High above the river, looking at the crossing (was `aerial`).
   sky: { pos: [520, 380, 640], target: [0, 0, 0] },
   mouth: { pos: [mx - 180, 22, mz + 260], target: [mx, 0, mz] },
