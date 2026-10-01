@@ -61,5 +61,14 @@ canvas { display: block; }
 @keyframes info-sheet-up { from { transform: translateY(16px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .info-panel { animation: none; } }
 
+/* Era dip (spec 6a §3): a soft sepia haze with the big year, under the timeline and toolbar so they stay usable. */
+:root { --era-dip: radial-gradient(ellipse at 50% 45%, #8a7556 0%, #5e4d38 60%, #3f3426 100%); }
+.era-dip { position: fixed; inset: 0; z-index: 12; pointer-events: none; background: var(--era-dip);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f4ecdf; }
+.era-dip__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; }
+.era-dip__label { margin-top: 10px; font: 500 clamp(16px, 2.4vw, 24px)/1.2 ui-serif, Georgia, serif; letter-spacing: 0.08em; opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) { .era-dip { display: none; } }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 .scene-fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
   background: linear-gradient(#2a3a44, #1b1a17); color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; text-align: center; }

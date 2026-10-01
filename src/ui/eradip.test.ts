@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { EraId } from '../data/eras';
-import { DIP, EraDip } from './eraDip';
+import { DIP, EraDip } from './eradip';
 
 function rig() {
   const applied: EraId[] = [];
