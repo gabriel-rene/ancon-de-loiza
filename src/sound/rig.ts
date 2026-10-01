@@ -50,9 +50,16 @@ export class SoundRig {
     this.stats = { state: eng.ctx.state, voices: 0, buildMs: eng.buildMs, shots: 0 };
   }
 
-  start() { for (const a of [this.water, this.wind, ...this.traffic, ...this.engines]) a.play(); }
+  private all(): THREE.Audio<AudioNode>[] { return [this.water, this.wind, ...this.traffic, ...this.engines, ...this.shots]; }
+  private connected = true;   // three connects each voice's gain to the listener once, in its constructor
+
+  start() {
+    if (!this.connected) { for (const a of this.all()) a.gain.connect(this.eng.listener.getInput()); this.connected = true; }
+    for (const a of [this.water, this.wind, ...this.traffic, ...this.engines]) a.play();
+  }
   stop() {
-    for (const a of [this.water, this.wind, ...this.traffic, ...this.engines, ...this.shots]) { if (a.isPlaying) a.stop(); a.disconnect(); a.gain.disconnect(); }
+    for (const a of this.all()) { if (a.isPlaying) a.stop(); a.disconnect(); }
+    if (this.connected) { for (const a of this.all()) a.gain.disconnect(); this.connected = false; }
   }
 
   /** Called from onVesselPose (right after <Ancon> moves the ferry). Copies; never keeps the shared pose. */
