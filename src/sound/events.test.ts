@@ -32,12 +32,15 @@ test('the knock fires in the frame where the phase becomes unload, not before', 
   ferryEvents(at(tUnload - 0.01), at(tUnload + 0.01), ropes, out);
   expect(out.filter((e) => e.clip === 'knock')).toHaveLength(1);
 });
-test('ropes creak on about half the hauls while hauling, never at rest; no poles', () => {
+test('ropes creak 6–10 times per crossing (user: at most 10), never at rest; no poles', () => {
   const ev = run(ropes, leg);
   const creaks = ev.filter((e) => e.clip === 'creak').length;
-  const work = T.castOff + T.cross;   // effort ≥ 0.15 roughly here
-  expect(creaks).toBeGreaterThan(work * HAUL_HZ * 0.3);
-  expect(creaks).toBeLessThan((work + T.dock) * HAUL_HZ * 0.7);
+  expect(creaks).toBeGreaterThanOrEqual(6);
+  expect(creaks).toBeLessThanOrEqual(10);
+  for (let k = 1; k < 12; k++) {   // every leg, not only the first
+    const c = run(ropes, (k + 1) * leg).filter((e) => e.clip === 'creak').length - run(ropes, k * leg).filter((e) => e.clip === 'creak').length;
+    expect(c, `leg ${k}`).toBeLessThanOrEqual(10);
+  }
   expect(ev.some((e) => e.clip === 'pole')).toBe(false);
 });
 test('poles: one stroke per poler per STROKE_S while working; no creak', () => {
