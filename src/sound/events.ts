@@ -19,10 +19,10 @@ const jumped = (a: number, b: number) => !(b > a) || b - a > MAX_STEP;
 /** Playback rate 0.92–1.08 so repeats do not sound the same (spec 6b §1). */
 const vary = (k: number, salt: number) => 1 + (u01(k, salt, 911) - 0.5) * 0.16;
 
-/** Spec 6b §2: hull knock at docking; rope creak per haul (1935–1984); pole stroke per poler (1840–1925). */
+/** Spec 6b §2: hull knock when the hull meets the landing (end of dock); rope creak per haul (1935–1984); pole stroke per poler (1840–1925). */
 export function ferryEvents(prev: FerryFrame, cur: FerryFrame, s: FerrySpec, out: SoundEvent[]): SoundEvent[] {
   if (s.moored || jumped(prev.clock, cur.clock)) return out;
-  if (prev.phase !== 'dock' && cur.phase === 'dock') out.push({ clip: 'knock', source: 'ferry', index: 0, gain: GAIN.knock, rate: vary(Math.floor(cur.clock), 1) });
+  if (prev.phase === 'dock' && cur.phase === 'unload') out.push({ clip: 'knock', source: 'ferry', index: 0, gain: GAIN.knock, rate: vary(Math.floor(cur.clock), 1) });
   if (cur.effort < WORK_EFFORT) return out;
   if (s.propulsion === 'ropes') {
     // Hauler 0 starts a pull when its phase (crew.ts hauler: clock · HAUL_HZ) passes a whole number.

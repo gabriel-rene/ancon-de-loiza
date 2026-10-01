@@ -74,6 +74,17 @@ test('the Sound button starts off, toggles aria-pressed and stores the choice', 
   expect(useStore.getState().soundOn).toBe(false);
   expect(window.localStorage.getItem('ancon.sound')).toBe('0');
 });
+test('the Sound button carries a decorative speaker icon that shows a mute mark only when off', () => {
+  act(() => useStore.getState().setSound(false));
+  render(<Toolbar />);
+  const btn = screen.getByRole('button', { name: 'Sound' });
+  const icon = btn.querySelector('svg.toolbar__icon');
+  expect(icon?.getAttribute('aria-hidden')).toBe('true');
+  expect(icon?.querySelector('.toolbar__icon-mute')).toBeTruthy();
+  fireEvent.click(btn);
+  expect(btn.querySelector('.toolbar__icon-mute')).toBeNull();
+  expect(btn.querySelector('.toolbar__icon-wave')).toBeTruthy();
+});
 test('the Sound button is labelled in Spanish', () => {
   act(() => useStore.getState().setLang('es'));
   render(<Toolbar />);

@@ -12,7 +12,10 @@ class Node {
   start() {} stop() {}
   gain = { value: 1, setTargetAtTime() {}, setValueAtTime() {} };
   connect(n: Node) { this.links.add(n); return n; }
-  disconnect(n?: Node) { if (n) this.links.delete(n); else this.links.clear(); }
+  disconnect(n?: Node) {
+    // Like Chrome: disconnecting a destination that is not connected throws.
+    if (n) { if (!this.links.delete(n)) throw new DOMException('the given destination is not connected', 'InvalidAccessError'); } else this.links.clear();
+  }
 }
 function fake() {
   const input = new Node();
@@ -32,6 +35,6 @@ test('start -> stop -> start (StrictMode) leaves every gain wired to the listene
   expect(g.some((n) => n.links.has(input))).toBe(false);
   rig.start();
   expect(g.every((n) => n.links.has(input))).toBe(true);
-  rig.stop(); rig.stop();
+  expect(() => rig.stop()).not.toThrow(); expect(() => rig.stop()).not.toThrow();
   expect(g.some((n) => n.links.has(input))).toBe(false);
 });

@@ -28,7 +28,7 @@ Era facts used: the ferry is pushed with **poles** in 1840, 1900 and 1925, and p
 | Wing flaps (one-shot) | When a wader flushes at docking (never in 1986, same rule as Phase 5) | That bird |
 | Pole push and splash (one-shot) | Each pole stroke while the ferry moves; 1840, 1900, 1925 | The ferry pole (`src/ancon/pole.ts`) |
 | Rope creak (one-shot) | Each haul while the ferry moves; 1935–1984 | The ferry (`useVesselPose`) |
-| Hull knock (one-shot) | Start of the `dock` phase; not in 1986 | The ferry |
+| Hull knock (one-shot) | End of the `dock` phase, when the hull meets the landing (ruling 2026-10-01); not in 1986 | The ferry |
 | Engine hum (loop per car) | While a car drives on or off (`load`, `unload`); 1925–1984 | That car (`src/traffic/TrafficSet.ts`) |
 | Traffic hum (loop) | Always in 1986; very quiet | The bridge lanes (`src/traffic/bridgeTraffic.ts`), one source per lane at the car nearest the listener |
 

@@ -19,9 +19,18 @@ const ropes: FerrySpec = { propulsion: 'ropes', crew: 2, moored: false, load: T.
 const poles: FerrySpec = { propulsion: 'poles', crew: 2, moored: false, load: T.load };
 const leg = T.load + T.castOff + T.cross + T.dock + T.unload;
 
-test('one knock per leg, at the start of docking', () => {
+test('one knock per leg, when the hull meets the landing (dock -> unload)', () => {
   const ev = run(ropes, 2 * leg).filter((e) => e.clip === 'knock');
   expect(ev).toHaveLength(2);
+});
+test('the knock fires in the frame where the phase becomes unload, not before', () => {
+  const at = (c: number) => frame(c);
+  const tUnload = T.load + T.castOff + T.cross + T.dock;
+  const out: SoundEvent[] = [];
+  ferryEvents(at(tUnload - 0.02), at(tUnload - 0.01), ropes, out);
+  expect(out.some((e) => e.clip === 'knock')).toBe(false);
+  ferryEvents(at(tUnload - 0.01), at(tUnload + 0.01), ropes, out);
+  expect(out.filter((e) => e.clip === 'knock')).toHaveLength(1);
 });
 test('ropes creak about once per haul while hauling, never at rest; no poles', () => {
   const ev = run(ropes, leg);

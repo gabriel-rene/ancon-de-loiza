@@ -58,7 +58,9 @@ export class SoundRig {
     for (const a of [this.water, this.wind, ...this.traffic, ...this.engines]) a.play();
   }
   stop() {
-    for (const a of this.all()) { if (a.isPlaying) a.stop(); a.disconnect(); }
+    // No a.disconnect(): three's PositionalAudio.disconnect() calls panner.disconnect(gain), which throws in Chrome
+    // for a never-played one-shot. Stopping the source and detaching each gain silences every voice; play() rewires the rest.
+    for (const a of this.all()) if (a.isPlaying) a.stop();
     if (this.connected) { for (const a of this.all()) a.gain.disconnect(); this.connected = false; }
   }
 
