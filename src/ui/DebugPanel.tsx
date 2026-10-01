@@ -1,4 +1,4 @@
-import { Leva, monitor, useControls } from 'leva';
+import { Leva, button, monitor, useControls } from 'leva';
 import { useEffect, useRef } from 'react';
 import { ERA_IDS, type EraId } from '../data/eras';
 import { useStore } from '../state/store';
@@ -6,6 +6,7 @@ import { CAMERA_PRESETS, type CameraPreset } from '../state/url';
 import type { Quality } from '../quality';
 import { vegStatsText } from '../vegetation/stats';
 import { anconTiming } from '../ancon/stats';
+import { unlockAudio } from '../sound/unlock';
 
 export function DebugPanel() {
   const init = useStore.getState();
@@ -19,6 +20,14 @@ export function DebugPanel() {
     'crossing ×': { value: init.crossingSpeed, min: 0, max: 8, step: 0.25, onChange: (v: number) => useStore.getState().setCrossingSpeed(v) },
     'ancón ms': monitor(() => anconTiming.cpuMs.toFixed(3), { graph: false, interval: 250 }),
   }));
+
+  // Spec 6b §4: one play button per clip (loops play one pass). The chunk loads on the first press.
+  useControls('sound', Object.fromEntries(
+    ['water', 'wind', 'croak', 'peep', 'flap', 'pole', 'creak', 'knock', 'engine', 'traffic'].map((id) => [id, button(() => {
+      unlockAudio();
+      void import('../sound/debugPlay').then((m) => m.playClip(id as Parameters<typeof m.playClip>[0]));
+    })]),
+  ), { collapsed: true });
 
   // Keep the panel in sync when the store changes from outside leva (URL parsing, future UI,
   // programmatic setCamera/setEra/... calls) — without this the mounted controls go stale.
