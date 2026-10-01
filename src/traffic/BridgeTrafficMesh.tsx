@@ -8,6 +8,7 @@ import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { bridgePlan } from '../infrastructure/bridge';
 import { bridgeWay } from '../infrastructure/roads';
+import { BRIDGE_CAP, soundTaps } from '../sound/taps';
 import { useStore } from '../state/store';
 import { sampleField, type WorldFields } from '../terrain/fields';
 import { placementFields } from '../terrain/placementFields';
@@ -44,7 +45,7 @@ export function BridgeTrafficMesh({ near, era, n, castShadow }: { near: WorldFie
     for (const m of all) { const glass = m.material === mats.glass; if (glass) m.renderOrder = GLASS_ORDER; m.castShadow = castShadow && !glass; m.receiveShadow = true; m.frustumCulled = false; group.add(m); }
     return { group, parts, used, wheel, all };
   }, [cars, castShadow]);
-  useEffect(() => () => { for (const m of set.all) { m.dispose(); m.geometry.dispose(); } }, [set]);
+  useEffect(() => () => { soundTaps.bridge.n = 0; for (const m of set.all) { m.dispose(); m.geometry.dispose(); } }, [set]);
   const start = useStore((s) => s.crossingStart), frozen = useStore((s) => s.frozen), speed = useStore((s) => s.crossingSpeed);
   const clock = useRef(start ?? 0);
   useEffect(() => { clock.current = start ?? 0; }, [start]);
@@ -53,16 +54,19 @@ export function BridgeTrafficMesh({ near, era, n, castShadow }: { near: WorldFie
     const { parts, used, wheel } = set;
     for (let i = 0; i < BRIDGE_MODELS.length; i++) used[BRIDGE_MODELS[i]] = 0;
     let wi = 0;
+    const tb = soundTaps.bridge; let bn = 0;
     for (let k = 0; k < cars.length; k++) {
       const car = cars[k];
       if (!bridgeCarAt(lanes[car.lane], car, clock.current, _f, _r)) continue;
       bodyMatrix(_f, _r, UP, _m);
+      if (bn < BRIDGE_CAP) { tb.pos[bn * 3] = _f.x; tb.pos[bn * 3 + 1] = _f.y; tb.pos[bn * 3 + 2] = _f.z; tb.lane[bn] = car.lane; bn++; }
       const meshes = parts[car.model], i = used[car.model]++;
       for (let p = 0; p < meshes.length; p++) meshes[p].setMatrixAt(i, _m);
       meshes[0].setColorAt(i, _c.setHex(car.paint));   // CAR_PARTS[0] is 'paint'
       const d = DIMS[car.model], dist = BRIDGE_SPEED * clock.current;
       for (let w = 0; w < 4; w++) wheel.setMatrixAt(wi++, wheelMatrix(d, w, dist, _m, _p));
     }
+    tb.n = bn;
     for (let i = 0; i < BRIDGE_MODELS.length; i++) {
       const meshes = parts[BRIDGE_MODELS[i]], u = used[BRIDGE_MODELS[i]];
       for (let p = 0; p < meshes.length; p++) {

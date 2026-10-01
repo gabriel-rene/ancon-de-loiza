@@ -6,6 +6,7 @@ import { faunaMaterials, ringMaterial } from './material';
 import { createFaunaPose, type FaunaPose } from './pose';
 import { RING_POOL, ringsAt } from './rings';
 import type { FaunaWorld } from './site';
+import { soundTaps, WADER_CAP } from '../sound/taps';
 import { WADER_LOOK, wader, waderSpecs, type WaderSpec } from './waders';
 import { manatee, mullet } from './waterLife';
 
@@ -82,7 +83,13 @@ export class FaunaSet {
     this.done('pelican', n);
     n = 0; for (let i = 0; i < c.frigates; i++) { frigate(clock, i, w, o); n = this.put('frigate', n); }
     this.done('frigate', n);
-    n = 0; for (let i = 0; i < this.waders.length; i++) { wader(clock, this.waders[i], w, o); n = this.put('wader', n); }
+    n = 0;
+    const tw = soundTaps.waders;
+    for (let i = 0; i < this.waders.length; i++) {
+      wader(clock, this.waders[i], w, o); n = this.put('wader', n);
+      if (i < WADER_CAP) { tw.pos[i * 3] = o.x; tw.pos[i * 3 + 1] = o.y; tw.pos[i * 3 + 2] = o.z; tw.flying[i] = o.legs === 1 ? 1 : 0; }
+    }
+    tw.n = Math.min(WADER_CAP, this.waders.length);
     this.done('wader', n);
     n = 0; if (mullet(clock, w, o).on) n = this.put('mullet', n);
     this.done('mullet', n);
@@ -104,6 +111,7 @@ export class FaunaSet {
   afterReflection = () => { this.rings.visible = this.rings.count > 0; this.group.visible = true; };
 
   dispose() {
+    soundTaps.waders.n = 0;
     for (const o of [...this.group.children]) {
       const mesh = o as THREE.InstancedMesh;
       mesh.geometry.dispose(); mesh.dispose(); this.group.remove(mesh);
