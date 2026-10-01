@@ -9,7 +9,7 @@ import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
 import { DecadePicker } from './ui/DecadePicker';
-import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip.tsx';
+import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';

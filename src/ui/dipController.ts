@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { EraId } from '../data/eras';
 import { shiftTime, useStore } from '../state/store';
-import { EraDip } from './eradip';
+import { EraDip } from './dipMachine';
 import { prefersReducedMotion } from './motion';
 import { withEra } from './picker';
 
