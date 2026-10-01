@@ -8,8 +8,10 @@ const [query = '', secs = '10', dpr = '2'] = process.argv.slice(2);
 const base = process.env.BASE ?? 'http://localhost:4173/ancon-de-loiza/';
 const browser = await chromium.launch({ args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--enable-gpu', '--disable-gpu-vsync', '--disable-frame-rate-limit'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: Number(dpr) });
+if (process.env.SOUND === '1') await page.addInitScript(() => { try { localStorage.setItem('ancon.sound', '1'); } catch {} });
 await page.goto(`${base}${query}${query.includes('?') ? '&' : '?'}perf=1`);
 await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90000 });
+if (process.env.SOUND === '1') { await page.mouse.click(720, 450); await page.waitForFunction(() => window.__ANCON_SOUND__?.state === 'running', null, { timeout: 15000 }); }
 await page.waitForTimeout(3000);
 await page.evaluate(() => { window.__ANCON_PERF__.frames.length = 0; });
 await page.waitForTimeout(Number(secs) * 1000);
