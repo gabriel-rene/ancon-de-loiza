@@ -34,15 +34,15 @@ export function rideView(pose: VesselPose, L: DeckLayout, yaw: number, pos: THRE
  * User orbit while riding. A drag orbits about the pivot — the point of the canonical sightline over the
  * deck centre, so the view direction is unchanged at rest and the deck stays in frame however it is turned.
  * Polar angles are measured from +Y (camera-controls convention); scale is the pivot distance factor.
- * About 1 s after the last input the orbit eases back to the canonical framing.
+ * The offset stays where the visitor leaves it; recenter() glides it back (spec 6a §4.2).
  */
 export const RIDE_ORBIT = {
   // The steepest, widest drag stays a raised deck view (≤ ~20 m up), never a top-down aerial.
   minPolar: 0.33 * Math.PI, maxPolar: 0.478 * Math.PI, minScale: 0.6, maxScale: 1.7,
   /** Camera floor above the water surface (the terrain field is the riverbed mid-river). */
   waterClear: 1.5,
-  /** Seconds after the last input before the return starts; its ease-in (s) and time constant (s). */
-  returnDelay: 1, returnRamp: 0.8, returnTau: 0.8,
+  /** Recenter glide time constant (s). */
+  recenterTau: 0.25,
   /** Offset (rad, or log-scale) past which the view counts as turned away from the front (shows Recenter). */
   frontEps: 0.02,
 };
@@ -77,11 +77,22 @@ export class RideRig {
   readonly orbit: RideOrbit = { az: 0, pol: 0, logScale: 0 };
   readonly pos = new THREE.Vector3(); readonly target = new THREE.Vector3();
   readonly pivot = new THREE.Vector3(); readonly eye = new THREE.Vector3();
-  /** Seconds since the last user input. */
-  idle = Infinity;
   private readonly sph = new THREE.Spherical(); private readonly last = new THREE.Spherical();
   private readonly v = new THREE.Vector3();
   private has = false;
+  private returning = false;
+
+  /** Glide the user's offset back to the front framing; `instant` (reduced motion) snaps. New input cancels it. */
+  recenter(instant: boolean) {
+    if (instant) { this.orbit.az = 0; this.orbit.pol = 0; this.orbit.logScale = 0; this.returning = false; }
+    else this.returning = true;
+  }
+
+  /** True when the offset is past RIDE_ORBIT.frontEps (shows Recenter). */
+  get offFront() {
+    const o = this.orbit, e = RIDE_ORBIT.frontEps;
+    return Math.abs(wrapPi(o.az)) > e || Math.abs(o.pol) > e || Math.abs(o.logScale) > e;
+  }
 
   /**
    * One frame. `userEye`/`userTarget`: where the controls hold the camera now (after this frame's pointer
@@ -89,16 +100,18 @@ export class RideRig {
    */
   frame(pose: VesselPose, ctx: PoseContext, userEye: THREE.Vector3 | null, userTarget: THREE.Vector3 | null, dragging: boolean, dt: number) {
     const o = this.orbit, R = RIDE_ORBIT;
+    let input = dragging;
     if (this.has && userEye && userTarget) {
       this.sph.setFromVector3(this.v.subVectors(userEye, userTarget));
       const dAz = wrapPi(this.sph.theta - this.last.theta), dPol = this.sph.phi - this.last.phi;
       const dS = Math.log(Math.max(this.sph.radius, 1e-6) / Math.max(this.last.radius, 1e-6));
-      if (Math.abs(dAz) + Math.abs(dPol) + Math.abs(dS) > 1e-7) { o.az += dAz; o.pol += dPol; o.logScale += dS; this.idle = 0; }
+      if (Math.abs(dAz) + Math.abs(dPol) + Math.abs(dS) > 1e-7) { o.az += dAz; o.pol += dPol; o.logScale += dS; input = true; }
     }
-    if (dragging) this.idle = 0; else this.idle += dt;
-    if (this.idle > R.returnDelay) {
-      const k = Math.exp(-(dt / R.returnTau) * sm(clamp01((this.idle - R.returnDelay) / R.returnRamp)));
+    if (input) this.returning = false;
+    if (this.returning) {
+      const k = Math.exp(-dt / R.recenterTau);
       o.az = wrapPi(o.az) * k; o.pol *= k; o.logScale *= k;
+      if (Math.abs(o.az) + Math.abs(o.pol) + Math.abs(o.logScale) < 1e-4) { o.az = 0; o.pol = 0; o.logScale = 0; this.returning = false; }
     }
     rideView(pose, ctx.layout, rideYaw(pose.clock, ctx.spec.moored, ctx.spec.timings), this.pos, this.target);
     ridePivot(pose, ctx.layout, this.pos, this.target, this.pivot);
