@@ -5,7 +5,7 @@ import { RideRig } from '../ancon/rideCamera';
 import { onVesselPose } from '../ancon/vesselPose';
 import { useStore } from '../state/store';
 import { prefersReducedMotion } from '../ui/motion';
-import { controlLimits, frontOf, glideK, isOffFront, VIEW_POSES } from './views';
+import { controlLimits, frontOf, glideK, isOffFront, VIEW_POSES, VIEW_SMOOTH_TIME } from './views';
 
 export function Cameras() {
   const ref = useRef<CameraControls>(null);
@@ -16,6 +16,8 @@ export function Cameras() {
   const first = useRef(true);
   /** The ride camera's state; kept across era changes (the angle survives the dip), dropped when leaving Ride. */
   const rig = useRef<RideRig | null>(null);
+  /** Ride entry glide state; survives era changes so a mid-glide era change continues the glide. */
+  const glideRef = useRef<{ t0: number; fromEye: THREE.Vector3; fromTgt: THREE.Vector3; settled: boolean } | null>(null);
   const lim = controlLimits(preset, riding);
 
   // Input mapping (spec 6a §4.3): public views turn and zoom only; Shore zooms the lens and "grabs the world".
@@ -68,27 +70,32 @@ export function Cameras() {
     const c = ref.current;
     if (!riding || !c) return;
     const entering = rig.current === null;
-    if (entering) rig.current = new RideRig();
-    const r = rig.current!;
+    if (entering) {
+      rig.current = new RideRig();
+      const glide = !first.current && !prefersReducedMotion();
+      // Shore's lens zoom must not carry into Ride (camera-controls never re-clamps zoom on update).
+      void c.zoomTo(1, glide);
+      glideRef.current = { t0: performance.now(), fromEye: c.getPosition(new THREE.Vector3()), fromTgt: c.getTarget(new THREE.Vector3()), settled: !glide };
+    }
+    const r = rig.current!, g = glideRef.current!;
     const eye = new THREE.Vector3(), tgt = new THREE.Vector3();
-    const fromEye = c.getPosition(new THREE.Vector3()), fromTgt = c.getTarget(new THREE.Vector3());
-    const t0 = performance.now();
-    // While gliding the rig gets no input (the blended camera is not a user orbit); the first settled frame neither.
-    let settled = !(entering && !first.current && !prefersReducedMotion());
-    let dragging = false, last = -1, off = r.offFront;
+    // The glide state lives in a ref: an era change mid-glide re-runs this effect and continues the same glide.
+    // While gliding the rig gets no input (the blended camera is not a user orbit); the first frame of every run neither.
+    let first1 = true, dragging = false, last = -1, off = r.offFront;
     useStore.getState().setOffFront(off);
     const start = () => { dragging = true; }, end = () => { dragging = false; };
     c.addEventListener('controlstart', start); c.addEventListener('controlend', end);
     const offPose = onVesselPose((pose, ctx) => {
       const now = performance.now(), dt = last < 0 ? 0 : Math.min((now - last) / 1000, 0.1);
       last = now;
-      const k = settled ? 1 : glideK((now - t0) / 1000);
-      r.frame(pose, ctx, settled ? c.getPosition(eye, true) : null, settled ? c.getTarget(tgt, true) : null, dragging, dt);
-      eye.lerpVectors(fromEye, r.eye, k); tgt.lerpVectors(fromTgt, r.pivot, k);
-      if (settled) { eye.copy(r.eye); tgt.copy(r.pivot); }
+      const k = g.settled ? 1 : glideK((now - g.t0) / 1000), live = g.settled && !first1;
+      first1 = false;
+      r.frame(pose, ctx, live ? c.getPosition(eye, true) : null, live ? c.getTarget(tgt, true) : null, dragging, dt);
+      eye.lerpVectors(g.fromEye, r.eye, k); tgt.lerpVectors(g.fromTgt, r.pivot, k);
+      if (g.settled) { eye.copy(r.eye); tgt.copy(r.pivot); }
       void c.setLookAt(eye.x, eye.y, eye.z, tgt.x, tgt.y, tgt.z, false);
       c.update(0);
-      if (k >= 1) settled = true;
+      if (k >= 1) g.settled = true;
       first.current = false;
       if (r.offFront !== off) { off = r.offFront; useStore.getState().setOffFront(off); }
     });
@@ -102,6 +109,7 @@ export function Cameras() {
 
   return (
     <CameraControls ref={ref} makeDefault minDistance={lim.minDistance} maxDistance={lim.maxDistance}
-      minPolarAngle={lim.minPolar} maxPolarAngle={lim.maxPolar} minZoom={lim.minZoom} maxZoom={lim.maxZoom} />
+      minPolarAngle={lim.minPolar} maxPolarAngle={lim.maxPolar} minZoom={lim.minZoom} maxZoom={lim.maxZoom}
+      smoothTime={VIEW_SMOOTH_TIME} />
   );
 }
