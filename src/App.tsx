@@ -8,7 +8,7 @@ import { FrameSampler, RendererInfo } from './scene/FrameSampler';
 import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
-import { DecadePicker } from './ui/DecadePicker';
+import { Timeline } from './ui/Timeline';
 import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
@@ -44,7 +44,7 @@ export function App() {
       </SceneBoundary>
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <TitleCard />
-      <DecadePicker />
+      <Timeline />
       <Toolbar />
     </>
   );
