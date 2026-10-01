@@ -1,55 +1,107 @@
 import { CameraControls, CameraControlsImpl } from '@react-three/drei';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { RIDE_ORBIT, RideRig } from '../ancon/rideCamera';
+import { RideRig } from '../ancon/rideCamera';
 import { onVesselPose } from '../ancon/vesselPose';
 import { useStore } from '../state/store';
-import { VIEW_POSES } from './views';
+import { prefersReducedMotion } from '../ui/motion';
+import { controlLimits, frontOf, glideK, isOffFront, VIEW_POSES } from './views';
 
 export function Cameras() {
   const ref = useRef<CameraControls>(null);
   const preset = useStore((s) => s.camera);
   const eraId = useStore((s) => s.eraId);
   const riding = useStore((s) => s.camera === 'ride' && s.showAncon);
+  const recenterSeq = useStore((s) => s.recenterSeq);
   const first = useRef(true);
+  /** The ride camera's state; kept across era changes (the angle survives the dip), dropped when leaving Ride. */
+  const rig = useRef<RideRig | null>(null);
+  const lim = controlLimits(preset, riding);
 
-  // Fixed presets (and `ride` when the ferry is hidden with ?ancon=0).
+  // Input mapping (spec 6a §4.3): public views turn and zoom only; Shore zooms the lens and "grabs the world".
   useEffect(() => {
-    if (riding) return;
-    const p = VIEW_POSES[preset];
-    ref.current?.setLookAt(...p.pos, ...p.target, !first.current);
+    const c = ref.current;
+    if (!c) return;
+    const { ACTION } = CameraControlsImpl, mb = c.mouseButtons, t = c.touches;
+    const saved = { middle: mb.middle, right: mb.right, wheel: mb.wheel, two: t.two, three: t.three, az: c.azimuthRotateSpeed, pol: c.polarRotateSpeed };
+    if (!lim.pan) {
+      const zoom = lim.lookInPlace;
+      mb.right = ACTION.NONE; t.three = ACTION.NONE;
+      mb.middle = zoom ? ACTION.ZOOM : ACTION.DOLLY; mb.wheel = zoom ? ACTION.ZOOM : ACTION.DOLLY;
+      t.two = zoom ? ACTION.TOUCH_ZOOM : ACTION.TOUCH_DOLLY;
+    }
+    c.azimuthRotateSpeed = lim.rotateSpeed; c.polarRotateSpeed = lim.rotateSpeed;
+    return () => {
+      mb.middle = saved.middle; mb.right = saved.right; mb.wheel = saved.wheel; t.two = saved.two; t.three = saved.three;
+      c.azimuthRotateSpeed = saved.az; c.polarRotateSpeed = saved.pol;
+    };
+  }, [lim.pan, lim.lookInPlace, lim.rotateSpeed]);
+
+  // Fixed views (and Ride when the ferry is hidden with ?ancon=0): glide to the pose; Recenter re-runs this.
+  useEffect(() => {
+    const c = ref.current;
+    if (riding || !c) return;
+    const p = VIEW_POSES[preset], smooth = !first.current && !prefersReducedMotion();
+    void c.setLookAt(...p.pos, ...p.target, smooth);
+    void c.zoomTo(1, smooth);
     first.current = false;
+    useStore.getState().setOffFront(false);
+  }, [preset, riding, recenterSeq]);
+
+  // Fixed views: report whether the visitor has turned away from the front (shows Recenter).
+  useEffect(() => {
+    const c = ref.current;
+    if (riding || !c) return;
+    const f = frontOf(VIEW_POSES[preset]);
+    const check = () => useStore.getState().setOffFront(
+      isOffFront(f, c.azimuthAngle, c.polarAngle, c.distance, (c.camera as THREE.PerspectiveCamera).zoom));
+    c.addEventListener('sleep', check); c.addEventListener('controlend', check);
+    return () => { c.removeEventListener('sleep', check); c.removeEventListener('controlend', check); };
   }, [preset, riding]);
 
-  // Ride: the vessel carries the camera. Runs right after <Ancon> updates the pose each frame, so the
-  // camera never lags the hull. A drag orbits about a point over the deck and eases back ~1 s after release.
+  // Leaving Ride drops the rig: coming back starts at the front framing.
+  useEffect(() => { if (!riding) rig.current = null; }, [riding]);
+
+  // Ride: the vessel carries the camera; runs right after <Ancon> updates the pose each frame, so the camera
+  // never lags the hull. Entering Ride from another view glides in over VIEW_GLIDE_S; an era change does not move it.
   useEffect(() => {
     const c = ref.current;
     if (!riding || !c) return;
-    // Riding, only orbit and dolly: the rig re-derives the view from the vessel every frame, so a truck/pan
-    // would be discarded (the view jumps back). Restored when the ride ends.
-    const { ACTION } = CameraControlsImpl, saved = { right: c.mouseButtons.right, two: c.touches.two, three: c.touches.three };
-    c.mouseButtons.right = ACTION.NONE; c.touches.two = ACTION.TOUCH_DOLLY; c.touches.three = ACTION.NONE;
-    const rig = new RideRig(), eye = new THREE.Vector3(), tgt = new THREE.Vector3();
-    let dragging = false, last = -1;
+    const entering = rig.current === null;
+    if (entering) rig.current = new RideRig();
+    const r = rig.current!;
+    const eye = new THREE.Vector3(), tgt = new THREE.Vector3();
+    const fromEye = c.getPosition(new THREE.Vector3()), fromTgt = c.getTarget(new THREE.Vector3());
+    const t0 = performance.now();
+    // While gliding the rig gets no input (the blended camera is not a user orbit); the first settled frame neither.
+    let settled = !(entering && !first.current && !prefersReducedMotion());
+    let dragging = false, last = -1, off = r.offFront;
+    useStore.getState().setOffFront(off);
     const start = () => { dragging = true; }, end = () => { dragging = false; };
     c.addEventListener('controlstart', start); c.addEventListener('controlend', end);
-    const off = onVesselPose((pose, ctx) => {
+    const offPose = onVesselPose((pose, ctx) => {
       const now = performance.now(), dt = last < 0 ? 0 : Math.min((now - last) / 1000, 0.1);
       last = now;
-      rig.frame(pose, ctx, c.getPosition(eye, true), c.getTarget(tgt, true), dragging, dt);
-      c.setLookAt(rig.eye.x, rig.eye.y, rig.eye.z, rig.pivot.x, rig.pivot.y, rig.pivot.z, false);
+      const k = settled ? 1 : glideK((now - t0) / 1000);
+      r.frame(pose, ctx, settled ? c.getPosition(eye, true) : null, settled ? c.getTarget(tgt, true) : null, dragging, dt);
+      eye.lerpVectors(fromEye, r.eye, k); tgt.lerpVectors(fromTgt, r.pivot, k);
+      if (settled) { eye.copy(r.eye); tgt.copy(r.pivot); }
+      void c.setLookAt(eye.x, eye.y, eye.z, tgt.x, tgt.y, tgt.z, false);
       c.update(0);
+      if (k >= 1) settled = true;
       first.current = false;
+      if (r.offFront !== off) { off = r.offFront; useStore.getState().setOffFront(off); }
     });
-    return () => {
-      off(); c.removeEventListener('controlstart', start); c.removeEventListener('controlend', end);
-      c.mouseButtons.right = saved.right; c.touches.two = saved.two; c.touches.three = saved.three;
-    };
+    return () => { offPose(); c.removeEventListener('controlstart', start); c.removeEventListener('controlend', end); };
   }, [riding, eraId]);
 
-  // Polar limits: ride-only (a little outside the rig's own, so the controls never re-clamp what the rig sets).
-  const minPolar = riding ? RIDE_ORBIT.minPolar - 0.02 : 0;
-  const maxPolar = riding ? RIDE_ORBIT.maxPolar + 0.02 : Math.PI * 0.495;
-  return <CameraControls ref={ref} makeDefault minDistance={1} maxDistance={6000} minPolarAngle={minPolar} maxPolarAngle={maxPolar} />;
+  // Ride recenter (the fixed views recenter through the pose effect above).
+  useEffect(() => {
+    if (recenterSeq > 0 && riding) rig.current?.recenter(prefersReducedMotion());
+  }, [recenterSeq, riding]);
+
+  return (
+    <CameraControls ref={ref} makeDefault minDistance={lim.minDistance} maxDistance={lim.maxDistance}
+      minPolarAngle={lim.minPolar} maxPolarAngle={lim.maxPolar} minZoom={lim.minZoom} maxZoom={lim.maxZoom} />
+  );
 }
