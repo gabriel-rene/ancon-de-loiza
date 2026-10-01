@@ -12,14 +12,14 @@ const asLoop = (sec: number, fade: number, sr: number, render: (n: number) => Bu
   return loopify(render(n + f), f);
 };
 
-/** River lapping: a low rumble bed plus short band-passed laps every 0.25–0.75 s. */
+/** River lapping: a soft wash (no sub-bass: speakers play drifting rumble as banging) plus gentle laps every 0.25–0.75 s. */
 function water(seed: number, sr: number): Buf {
   const r = rng(seed);
   return normalize(asLoop(4, 0.25, sr, (n) => {
-    const bed = normalize(lowpass(lowpass(brown(n, r), 700, sr), 700, sr), 0.5);
+    const bed = normalize(lowpass(bandpass(white(n, r), 350, 0.6, sr), 900, sr), 0.5);
     for (let t = 0.1; t < n / sr - 0.4; t += 0.25 + 0.5 * r()) {
       const len = samples(0.35, sr), lap = bandpass(white(len, r), 350 + 400 * r(), 1.2, sr);
-      mulInto(lap, envAD(len, sr, 0, 0.03, 0.08));
+      mulInto(lap, envAD(len, sr, 0, 0.08, 0.12));
       addInto(bed, normalize(lap, 0.25 + 0.2 * r()), samples(t, sr));
     }
     return bed;
@@ -114,7 +114,7 @@ function engine(seed: number, sr: number): Buf {
 function traffic(seed: number, sr: number): Buf {
   const r = rng(seed);
   return normalize(asLoop(4, 0.4, sr, (n) => {
-    const x = normalize(lowpass(lowpass(brown(n, r), 220, sr), 220, sr), 0.6), hiss = highpass(white(n, r), 1500, sr);
+    const x = normalize(lowpass(bandpass(white(n, r), 200, 1.2, sr), 350, sr), 0.6), hiss = highpass(white(n, r), 1500, sr);
     for (let i = 0; i < n; i++) x[i] = (x[i] + hiss[i] * 0.05) * (0.8 + 0.2 * Math.sin((2 * Math.PI * i) / n));
     return x;
   }), 0.5);
