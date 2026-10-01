@@ -4,10 +4,10 @@ import { createLevels, GAIN, mixLevels, type MixInput } from './mix';
 const base: MixInput = { view: 'ride', sunElevation: 10, dip: 0, bridgeOpen: false };
 const mix = (p: Partial<MixInput>) => mixLevels({ ...base, ...p }, createLevels());
 
-test('water is loudest on the ferry and quietest from the sky; wind the other way', () => {
+test('water is loudest on the ferry and quietest from the sky, and always a quiet bed', () => {
   const ride = mix({ view: 'ride' }), shore = mix({ view: 'shore' }), sky = mix({ view: 'sky' });
   expect(ride.water).toBeGreaterThan(shore.water); expect(shore.water).toBeGreaterThan(sky.water);
-  expect(sky.wind).toBeGreaterThan(ride.wind);
+  expect(ride.water).toBeLessThanOrEqual(0.2);
 });
 test('dev views mix like Shore', () => {
   expect(mix({ view: 'bridge' })).toEqual(mix({ view: 'shore' }));

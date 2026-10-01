@@ -46,7 +46,7 @@ export function birdCalls(prevT: number, curT: number, n: number, rate: number, 
   for (let k = Math.floor((prevT - J) / P); k <= Math.floor((curT + J) / P); k++) {
     const t = eventTime(k, P, J, seed);
     if (t <= prevT || t > curT || u01(k, 3, seed) >= rate) continue;
-    out.push({ clip: u01(k, 2, seed) < 0.5 ? 'croak' : 'peep', source: 'wader', index: Math.floor(u01(k, 1, seed) * n), gain: GAIN.call, rate: vary(k, 4) });
+    out.push({ clip: 'peep', source: 'wader', index: Math.floor(u01(k, 1, seed) * n), gain: GAIN.call, rate: vary(k, 4) });
   }
   return out;
 }

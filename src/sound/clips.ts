@@ -3,7 +3,7 @@ import {
 } from './dsp';
 
 /** Spec 6b §2: every sound in the scene, made in code. Loops are seamless; one-shots fade in and out. */
-export type ClipId = 'water' | 'wind' | 'croak' | 'peep' | 'flap' | 'pole' | 'creak' | 'knock' | 'engine' | 'traffic';
+export type ClipId = 'water' | 'peep' | 'flap' | 'pole' | 'creak' | 'knock' | 'engine' | 'traffic';
 export interface ClipDef { loop: boolean; seconds: number; build: (seed: number, sr: number) => Buf }
 
 /** A loop of `sec` s: render sec + fade, then cross-fade the tail into the head. */
@@ -24,28 +24,6 @@ function water(seed: number, sr: number): Buf {
     for (let i = 0; i < n; i++) x[i] = x[i] * (0.6 + 0.4 * swell[i]) + trickle[i] * 0.15 * (0.5 + 0.5 * glint[i]);
     return x;
   }), 0.6);
-}
-/** Soft wind with slow gusts, and a little leaf hiss on the gusts. */
-function wind(seed: number, sr: number): Buf {
-  const r = rng(seed), ph = r() * 6;
-  return normalize(asLoop(6, 0.5, sr, (n) => {
-    const x = lowpass(bandpass(white(n, r), 450, 0.6, sr), 1200, sr), leaves = highpass(white(n, r), 3000, sr);
-    for (let i = 0; i < n; i++) {
-      const t = i / sr, g = 0.6 + 0.25 * Math.sin((2 * Math.PI * t) / 3 + ph) + 0.15 * Math.sin((2 * Math.PI * t) / 1.7 + 1);
-      x[i] = x[i] * g + leaves[i] * 0.08 * Math.max(0, g - 0.5);
-    }
-    return x;
-  }), 0.5);
-}
-/** Heron / egret: a rough, low two-part croak. */
-function croak(seed: number, sr: number): Buf {
-  const r = rng(seed), n = samples(0.6, sr), f0 = 140 + 40 * r();
-  const x = tone(n, sr, f0, f0 * 0.72, 'saw'), rasp = white(n, r);
-  for (let i = 0; i < n; i++) x[i] *= 0.7 + 0.3 * rasp[i];
-  bandpass(x, 900, 0.8, sr);
-  const e = envAD(n, sr, 0, 0.01, 0.12), e2 = envAD(n, sr, 0.22 + 0.06 * r(), 0.01, 0.15);
-  for (let i = 0; i < n; i++) e[i] += e2[i];
-  return fadeEdges(normalize(mulInto(x, e), 0.8), sr);
 }
 /** Small shore bird: three quick rising peeps. */
 function peep(seed: number, sr: number): Buf {
@@ -110,20 +88,18 @@ function engine(seed: number, sr: number): Buf {
     return addInto(x, normalize(lowpass(brown(n, r), 120, sr), 0.3), 0);
   }), 0.6);
 }
-/** Bridge traffic far off: low tyre rumble with a little hiss, swelling slowly. */
+/** Bridge traffic far off: a low tyre hum, no hiss (so it does not sound like the water), swelling slowly. */
 function traffic(seed: number, sr: number): Buf {
   const r = rng(seed);
   return normalize(asLoop(4, 0.4, sr, (n) => {
-    const x = normalize(lowpass(bandpass(white(n, r), 200, 1.2, sr), 350, sr), 0.6), hiss = highpass(white(n, r), 1500, sr);
-    for (let i = 0; i < n; i++) x[i] = (x[i] + hiss[i] * 0.05) * (0.8 + 0.2 * Math.sin((2 * Math.PI * i) / n));
+    const x = lowpass(highpass(bandpass(white(n, r), 220, 2.5, sr), 90, sr), 350, sr);
+    for (let i = 0; i < n; i++) x[i] *= 0.8 + 0.2 * Math.sin((2 * Math.PI * i) / n);
     return x;
   }), 0.5);
 }
 
 export const CLIPS: Record<ClipId, ClipDef> = {
   water: { loop: true, seconds: 4, build: water },
-  wind: { loop: true, seconds: 6, build: wind },
-  croak: { loop: false, seconds: 0.6, build: croak },
   peep: { loop: false, seconds: 0.35, build: peep },
   flap: { loop: false, seconds: 0.8, build: flap },
   pole: { loop: false, seconds: 1.2, build: pole },

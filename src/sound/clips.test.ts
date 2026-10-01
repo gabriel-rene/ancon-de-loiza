@@ -26,7 +26,7 @@ test.each(CLIP_IDS.filter((id) => !CLIPS[id].loop))('%s starts and ends silent',
   expect(x[0]).toBe(0); expect(x[x.length - 1]).toBe(0);
 });
 test('loops are the four beds; one-shots are short', () => {
-  expect(CLIP_IDS.filter((id) => CLIPS[id].loop).sort()).toEqual(['engine', 'traffic', 'water', 'wind']);
+  expect(CLIP_IDS.filter((id) => CLIPS[id].loop).sort()).toEqual(['engine', 'traffic', 'water']);
   for (const id of CLIP_IDS) if (!CLIPS[id].loop) expect(CLIPS[id].seconds, id).toBeLessThanOrEqual(1.5);
 });
 test('all clips build fast at 48 kHz (spec 6b §5: < 500 ms on the dev Mac; CI runs ~4× slower)', () => {

@@ -1,5 +1,5 @@
-/** Spec 6b §5: at most 12 voices. Beds = water + wind; traffic = one per bridge lane; engines = nearest ferry cars. */
-export const VOICES = { beds: 2, traffic: 2, engines: 3, shots: 5 } as const;
+/** Spec 6b §5: at most 12 voices. Beds = water (no wind, user 2026-10-01); traffic = one per bridge lane; engines = nearest ferry cars. */
+export const VOICES = { beds: 1, traffic: 2, engines: 3, shots: 5 } as const;
 
 /** Fixed slots for one-shots. A free slot is one whose sound has ended; when none is free, the one ending soonest is reused. */
 export class VoicePool {

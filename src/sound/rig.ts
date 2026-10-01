@@ -20,7 +20,7 @@ const frameOf = (): FerryFrame => ({ clock: 0, phase: 'load', tLeg: 0, effort: 0
 export class SoundRig {
   readonly group = new THREE.Group();
   readonly stats: SoundStats;
-  private readonly water: THREE.Audio; private readonly wind: THREE.Audio;
+  private readonly water: THREE.Audio;
   private readonly traffic: THREE.PositionalAudio[]; private readonly engines: THREE.PositionalAudio[];
   private readonly shots: THREE.PositionalAudio[];
   private readonly pool = new VoicePool(VOICES.shots);
@@ -43,19 +43,18 @@ export class SoundRig {
       return a;
     };
     this.water = loop(new THREE.Audio(L), 'water');
-    this.wind = loop(new THREE.Audio(L), 'wind');
     this.traffic = Array.from({ length: VOICES.traffic }, () => loop(placed(REF.bridge), 'traffic'));
     this.engines = Array.from({ length: VOICES.engines }, () => loop(placed(REF.car), 'engine'));
     this.shots = Array.from({ length: VOICES.shots }, () => placed(REF.ferry));
     this.stats = { state: eng.ctx.state, voices: 0, buildMs: eng.buildMs, shots: 0 };
   }
 
-  private all(): THREE.Audio<AudioNode>[] { return [this.water, this.wind, ...this.traffic, ...this.engines, ...this.shots]; }
+  private all(): THREE.Audio<AudioNode>[] { return [this.water, ...this.traffic, ...this.engines, ...this.shots]; }
   private connected = true;   // three connects each voice's gain to the listener once, in its constructor
 
   start() {
     if (!this.connected) { for (const a of this.all()) a.gain.connect(this.eng.listener.getInput()); this.connected = true; }
-    for (const a of [this.water, this.wind, ...this.traffic, ...this.engines]) a.play();
+    for (const a of [this.water, ...this.traffic, ...this.engines]) a.play();
   }
   stop() {
     // No a.disconnect(): three's PositionalAudio.disconnect() calls panner.disconnect(gain), which throws in Chrome
@@ -79,7 +78,7 @@ export class SoundRig {
     const L = this.levels, now = this.eng.ctx.currentTime;
     mixLevels(mix, L);
     this.eng.listener.setMasterVolume(L.master);
-    this.water.setVolume(L.water); this.wind.setVolume(L.wind);
+    this.water.setVolume(L.water);
 
     const ev = this.events; ev.length = 0;
     if (this.fresh && this.spec) {
@@ -102,7 +101,7 @@ export class SoundRig {
 
     this.placeEngines(cam);
     this.placeTraffic(cam, L.traffic);
-    let voices = (L.water > 0 ? 1 : 0) + (L.wind > 0 ? 1 : 0) + this.pool.active(now);
+    let voices = (L.water > 0 ? 1 : 0) + this.pool.active(now);
     for (const a of this.engines) if (a.getVolume() > 0) voices++;
     for (const a of this.traffic) if (a.getVolume() > 0) voices++;
     this.stats.voices = voices; this.stats.state = this.eng.ctx.state;

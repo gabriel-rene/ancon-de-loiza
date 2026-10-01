@@ -61,7 +61,7 @@ test('bird calls: about one per period, deterministic, valid wader indices, thin
   const a = calls(1), b = calls(1);
   expect(a).toEqual(b);
   expect(a.length).toBeGreaterThan(80); expect(a.length).toBeLessThan(120);
-  expect(a.every((e) => e.index >= 0 && e.index < 6 && (e.clip === 'croak' || e.clip === 'peep'))).toBe(true);
+  expect(a.every((e) => e.index >= 0 && e.index < 6 && e.clip === 'peep')).toBe(true);
   expect(calls(0.2).length).toBeLessThan(a.length * 0.35);
 });
 test('bird calls: none with no waders or after a jump', () => {

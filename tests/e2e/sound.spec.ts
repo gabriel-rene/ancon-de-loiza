@@ -39,10 +39,10 @@ test('sound: 1840 shore fires one-shots (pole strokes and birds)', async ({ page
   await page.waitForFunction(() => (window.__ANCON_SOUND__?.shots ?? 0) > 0, null, { timeout: 30_000 });
 });
 
-test('sound: 1986 shore has water, wind and bridge traffic voices', async ({ page }) => {
+test('sound: 1986 shore has water and bridge traffic voices', async ({ page }) => {
   await page.goto('?era=1986&q=low&cam=shore');
   await ready(page);
   await page.getByRole('button', { name: 'Sound' }).click();
   await page.waitForFunction(() => window.__ANCON_SOUND__?.state === 'running', null, { timeout: 15_000 });
-  await page.waitForFunction(() => (window.__ANCON_SOUND__?.voices ?? 0) >= 3, null, { timeout: 15_000 });
+  await page.waitForFunction(() => (window.__ANCON_SOUND__?.voices ?? 0) >= 2, null, { timeout: 15_000 });
 });

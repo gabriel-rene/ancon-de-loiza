@@ -23,7 +23,7 @@ export function DebugPanel() {
 
   // Spec 6b §4: one play button per clip (loops play one pass). The chunk loads on the first press.
   useControls('sound', Object.fromEntries(
-    ['water', 'wind', 'croak', 'peep', 'flap', 'pole', 'creak', 'knock', 'engine', 'traffic'].map((id) => [id, button(() => {
+    ['water', 'peep', 'flap', 'pole', 'creak', 'knock', 'engine', 'traffic'].map((id) => [id, button(() => {
       unlockAudio();
       void import('../sound/debugPlay').then((m) => m.playClip(id as Parameters<typeof m.playClip>[0]));
     })]),

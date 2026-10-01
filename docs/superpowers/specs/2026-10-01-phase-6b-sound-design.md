@@ -8,8 +8,9 @@ User rulings in chat, 2026-10-01:
 
 - **All sound is made in code** (Web Audio). No audio files, no licenses.
 - **No plena.** No source puts plena at the ferry on Sundays; the parent spec line is dropped.
-- **Six sound groups:** river water, wind and leaves, birds (calls and wing flaps), ferry work (pole or rope), hull knock at docking, cars (ferry load and 1986 bridge).
-- **3D sound.** Sounds come from where their thing is in the scene and follow the 360° look. River and wind are all around.
+- **Five sound groups:** river water, birds (calls and wing flaps), ferry work (pole or rope), hull knock at docking, cars (ferry load and 1986 bridge).
+- **3D sound.** Sounds come from where their thing is in the scene and follow the 360° look. The river is all around.
+- **Minimal mix (user, 2026-10-01, after listening).** The water is a quiet bed; the details (creak, chirps, knock, poles) stand out. Wind is dropped (it sounded like the water). The heron croak is dropped (it did not sound like a bird); calls are short chirps. Bridge traffic is a low hum with no hiss.
 - **Clips are built once, at start.** When sound turns on, code renders short clips into buffers; the scene then plays them with small random pitch and rate changes. No live synthesis per frame.
 
 Branch: `phase-6b-sound`. Merge to `main` only after the user approves.
@@ -23,8 +24,7 @@ Era facts used: the ferry is pushed with **poles** in 1840, 1900 and 1925, and p
 | Sound | When | Source in the scene |
 |---|---|---|
 | River water (loop) | Always | All around (not positional). Level by view: Ride high, Shore mid, Sky low |
-| Wind and leaves (loop) | Always, very soft | All around |
-| Bird calls (one-shots) | Random, every few seconds; rate × 0.2 when the sun is below the horizon | The wading birds (`src/fauna/waders.ts`) |
+| Bird calls: short chirps (one-shots) | Random, every few seconds; rate × 0.2 when the sun is below the horizon | The wading birds (`src/fauna/waders.ts`) |
 | Wing flaps (one-shot) | When a wader flushes at docking (never in 1986, same rule as Phase 5) | That bird |
 | Pole push and splash (one-shot) | Each pole stroke while the ferry moves; 1840, 1900, 1925 | The ferry pole (`src/ancon/pole.ts`) |
 | Rope creak (one-shot) | Each haul while the ferry moves; 1935–1984 | The ferry (`useVesselPose`) |
