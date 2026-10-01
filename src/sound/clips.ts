@@ -12,18 +12,18 @@ const asLoop = (sec: number, fade: number, sr: number, render: (n: number) => Bu
   return loopify(render(n + f), f);
 };
 
-/** River lapping: a soft wash (no sub-bass: speakers play drifting rumble as banging) plus gentle laps every 0.25–0.75 s. */
+/**
+ * River water: one continuous wash that swells slowly (≈ 1 s), plus a faint trickle. No separate laps: short noise
+ * bursts at random times are heard as "blam … blam" (user, 2026-10-01).
+ */
 function water(seed: number, sr: number): Buf {
   const r = rng(seed);
-  return normalize(asLoop(4, 0.25, sr, (n) => {
-    const bed = normalize(lowpass(bandpass(white(n, r), 350, 0.6, sr), 900, sr), 0.5);
-    for (let t = 0.1; t < n / sr - 0.4; t += 0.25 + 0.5 * r()) {
-      const len = samples(0.35, sr), lap = bandpass(white(len, r), 350 + 400 * r(), 1.2, sr);
-      mulInto(lap, envAD(len, sr, 0, 0.08, 0.12));
-      addInto(bed, normalize(lap, 0.25 + 0.2 * r()), samples(t, sr));
-    }
-    return bed;
-  }), 0.7);
+  return normalize(asLoop(4, 0.5, sr, (n) => {
+    const x = lowpass(bandpass(white(n, r), 350, 0.6, sr), 900, sr), trickle = bandpass(white(n, r), 1800, 1.5, sr);
+    const swell = normalize(lowpass(lowpass(white(n, r), 0.8, sr), 0.8, sr), 1), glint = normalize(lowpass(lowpass(white(n, r), 2, sr), 2, sr), 1);
+    for (let i = 0; i < n; i++) x[i] = x[i] * (0.6 + 0.4 * swell[i]) + trickle[i] * 0.15 * (0.5 + 0.5 * glint[i]);
+    return x;
+  }), 0.6);
 }
 /** Soft wind with slow gusts, and a little leaf hiss on the gusts. */
 function wind(seed: number, sr: number): Buf {
