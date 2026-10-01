@@ -25,6 +25,17 @@ About 43.6 ms (1935 low) and 42.1 ms (1986 shore low) to synthesize all clips.
 3. E2E in headless swiftshader reaches `running` without extra Chromium flags, so `playwright.config.ts` is unchanged. Extra checks added: `?era=1840&q=low` raises `shots` within 30 s; `?era=1986&q=low&cam=shore` reaches 3 or more voices within 15 s.
 4. In the full `e2e:fast` run, 3 tests (picker, world 1935 ride, world 1975 bank) timed out waiting for `__ANCON_READY__` under swiftshader load with 2 workers; all three passed when re-run alone. They do not touch sound.
 
+5. Work ran on branch `phase-6b-sound` in the main checkout (no worktree), as in Phases 5 and 6a.
+6. Final review: the hull knock now fires when the hull meets the landing (end of `dock`), not at the start of `dock`; spec §2 row amended.
+7. Final review: a small speaker icon sits beside the "Sound" label (spec §3 "speaker button"); the accessible name is unchanged.
+8. Final review also fixed: Sound off threw an error in the dev server (StrictMode) and remembered-on sound could fail to start on touch devices.
+
+## Open for later (not blocking)
+- Pole strokes and rope creak sound from the hull centre, not the pole; pole sounds stop ~2.5 s before docking ends.
+- Bird calls come from both banks, so about half are far and quiet.
+- Ten HRTF panners run on every tier; consider `equalpower` on low if phones struggle.
+- `events.ts` copies the hauler phase and `strokeAt` formulas from `crew.ts` (drift risk).
+
 ## Listening checklist (for the user)
 1. Open `?debug=1`, open **sound**, press each of the 10 clips; note any that sound wrong.
 2. Turn on **Sound**; in 1935 Ride, listen through one crossing (creak, knock, birds, water).
