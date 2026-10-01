@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { STRINGS } from '../i18n/strings';
 import { withLang, type Lang } from '../i18n/text';
 import { useT } from '../i18n/useT';
+import { unlockAudio } from '../sound/unlock';
 import { useStore } from '../state/store';
 import { InfoPanel } from './InfoPanel';
 import { ViewSwitch } from './ViewSwitch';
@@ -16,6 +17,7 @@ const LANG_BUTTONS: { lang: Lang; short: string; name: string }[] = [
 export function Toolbar() {
   const t = useT();
   const lang = useStore((s) => s.lang);
+  const soundOn = useStore((s) => s.soundOn);
   const [open, setOpen] = useState(false);
   const factsBtn = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setOpen(false); factsBtn.current?.focus(); }, []);
@@ -45,6 +47,10 @@ export function Toolbar() {
             </button>
           ))}
         </div>
+        <button type="button" className="toolbar__btn" aria-pressed={soundOn}
+          onClick={() => { if (!soundOn) unlockAudio(); useStore.getState().setSound(!soundOn); }}>
+          {t(STRINGS.sound)}
+        </button>
         <ViewSwitch />
       </div>
       {open && <InfoPanel onClose={close} />}
