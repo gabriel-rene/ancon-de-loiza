@@ -12,6 +12,9 @@ export const STRINGS = {
     en: 'Inferred: we worked this out from the sources; they do not say it directly.',
   },
   language: { es: 'Idioma', en: 'Language' },
+  view: { es: 'Vista', en: 'View' },
+  recenter: { es: 'Centrar', en: 'Recenter' },
+  nowShowing: { es: 'Ahora:', en: 'Now showing:' },
   noWebgl: {
     es: 'Tu navegador no puede mostrar la escena 3D. Los datos de cada época siguen disponibles en «Datos».',
     en: 'Your browser cannot show the 3D scene. The facts for each era are still available under “Facts”.',
@@ -19,3 +22,10 @@ export const STRINGS = {
   mapData: { es: 'Datos del mapa ©', en: 'Map data ©' },
   osmContributors: { es: 'colaboradores de OpenStreetMap', en: 'OpenStreetMap contributors' },
 } satisfies Record<string, Bilingual>;
+
+/** Camera view names (spec 6a §4.2). */
+export const VIEW_NAMES: Record<'ride' | 'shore' | 'sky', Bilingual> = {
+  ride: { es: 'Paseo', en: 'Ride' },
+  shore: { es: 'Orilla', en: 'Shore' },
+  sky: { es: 'Cielo', en: 'Sky' },
+};

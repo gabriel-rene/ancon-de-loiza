@@ -26,14 +26,15 @@ canvas { display: block; }
 @media (prefers-reduced-motion: reduce) { .decade-rail__btn { transition: none; } }
 
 .toolbar { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 20; display: flex; gap: 8px; }
-.toolbar__lang { display: flex; gap: 2px; padding: 0 2px; border-radius: 10px; background: rgba(12, 15, 15, 0.55);
+.toolbar__lang, .toolbar__group { display: flex; gap: 2px; padding: 0 2px; border-radius: 10px; background: rgba(12, 15, 15, 0.55);
   border: 1px solid rgba(244, 236, 223, 0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .toolbar__btn { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid rgba(244, 236, 223, 0.14); border-radius: 10px;
   background: rgba(12, 15, 15, 0.55); color: #f4ecdf; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em;
   cursor: pointer; touch-action: manipulation; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.toolbar__btn--lang { border: 0; background: transparent; padding: 0 10px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.toolbar__btn--lang, .toolbar__btn--seg { border: 0; background: transparent; padding: 0 10px; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .toolbar__btn[aria-pressed='true'], .toolbar__btn[aria-expanded='true'] { background: #f4ecdf; color: #1b1a17; }
 .toolbar__btn:focus-visible, .info-panel__close:focus-visible, .info-panel a:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }
+@media (max-width: 639px) { .toolbar { right: 12px; flex-wrap: wrap; } .toolbar__btn--seg { padding: 0 8px; } }
 
 .info-panel { position: fixed; z-index: 20; top: calc(max(12px, env(safe-area-inset-top)) + 56px); right: 12px;
   bottom: calc(max(12px, env(safe-area-inset-bottom)) + 84px); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
