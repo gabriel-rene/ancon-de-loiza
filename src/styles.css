@@ -1,7 +1,7 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
 canvas { display: block; }
 
-.title-card { position: fixed; left: 24px; bottom: 112px; color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
+.title-card { position: fixed; left: 24px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 115px); color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
 .title-card__kicker { text-transform: uppercase; letter-spacing: 0.24em; font-size: 11px; opacity: 0.8; }
 .title-card__era { font-size: 22px; margin-top: 4px; }
 .osm-credit { position: fixed; right: 10px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); z-index: 10; color: rgba(244,236,223,0.85); font: 400 11px/1.3 ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
@@ -34,7 +34,7 @@ canvas { display: block; }
 .timeline__knob::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .timeline__knob:active { cursor: grabbing; }
 /* A two-row timeline is taller: lift the credit (a licence requirement) and the title card clear of it. */
-body:has(.timeline--two-rows) .title-card { bottom: 160px; }
+body:has(.timeline--two-rows) .title-card { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 159px); }
 body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 138px); }
 @media (max-width: 639px) { .timeline__track { width: 220vw; } }
 @media (prefers-reduced-motion: reduce) { .timeline__btn { transition: none; } }
@@ -51,7 +51,7 @@ body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area
 @media (max-width: 639px) { .toolbar { right: 12px; flex-wrap: wrap; } .toolbar__btn--seg { padding: 0 8px; } }
 
 .info-panel { position: fixed; z-index: 20; top: calc(max(12px, env(safe-area-inset-top)) + 56px); right: 12px;
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 84px); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 112px); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
   overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 18px; border-radius: 14px;
   background: rgba(20, 19, 17, 0.94); border: 1px solid rgba(244, 236, 223, 0.14); color: #f4ecdf;
   font: 400 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
@@ -68,10 +68,11 @@ body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area
 .info-panel__note { margin: 14px 0 0; font-size: 12.5px; color: rgba(244, 236, 223, 0.78); }
 @media (max-width: 720px) {
   .info-panel { top: auto; left: 8px; right: 8px; width: auto; max-height: 50vh;
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 64px); border-radius: 14px 14px 10px 10px;
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 112px); border-radius: 14px 14px 10px 10px;
     animation: info-sheet-up 180ms ease-out; background: #141311; }
   body:has(#info-panel) .title-card { visibility: hidden; }
 }
+body:has(.timeline--two-rows) .info-panel { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 156px); }
 @keyframes info-sheet-up { from { transform: translateY(16px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .info-panel { animation: none; } }
 

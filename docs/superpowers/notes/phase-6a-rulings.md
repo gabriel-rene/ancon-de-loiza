@@ -129,7 +129,7 @@ The 36 shots were not committed (53 MB). They are in the session scratchpad, `�
 
 ## Open items for the user (not fixed)
 
-1. **Phone title card vs OSM credit.** In `dip-phone.png` (375 × 812), the "Map data © OpenStreetMap contributors" credit sits on the lower edge of the title card's second line ("1980–1986 · The steel barge"), just above the two-row timeline. This is related to the deferred Task 9 items.
+1. **Phone title card vs OSM credit.** In `dip-phone.png` (375 × 812), the "Map data © OpenStreetMap contributors" credit sits on the lower edge of the title card's second line ("1980–1986 · The steel barge"), just above the two-row timeline. This is related to the deferred Task 9 items. **Fixed in the final review fix:** the title card, credit and timeline now stack with clearance at every width, and `dip-phone.png` was retaken (taken after the dip clears, so the title card shows) and shows no overlap.
 2. **Sky, 225°–315° (both eras): wide empty land.** Behind the town, the land is a flat, even grassland with large bare cane-field polygons. The polygons have hard straight edges and almost nothing stands on them. Facing away from the sea, this side reads as empty.
 3. **Sky, 270°–315° (both eras): houses read as standing on dark columns.** With the low sun behind the camera, each town house's long shadow falls straight toward the viewer. From above it looks like a dark block under the house, so the houses seem raised on pillars or floating.
 4. **Sky front view, 1900–1986: dark soft blob in the bottom-right corner**, below the OSM credit (e.g. `1935-sky.png`). It is probably a near, out-of-focus canopy or bird; it was not identified.

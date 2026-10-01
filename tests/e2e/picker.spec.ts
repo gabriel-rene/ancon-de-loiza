@@ -71,6 +71,6 @@ test('reduced motion: no dip, the era swaps at once', async ({ page }) => {
   await page.goto('?era=1975&freeze=1&q=low');
   await page.waitForFunction(() => window.__ANCON_READY__ === true, null, { timeout: 90_000 });
   await page.getByRole('button', { name: /1980–1986/ }).click();
-  await expect(page.locator('.title-card__era')).toContainText('The steel barge', { timeout: 2_000 });
+  await expect(page.locator('.title-card__era')).toContainText('The steel barge', { timeout: 300 }); // a normal dip swaps at >= 0.3 s plus build time
   await expect(page.locator('.era-dip')).toBeHidden();
 });

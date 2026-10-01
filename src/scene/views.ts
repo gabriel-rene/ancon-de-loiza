@@ -38,7 +38,7 @@ export const VIEW_POSES: Record<CameraPreset, ViewPose> = {
   station: { pos: [ex * 0.3, 6, ez * 0.3], target: [ex + 12, 2, ez + 10] },
   // Dev view (phase 4a): from the Loíza bank, looking upstream at the PR-187 bridge line.
   bridge: { pos: [60, 30, 230], target: [-164, 4, 120] },
-  // Dev view (phase 4b): low over the river, looking at the Loíza landing, the station and its road.
+  // Dev view (phase 4b): low over the river, looking past the station at the town and church (≈ 285, 171).
   town: { pos: [ex * 0.3, 5, ez * 0.3], target: [285, 6, 171] },
 };
 
