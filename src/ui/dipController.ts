@@ -39,6 +39,8 @@ export const eraDip = {
   /** The overlay registers its painter; returns the unregister function. */
   attach(p: (opacity: number) => void) { paint = p; p(machine.opacity); return () => { if (paint === p) paint = null; }; },
   frameRendered: () => machine.frameRendered(),
+  /** Current dip opacity 0..1 (sound follows it, spec 6b §3). */
+  opacity: () => machine.opacity,
 };
 
 /** Test hooks (vitest only). */

@@ -14,6 +14,7 @@ export const STRINGS = {
   language: { es: 'Idioma', en: 'Language' },
   view: { es: 'Vista', en: 'View' },
   recenter: { es: 'Centrar', en: 'Recenter' },
+  sound: { es: 'Sonido', en: 'Sound' },
   nowShowing: { es: 'Ahora:', en: 'Now showing:' },
   noWebgl: {
     es: 'Tu navegador no puede mostrar la escena 3D. Los datos de cada época siguen disponibles en «Datos».',

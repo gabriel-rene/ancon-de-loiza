@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { CrewSet } from '../ancon/CrewSet';
 import type { VesselPose } from '../ancon/pose';
 import type { CarModel, LegRule } from '../data/eras';
+import { CAR_CAP, CAR_MOVING, soundTaps } from '../sound/taps';
 import { dressFigure, type FigureLook } from '../people/palettes';
 import { createFigurePose, poseFigure, segmentMatrix, sitHipHeight, type Body, type FigurePose, type PoseInput, type V3 } from '../people/rig';
 import { buildAnimalBody, buildBicycle, buildCart, buildCartWheel, buildLegSegment, legMatrices, OXEN_Z, oxenCentreX } from './animals';
@@ -144,6 +145,7 @@ export class TrafficSet {
 
   update(pose: VesselPose) {
     for (let i = 0; i < this.list.length; i++) this.list[i].used = 0;
+    const tc = soundTaps.cars; tc.n = 0;
     const n = pose.state.legIndex, clock = pose.clock;
     let fi = 0;
     for (let dl = -1; dl <= 1; dl++) {
@@ -159,6 +161,9 @@ export class TrafficSet {
         if (!fr.visible) continue;
         const gait = Math.min(1, Math.max(0, fr.speed / GAIT_FULL));
         if (isCar(m.kind)) {
+          if (fr.speed > CAR_MOVING && tc.n < CAR_CAP) {
+            const k = tc.n++; tc.pos[k * 3] = fr.front.x; tc.pos[k * 3 + 1] = fr.front.y; tc.pos[k * 3 + 2] = fr.front.z; tc.speed[k] = fr.speed;
+          }
           const keys = CAR_KEYS[m.kind];
           for (let i = 0; i < keys.length; i++) this.put(keys[i], fr.matrix, i === 0 ? m.paint : undefined);   // CAR_PARTS[0] is 'paint'
           for (let w = 0; w < 4; w++) this.put('wheel', wheelMatrix(d, w, fr.dist, fr.matrix, _p));
@@ -215,6 +220,7 @@ export class TrafficSet {
   }
 
   dispose() {
+    soundTaps.cars.n = 0;
     for (const s of this.list) { s.mesh.dispose(); this.group.remove(s.mesh); }
     for (const g of this.geos) g.dispose();
   }

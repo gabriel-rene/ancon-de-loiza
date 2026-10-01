@@ -8,6 +8,7 @@ import { FIGURE_TRI_BUDGET_HI } from '../people/geometry';
 import { createFigurePose, sitHipHeight, type PoseInput } from '../people/rig';
 import { ROOF_CLEAR, SILHOUETTES, STEER_REACH, STEER_UP, UNDER_Y } from './carKit';
 import { isCar } from './models';
+import { CAR_MOVING, soundTaps } from '../sound/taps';
 import { LegCache } from './schedule';
 import { envFor, poseFor } from './testing';
 import { DRIVER_LEGS, seatDriver, TrafficSet, trafficLooks } from './TrafficSet';
@@ -66,4 +67,19 @@ describe('drivers (spec 4c §5: the upper body shows through the glass)', () => 
       }
     }
   });
+});
+
+test('sound taps (spec 6b §4): moving ferry cars only, never more than the cap', () => {
+  const crew = { setExtra() {}, hideExtra() {} } as unknown as CrewSet;
+  const env = envFor('1984'), set = new TrafficSet(env, new LegCache(env), crew, false), c = soundTaps.cars;
+  let seen = 0;
+  for (let t = 0; t < 2 * legDuration(env.spec.timings); t += 0.5) {
+    set.update(poseFor(env, t));
+    expect(c.n).toBeLessThanOrEqual(16);
+    for (let i = 0; i < c.n; i++) expect(c.speed[i]).toBeGreaterThan(CAR_MOVING);
+    seen = Math.max(seen, c.n);
+  }
+  expect(seen).toBeGreaterThan(0);
+  set.dispose();
+  expect(c.n).toBe(0);
 });

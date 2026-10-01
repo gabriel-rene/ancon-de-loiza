@@ -4,6 +4,7 @@ import { tris } from '../ancon/testing';
 import { ERA_IDS } from '../data/eras';
 import { QUALITY } from '../quality';
 import { FaunaSet } from './FaunaSet';
+import { soundTaps } from '../sound/taps';
 import { worldFor } from './testing';
 
 const meshesOf = (s: FaunaSet) => s.group.children.filter((o): o is THREE.InstancedMesh => (o as THREE.InstancedMesh).isInstancedMesh);
@@ -81,4 +82,17 @@ test('same clock, same matrices', () => {
   const ma = meshesOf(a), mb = meshesOf(b);
   for (let i = 0; i < ma.length; i++) expect(Array.from(ma[i].instanceMatrix.array)).toEqual(Array.from(mb[i].instanceMatrix.array));
   a.dispose(); b.dispose();
+});
+
+test('sound taps (spec 6b §4): every wader position, and which ones fly', () => {
+  const set = new FaunaSet(worldFor('1975'), QUALITY.high.fauna, false), w = soundTaps.waders;
+  let flew = false;
+  for (let c = 0; c < 400; c += 0.5) {
+    set.update(c);
+    expect(w.n).toBe(QUALITY.high.fauna.wadersPerLanding * 2);
+    for (let i = 0; i < w.n; i++) expect(Number.isFinite(w.pos[i * 3]) && Number.isFinite(w.pos[i * 3 + 2])).toBe(true);
+    if (w.flying.subarray(0, w.n).some((f) => f === 1)) flew = true;
+  }
+  expect(flew).toBe(true);
+  set.dispose();
 });
