@@ -387,14 +387,14 @@ test('refresh with reduced motion swaps at once', () => {
 });
 ```
 
-Add to `src/ui/dipController.test.ts` (read the file first and follow its setup; it uses `__dipForTests.reset()` and fake rAF or direct ticks — reuse whatever it uses to advance the dip):
+Add to `src/ui/dipController.test.ts` (read the file first and follow its setup; it stubs rAF and has a `step(seconds)` helper that runs the dip):
 
 ```ts
 test('requestQuality swaps the tier at the bottom of a dip and keeps the era', () => {
   act(() => { useStore.getState().setEra('1975'); useStore.getState().setQuality('high'); });
   expect(requestQuality('medium')).toBe(true);
   expect(useStore.getState().quality).toBe('high');      // not yet: fading out
-  advance(0.35);                                          // the file's own helper to run the dip
+  step(0.35);                                             // the file's own `step` helper runs the dip
   expect(useStore.getState().quality).toBe('medium');
   expect(useStore.getState().eraId).toBe('1975');
   expect(requestQuality('medium')).toBe(false);           // nothing to do
@@ -403,13 +403,12 @@ test('an era change and a tier step asked together run in one dip', () => {
   act(() => { useStore.getState().setEra('1975'); useStore.getState().setQuality('high'); });
   requestEra('1984');
   requestQuality('low');
-  advance(0.35);
+  step(0.35);
   expect(useStore.getState().eraId).toBe('1984');
   expect(useStore.getState().quality).toBe('low');
 });
 ```
 
-If `dipController.test.ts` has no `advance` helper, add one in the test file that calls the rAF callbacks it already fakes; do not change the controller's loop for tests.
 
 - [ ] **Step 2: Run to see them fail**
 
