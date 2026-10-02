@@ -8,6 +8,8 @@ import { prefersReducedMotion } from '../ui/motion';
 import { LOOK_STEP } from './lookKeys';
 import { controlLimits, DRAG_SMOOTH_TIME, frontOf, glideK, isOffFront, VIEW_POSES, VIEW_SMOOTH_TIME } from './views';
 
+const _sph = new THREE.Spherical();
+
 export function Cameras() {
   const ref = useRef<CameraControls>(null);
   const preset = useStore((s) => s.camera);
@@ -117,8 +119,9 @@ export function Cameras() {
     const smooth = !riding && !prefersReducedMotion();
     if (s.dAz || s.dPol) void c.rotate(s.dAz, s.dPol, smooth);
     if (s.dZoom) {
-      if (lim.lookInPlace) void c.zoomTo((c.camera as THREE.PerspectiveCamera).zoom * (1 + LOOK_STEP.zoom * s.dZoom), smooth);
-      else void c.dollyTo(c.distance * (1 - LOOK_STEP.zoom * s.dZoom), smooth);
+      // Both build on the transition's END value, so quick or held presses add up (c.distance and camera.zoom are mid-glide).
+      if (lim.lookInPlace) void c.zoom(LOOK_STEP.zoom * s.dZoom, smooth);
+      else void c.dollyTo(c.getSpherical(_sph, true).radius * (1 - LOOK_STEP.zoom * s.dZoom), smooth);
     }
   }, [lookSeq]);   // eslint-disable-line react-hooks/exhaustive-deps -- one step per bump
 
