@@ -36,12 +36,27 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     fauna: { flock: 2, fishers: 1, frigates: 2, wadersPerLanding: 3, reflect: false } },
 };
 
+/** Spec 7a §2.2: who chose the tier. Only 'auto' runs the governor. */
+export type QualityMode = 'auto' | 'hand' | 'url' | 'off';
+/** The quality button's choices (spec 7a §3). */
+export type QualityChoice = 'auto' | Quality;
+
+/** Start tier (spec 7a §2.1). Safari reports no deviceMemory, so every iPhone starts on medium. */
 export function detectQuality(): Quality {
   if (typeof window === 'undefined') return 'high';
   const coarse = window.matchMedia?.('(pointer: coarse)').matches;
   const cores = navigator.hardwareConcurrency ?? 4;
-  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
-  if (coarse && (cores <= 6 || mem <= 4)) return 'low';
-  if (coarse || cores <= 4) return 'medium';
-  return 'high';
+  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  if (coarse) return mem !== undefined && mem <= 4 ? 'low' : 'medium';
+  return cores <= 4 ? 'medium' : 'high';
 }
+
+/** Spec 7a §2.2: ?q= beats a saved hand pick beats Auto; ?freeze/?perf/?debug keep Auto's start tier but switch the governor off. */
+export function resolveQuality(o: { url?: Quality; saved: QualityChoice; dev: boolean; detected: Quality }): { quality: Quality; mode: QualityMode } {
+  if (o.url) return { quality: o.url, mode: 'url' };
+  if (o.saved !== 'auto') return { quality: o.saved, mode: 'hand' };
+  return { quality: o.detected, mode: o.dev ? 'off' : 'auto' };
+}
+
+/** One tier lower, or null on low (spec 7a §2.3 floor). */
+export const stepDown = (q: Quality): Quality | null => (q === 'high' ? 'medium' : q === 'medium' ? 'low' : null);

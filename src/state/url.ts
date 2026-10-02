@@ -23,6 +23,8 @@ export interface UrlState {
   perf: boolean;
   /** ?lang=es|en: UI language. */
   lang?: Lang;
+  /** ?fps=1: small on-screen fps readout (spec 7a §5). */
+  fps: boolean;
 }
 
 export function parseUrlState(search: string): Partial<UrlState> {
@@ -49,6 +51,7 @@ export function parseUrlState(search: string): Partial<UrlState> {
   if (c !== undefined && Number.isFinite(c) && c >= 0 && c < 1e6) out.crossingStart = c;
   if (p.get('ancon') === '0') out.showAncon = false;
   if (p.get('perf') === '1') out.perf = true;
+  if (p.get('fps') === '1') out.fps = true;
   const lang = p.get('lang');
   if (lang && (LANGS as string[]).includes(lang)) out.lang = lang as Lang;
   return out;
@@ -66,6 +69,7 @@ export function toSearch(s: Partial<UrlState>): string {
   if (s.crossingStart !== undefined) p.set('c', String(s.crossingStart));
   if (s.showAncon === false) p.set('ancon', '0');
   if (s.perf) p.set('perf', '1');
+  if (s.fps) p.set('fps', '1');
   if (s.lang) p.set('lang', s.lang);
   return `?${p.toString()}`;
 }

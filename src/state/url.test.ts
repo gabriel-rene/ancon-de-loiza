@@ -68,3 +68,8 @@ test('canonicalSearch rewrites aliases, drops gated views, leaves good URLs alon
   expect(canonicalSearch('?era=1840')).toBeNull();
   expect(canonicalSearch('?cam=farm&debug=1')).toBeNull();
 });
+test('?fps=1 turns on the fps readout and round-trips', () => {
+  expect(parseUrlState('?fps=1').fps).toBe(true);
+  expect(parseUrlState('?fps=0').fps).toBeUndefined();
+  expect(toSearch({ fps: true })).toContain('fps=1');
+});
