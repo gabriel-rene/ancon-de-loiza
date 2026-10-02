@@ -36,6 +36,14 @@ export class EraDip {
     if (this.phase === 'hold' || this.phase === 'in') this.phase = 'out';           // back to opaque from here
   }
 
+  /** A dip that swaps something other than the era (spec 7a §2.4): `current` stays; the swap callback runs at the bottom. */
+  refresh(current: EraId, reduced: boolean) {
+    if (reduced) { this.phase = 'idle'; this.opacity = 0; this.target = null; this.apply(current); return; }
+    if (this.phase === 'out') return;                       // a swap is coming anyway
+    this.target ??= current;
+    this.phase = 'out';                                     // idle, hold or in: (back) to opaque from here
+  }
+
   tick(dt: number) {
     if (this.phase === 'out') {
       this.opacity = Math.min(1, this.opacity + dt / DIP.out);

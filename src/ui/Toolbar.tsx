@@ -5,6 +5,7 @@ import { useT } from '../i18n/useT';
 import { unlockAudio } from '../sound/unlock';
 import { useStore } from '../state/store';
 import { InfoPanel } from './InfoPanel';
+import { QualityMenu } from './QualityMenu';
 import { ViewSwitch } from './ViewSwitch';
 
 /** Language names stay in their own language, whatever the current one. */
@@ -64,6 +65,7 @@ export function Toolbar() {
           <SpeakerIcon on={soundOn} />
           {t(STRINGS.sound)}
         </button>
+        <QualityMenu />
         <ViewSwitch />
       </div>
       {open && <InfoPanel onClose={close} />}

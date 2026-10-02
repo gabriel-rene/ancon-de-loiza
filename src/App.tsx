@@ -5,12 +5,14 @@ import * as THREE from 'three';
 import { QUALITY } from './quality';
 import { Cameras } from './scene/Cameras';
 import { FrameSampler, RendererInfo } from './scene/FrameSampler';
+import { QualityGovernor } from './scene/QualityGovernor';
 import { ReadySignal } from './scene/ReadySignal';
 import { World } from './scene/World';
 import { useStore } from './state/store';
 import { Timeline } from './ui/Timeline';
 import { SoundGate } from './sound/SoundGate';
 import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
+import { FpsReadout } from './ui/FpsReadout';
 import { SceneBoundary } from './ui/SceneBoundary';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';
@@ -36,6 +38,7 @@ export function App() {
           <Cameras />
           <ReadySignal />
           <DipFrameSignal />
+          <QualityGovernor />
           <SoundGate />
           {debug && <StatsGl className="stats-gl" />}
           {perf && <FrameSampler />}
@@ -48,6 +51,7 @@ export function App() {
       <TitleCard />
       <Timeline />
       <Toolbar />
+      <FpsReadout />
     </>
   );
 }
