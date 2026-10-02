@@ -14,6 +14,8 @@ import { SoundGate } from './sound/SoundGate';
 import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { FpsReadout } from './ui/FpsReadout';
 import { SceneBoundary } from './ui/SceneBoundary';
+import { SceneFrame } from './ui/SceneFrame';
+import { SkipLink } from './ui/SkipLink';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';
 
@@ -27,30 +29,35 @@ export function App() {
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return (
     <>
-      <SceneBoundary>
-        <Canvas
-          dpr={q.dpr}
-          shadows={q.shadowMap > 0 ? 'percentage' : false}
-          camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
-          gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
-        >
-          <World />
-          <Cameras />
-          <ReadySignal />
-          <DipFrameSignal />
-          <QualityGovernor />
-          <SoundGate />
-          {debug && <StatsGl className="stats-gl" />}
-          {perf && <FrameSampler />}
-          {(debug || perf) && <RendererInfo />}
-        </Canvas>
-        <EraDipOverlay />
-        <EraAnnouncer />
-      </SceneBoundary>
-      {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
-      <TitleCard />
+      <SkipLink />
+      <header><Toolbar /></header>
+      <main>
+        <TitleCard />
+        <SceneBoundary>
+          <SceneFrame>
+            <Canvas
+              dpr={q.dpr}
+              shadows={q.shadowMap > 0 ? 'percentage' : false}
+              camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
+              gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
+            >
+              <World />
+              <Cameras />
+              <ReadySignal />
+              <DipFrameSignal />
+              <QualityGovernor />
+              <SoundGate />
+              {debug && <StatsGl className="stats-gl" />}
+              {perf && <FrameSampler />}
+              {(debug || perf) && <RendererInfo />}
+            </Canvas>
+          </SceneFrame>
+          <EraDipOverlay />
+          <EraAnnouncer />
+        </SceneBoundary>
+      </main>
       <Timeline />
-      <Toolbar />
+      {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <FpsReadout />
     </>
   );

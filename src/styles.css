@@ -1,6 +1,13 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
 /* Spec 7a §5: a drag on the scene looks around; it never scrolls or zooms the page. */
 canvas { display: block; touch-action: none; }
+/* Spec 7b §2.1: the scene frame fills the window; Tab reaches it and the ring sits inside its edge. */
+.scene { position: fixed; inset: 0; }
+.scene:focus { outline: none; }
+.scene:focus-visible { outline: 2px solid #f2c46d; outline-offset: -4px; }
+.skip-link { position: fixed; z-index: 50; left: 12px; top: max(12px, env(safe-area-inset-top)); padding: 12px 14px; border-radius: 10px;
+  background: #f4ecdf; color: #1b1a17; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; transform: translateY(-200%); }
+.skip-link:focus { transform: none; outline: 2px solid #f2c46d; outline-offset: 2px; }
 
 /* Spec 7b §3.1: one glass backing under every text-over-scene surface, so contrast holds on any sky. */
 .title-card { position: fixed; z-index: 2; left: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 115px); padding: 8px 12px; border-radius: 10px;
