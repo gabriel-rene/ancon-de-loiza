@@ -8,9 +8,9 @@
     <style>
       /* Load card (spec 7a §4): shown before the bundle runs; same tone as the era dip (.era-dip in src/styles.css). */
       #load-card { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at 50% 45%, #8a7556 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
+        background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
       #load-card.load-card--out { opacity: 0; pointer-events: none; }
-      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; opacity: 0.85; }
+      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; }
       .load-card__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin-top: 8px; }
       .load-card__bar { width: min(220px, 50vw); height: 2px; margin-top: 22px; background: rgba(244, 236, 223, 0.25); border-radius: 1px; overflow: hidden; }
       .load-card__fill { width: 0; height: 100%; background: #f4ecdf; transition: width 0.4s ease; }
