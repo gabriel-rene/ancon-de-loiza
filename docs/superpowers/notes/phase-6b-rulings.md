@@ -29,9 +29,10 @@ About 43.6 ms (1935 low) and 42.1 ms (1986 shore low) to synthesize all clips.
 6. Final review: the hull knock now fires when the hull meets the landing (end of `dock`), not at the start of `dock`; spec §2 row amended.
 7. Final review: a small speaker icon sits beside the "Sound" label (spec §3 "speaker button"); the accessible name is unchanged.
 8. Final review also fixed: Sound off threw an error in the dev server (StrictMode) and remembered-on sound could fail to start on touch devices.
+9. User listen, 2026-10-02 (during 7b): the pole stroke sound is dropped in 1840–1925. It played every 3.5 s (two polers, 7 s stroke) at gain 0.6 and was heard as a steady, unnatural thump and hiss. The `pole` clip stays in `clips.ts` (debug panel only) so the seeds of the later clips do not change.
 
 ## Open for later (not blocking)
-- Pole strokes and rope creak sound from the hull centre, not the pole; pole sounds stop ~2.5 s before docking ends.
+- Rope creak sounds from the hull centre.
 - Bird calls come from both banks, so about half are far and quiet.
 - Ten HRTF panners run on every tier; consider `equalpower` on low if phones struggle.
 - `events.ts` copies the hauler phase and `strokeAt` formulas from `crew.ts` (drift risk).
@@ -39,5 +40,5 @@ About 43.6 ms (1935 low) and 42.1 ms (1986 shore low) to synthesize all clips.
 ## Listening checklist (for the user)
 1. Open `?debug=1`, open **sound**, press each of the 10 clips; note any that sound wrong.
 2. Turn on **Sound**; in 1935 Ride, listen through one crossing (creak, knock, birds, water).
-3. 1840 Shore: pole strokes. 1984 Ride: cars driving on. 1986 Sky and Shore: bridge hum, no ferry sounds.
+3. 1840 Shore: no pole sound (water, birds, knock). 1984 Ride: cars driving on. 1986 Sky and Shore: bridge hum, no ferry sounds.
 4. Change era once: sound fades out and back in.

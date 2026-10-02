@@ -2,7 +2,7 @@ import type { CameraPreset, PublicView } from '../state/url';
 import { isPublicView } from '../state/url';
 
 /** Peak gain per sound (spec 6b §2: cars stay quiet and far-sounding). */
-export const GAIN = { call: 0.35, flap: 0.5, pole: 0.6, creak: 0.5, knock: 0.8, engine: 0.3, traffic: 0.1 } as const;
+export const GAIN = { call: 0.35, flap: 0.5, creak: 0.5, knock: 0.8, engine: 0.3, traffic: 0.1 } as const;
 /** User 2026-10-01: the water is a quiet bed so the details (creak, birds, knock) stand out. No wind: it sounded like the water. */
 const WATER: Record<PublicView, number> = { ride: 0.045, shore: 0.028, sky: 0.01 };
 
