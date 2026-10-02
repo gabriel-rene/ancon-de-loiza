@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { useStore } from '../state/store';
-import { pendingEra, requestEra, useDip, __dipForTests } from './dipController';
+import { pendingEra, requestEra, requestQuality, useDip, __dipForTests } from './dipController';
 
 let now = 0;
 const frames: FrameRequestCallback[] = [];
@@ -43,4 +43,21 @@ test('reduced motion swaps at once', () => {
   requestEra('1840');
   expect(useStore.getState().eraId).toBe('1840');
   expect(frames).toHaveLength(0);
+});
+test('requestQuality swaps the tier at the bottom of a dip and keeps the era', () => {
+  useStore.getState().setQuality('high');
+  expect(requestQuality('medium')).toBe(true);
+  expect(useStore.getState().quality).toBe('high');      // not yet: fading out
+  step(0.35);
+  expect(useStore.getState().quality).toBe('medium');
+  expect(useStore.getState().eraId).toBe('1975');
+  expect(requestQuality('medium')).toBe(false);           // nothing to do
+});
+test('an era change and a tier step asked together run in one dip', () => {
+  useStore.getState().setQuality('high');
+  requestEra('1984');
+  requestQuality('low');
+  step(0.35);
+  expect(useStore.getState().eraId).toBe('1984');
+  expect(useStore.getState().quality).toBe('low');
 });

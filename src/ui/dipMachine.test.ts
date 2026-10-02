@@ -80,3 +80,34 @@ test('reduced motion: instant swap, no overlay', () => {
   dip.choose('1984', '1975', true);
   expect(applied).toEqual(['1984']); expect(dip.phase).toBe('idle'); expect(dip.opacity).toBe(0);
 });
+test('refresh dips on the era already on screen and swaps once at the bottom', () => {
+  const { dip, applied, run } = rig();
+  dip.refresh('1975', false);
+  expect(dip.phase).toBe('out'); expect(dip.target).toBe('1975');
+  run(0.31);
+  expect(applied).toEqual(['1975']);
+  run(0.5);
+  expect(dip.phase).toBe('idle');
+});
+test('refresh during a fade out rides along with the era change', () => {
+  const { dip, applied, run } = rig();
+  dip.choose('1984', '1975', false); run(0.1);
+  dip.refresh('1975', false);
+  expect(dip.target).toBe('1984');
+  run(0.25);
+  expect(applied).toEqual(['1984']);
+});
+test('refresh while fading in goes back to opaque and swaps again', () => {
+  const { dip, applied, run } = rig();
+  dip.choose('1984', '1975', false); run(0.35); run(0.05);
+  expect(dip.phase).toBe('in');
+  dip.refresh('1984', false);
+  expect(dip.phase).toBe('out');
+  run(0.3);
+  expect(applied).toEqual(['1984', '1984']);
+});
+test('refresh with reduced motion swaps at once', () => {
+  const { dip, applied } = rig();
+  dip.refresh('1975', true);
+  expect(applied).toEqual(['1975']); expect(dip.phase).toBe('idle');
+});
