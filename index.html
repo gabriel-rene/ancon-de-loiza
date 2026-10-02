@@ -5,8 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>El Ancón de Loíza</title>
     <meta name="description" content="A historically accurate 3D reconstruction of the Ancón de Loíza river ferry, Puerto Rico, 1820s–1986." />
+    <style>
+      /* Load card (spec 7a §4): shown before the bundle runs; same tone as the era dip (.era-dip in src/styles.css). */
+      #load-card { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at 50% 45%, #8a7556 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
+      #load-card.load-card--out { opacity: 0; pointer-events: none; }
+      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; opacity: 0.85; }
+      .load-card__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin-top: 8px; }
+      .load-card__bar { width: min(220px, 50vw); height: 2px; margin-top: 22px; background: rgba(244, 236, 223, 0.25); border-radius: 1px; overflow: hidden; }
+      .load-card__fill { width: 0; height: 100%; background: #f4ecdf; transition: width 0.4s ease; }
+      body[data-load='code'] .load-card__fill { width: 33%; }
+      body[data-load='scene'] .load-card__fill { width: 67%; }
+      body[data-ready] .load-card__fill { width: 100%; }
+      .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      @media (prefers-reduced-motion: reduce) { #load-card, .load-card__fill { transition: none; } }
+    </style>
   </head>
   <body>
+    <div id="load-card" role="status">
+      <div class="load-card__kicker">El Ancón de Loíza</div>
+      <div class="load-card__year" id="load-card-year">1975</div>
+      <div class="load-card__bar" aria-hidden="true"><div class="load-card__fill"></div></div>
+      <span class="sr-only" id="load-card-text">Cargando</span>
+    </div>
+    <script>
+      /* load-card:boot */
+      // Must match ERA_IDS and DEFAULT_ERA in src/data/eras.ts / src/state/store.ts and detectLang in src/i18n/text.ts (src/ui/loadCard.test.ts).
+      function anconLoadCard(search, navLang) {
+        var eras = ['1840', '1900', '1925', '1935', '1959', '1975', '1984', '1986'];
+        var p = new URLSearchParams(search), era = p.get('era'), lang = p.get('lang');
+        if (lang !== 'es' && lang !== 'en') lang = (navLang || '').toLowerCase().indexOf('en') === 0 ? 'en' : 'es';
+        return { year: eras.indexOf(era) >= 0 ? era : '1975', lang: lang };
+      }
+      /* load-card:end */
+      (function () {
+        var r = anconLoadCard(location.search, navigator.language);
+        document.getElementById('load-card-year').textContent = r.year;
+        document.getElementById('load-card-text').textContent = r.lang === 'en' ? 'Loading' : 'Cargando';
+        document.documentElement.lang = r.lang;
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
