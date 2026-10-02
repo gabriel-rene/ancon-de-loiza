@@ -44,6 +44,7 @@ export function ViewSwitch() {
           {t(STRINGS.recenter)}
         </button>
       )}
+      <div className="sr-only" aria-live="polite">{offFront ? t(STRINGS.recenterAvailable) : ''}</div>
     </>
   );
 }

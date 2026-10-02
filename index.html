@@ -18,10 +18,23 @@
       body[data-load='scene'] .load-card__fill { width: 67%; }
       body[data-ready] .load-card__fill { width: 100%; }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .noscript { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%);
+        color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+      .noscript__title { font: 500 28px/1.2 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin: 0 0 8px; }
+      .noscript a { color: #f2c46d; }
       @media (prefers-reduced-motion: reduce) { #load-card, .load-card__fill { transition: none; } }
     </style>
   </head>
   <body>
+    <noscript>
+      <div class="noscript">
+        <p class="noscript__title">El Ancón de Loíza</p>
+        <p>Este sitio necesita JavaScript y WebGL para mostrar la escena 3D.</p>
+        <p lang="en">This site needs JavaScript and WebGL to show the 3D scene.</p>
+        <p><a href="https://github.com/gabriel-rene/ancon-de-loiza/blob/main/docs/research/ancon-research.md">Investigación y fuentes · Research and sources</a></p>
+      </div>
+    </noscript>
     <div id="load-card" role="status">
       <div class="load-card__kicker">El Ancón de Loíza</div>
       <div class="load-card__year" id="load-card-year">1975</div>

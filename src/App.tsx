@@ -53,9 +53,9 @@ export function App() {
             </Canvas>
           </SceneFrame>
           <EraDipOverlay />
-          <EraAnnouncer />
         </SceneBoundary>
       </main>
+      <EraAnnouncer />
       <Timeline />
       {debug && <Suspense fallback={null}><DebugPanel /></Suspense>}
       <FpsReadout />

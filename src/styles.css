@@ -111,7 +111,7 @@ body:has(.timeline--two-rows) .info-panel { bottom: calc(max(12px, env(safe-area
 @media (prefers-reduced-motion: reduce) { .era-dip { display: none; } }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.scene-fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+.scene-fallback { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
   background: linear-gradient(#2a3a44, #1b1a17); color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; text-align: center; }
 
 /* ?fps=1 (spec 7a §5): small, top right, under the safe area; never takes taps. */

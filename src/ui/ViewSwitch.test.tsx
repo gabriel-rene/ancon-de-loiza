@@ -49,3 +49,12 @@ test('Spanish labels', () => {
   const g = screen.getByRole('group', { name: 'Vista' });
   expect(within(g).getAllByRole('button').map((b) => b.textContent)).toEqual(['Paseo', 'Orilla', 'Cielo']);
 });
+test('Recenter appearing is announced once; going away says nothing (spec 7b §2.3)', () => {
+  render(<ViewSwitch />);
+  const live = () => document.querySelector('[aria-live="polite"]')!.textContent;
+  expect(live()).toBe('');
+  act(() => useStore.getState().setOffFront(true));
+  expect(live()).toBe('Recenter available');
+  act(() => useStore.getState().setOffFront(false));
+  expect(live()).toBe('');
+});
