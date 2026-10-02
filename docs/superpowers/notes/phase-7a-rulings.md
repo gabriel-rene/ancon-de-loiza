@@ -35,6 +35,19 @@ All rows are within 2 %. High stays at 60 fps or more. On a non-touch Mac with m
 7. **Slow e2e timeouts.** The quality-button test and the phone step-down test have a 240 s timeout. Each takes 1.5–2 minutes alone under SwiftShader. The governor timings are not changed.
 8. **The phone check waits for you.** The iPhone measurement and the "fix the one or two biggest costs" step (spec §5) need your phone. See below.
 
+## iPhone 16 Pro results (user, 2026-10-02, Safari, Low Power Mode off)
+
+| What | Result | Target |
+|---|---|---|
+| Title card visible | < 1 s | < 1 s |
+| Scene ready | 2–3 s | < 10 s |
+| Ride fps, Auto (Medium) | 60 | ≥ 40 |
+| Ride fps, High / Medium / Low by hand | 60 / 60 / 60 | — |
+
+No phone-side cost needed a fix (spec §5).
+
+**30 fps caps.** The first run was in DuckDuckGo, which holds pages to 30 fps: every tier read 30, and Auto stepped Medium → Low for no gain. Safari's Low Power Mode also caps at 30. Testufo in Safari showed 60 Hz. User ruling: leave the governor limits as they are (a capped browser drops to Low; nothing breaks) and merge. The `?fps=1` readout now also shows JS ms per frame, frame pacing and canvas size, to tell a cap from real load.
+
 ## Open items for the user
 
 ### iPhone 16 Pro checklist (spec §5–§6)
