@@ -5,7 +5,8 @@ import { RideRig } from '../ancon/rideCamera';
 import { onVesselPose } from '../ancon/vesselPose';
 import { useStore } from '../state/store';
 import { prefersReducedMotion } from '../ui/motion';
-import { controlLimits, frontOf, glideK, isOffFront, VIEW_POSES, VIEW_SMOOTH_TIME } from './views';
+import { LOOK_STEP } from './lookKeys';
+import { controlLimits, DRAG_SMOOTH_TIME, frontOf, glideK, isOffFront, VIEW_POSES, VIEW_SMOOTH_TIME } from './views';
 
 export function Cameras() {
   const ref = useRef<CameraControls>(null);
@@ -13,6 +14,7 @@ export function Cameras() {
   const eraId = useStore((s) => s.eraId);
   const riding = useStore((s) => s.camera === 'ride' && s.showAncon);
   const recenterSeq = useStore((s) => s.recenterSeq);
+  const lookSeq = useStore((s) => s.lookSeq);
   const first = useRef(true);
   /** The ride camera's state; kept across era changes (the angle survives the dip), dropped when leaving Ride. */
   const rig = useRef<RideRig | null>(null);
@@ -107,9 +109,23 @@ export function Cameras() {
     if (recenterSeq > 0 && riding) rig.current?.recenter(prefersReducedMotion());
   }, [recenterSeq, riding]);
 
+  // Keyboard look (spec 7b §2.1): one step on the controls, inside the same limits as a drag. In Ride the rig
+  // reads it as input (its per-frame check), like a drag; the fixed views report off-front on 'sleep'.
+  useEffect(() => {
+    const c = ref.current, s = useStore.getState().lookStep;
+    if (!c || !s || lookSeq === 0) return;
+    const smooth = !riding && !prefersReducedMotion();
+    if (s.dAz || s.dPol) void c.rotate(s.dAz, s.dPol, smooth);
+    if (s.dZoom) {
+      if (lim.lookInPlace) void c.zoomTo((c.camera as THREE.PerspectiveCamera).zoom * (1 + LOOK_STEP.zoom * s.dZoom), smooth);
+      else void c.dollyTo(c.distance * (1 - LOOK_STEP.zoom * s.dZoom), smooth);
+    }
+  }, [lookSeq]);   // eslint-disable-line react-hooks/exhaustive-deps -- one step per bump
+
+  const reduced = prefersReducedMotion();
   return (
     <CameraControls ref={ref} makeDefault minDistance={lim.minDistance} maxDistance={lim.maxDistance}
       minPolarAngle={lim.minPolar} maxPolarAngle={lim.maxPolar} minZoom={lim.minZoom} maxZoom={lim.maxZoom}
-      smoothTime={VIEW_SMOOTH_TIME} />
+      smoothTime={reduced ? 0 : VIEW_SMOOTH_TIME} draggingSmoothTime={reduced ? 0 : DRAG_SMOOTH_TIME} />
   );
 }
