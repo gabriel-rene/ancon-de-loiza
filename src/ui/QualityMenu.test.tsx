@@ -46,3 +46,23 @@ test('Spanish labels', () => {
   render(<QualityMenu />);
   expect(screen.getByRole('button', { name: /^Calidad/ }).textContent).toBe('Baja');
 });
+test('focus moving out of the menu closes it; focus moving inside or to nowhere does not', () => {
+  render(<><QualityMenu /><button type="button">After</button></>);
+  fireEvent.click(screen.getByRole('button', { name: /^Quality/ }));
+  const items = screen.getAllByRole('menuitemradio');
+  fireEvent.blur(items[0], { relatedTarget: items[1] });
+  expect(screen.queryByRole('menu')).not.toBeNull();
+  fireEvent.blur(items[1], { relatedTarget: null });   // a tap on iOS Safari does not focus the next button
+  expect(screen.queryByRole('menu')).not.toBeNull();
+  fireEvent.blur(items[1], { relatedTarget: screen.getByRole('button', { name: 'After' }) });
+  expect(screen.queryByRole('menu')).toBeNull();
+});
+test('Home and End jump to the first and last item', () => {
+  render(<QualityMenu />);
+  fireEvent.click(screen.getByRole('button', { name: /^Quality/ }));
+  const items = screen.getAllByRole('menuitemradio');
+  fireEvent.keyDown(items[0], { key: 'End' });
+  expect(document.activeElement).toBe(items[3]);
+  fireEvent.keyDown(items[3], { key: 'Home' });
+  expect(document.activeElement).toBe(items[0]);
+});
