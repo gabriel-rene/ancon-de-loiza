@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createCrossingState, crossingState, CROSSING_TIMINGS } from '../ancon/crossing';
-import { HAUL_HZ, STROKE_S } from '../ancon/crew';
+import { HAUL_HZ } from '../ancon/crew';
 import { birdCalls, ferryEvents, flushEdges, type FerryFrame, type FerrySpec, type SoundEvent } from './events';
 
 const T = CROSSING_TIMINGS, DT = 1 / 60;
@@ -15,8 +15,8 @@ function run(spec: FerrySpec, secs: number) {
   for (let c = DT; c < secs; c += DT) { const cur = frame(c); ferryEvents(prev, cur, spec, out); prev = cur; }
   return out;
 }
-const ropes: FerrySpec = { propulsion: 'ropes', crew: 2, moored: false, load: T.load };
-const poles: FerrySpec = { propulsion: 'poles', crew: 2, moored: false, load: T.load };
+const ropes: FerrySpec = { propulsion: 'ropes', moored: false };
+const poles: FerrySpec = { propulsion: 'poles', moored: false };
 const leg = T.load + T.castOff + T.cross + T.dock + T.unload;
 
 test('one knock per leg, when the hull meets the landing (dock -> unload)', () => {
@@ -43,12 +43,9 @@ test('ropes creak 6–10 times per crossing (user: at most 10), never at rest; n
   }
   expect(ev.some((e) => e.clip === 'pole')).toBe(false);
 });
-test('poles: one stroke per poler per STROKE_S while working; no creak', () => {
-  const ev = run(poles, leg);
-  const strokes = ev.filter((e) => e.clip === 'pole');
-  expect(strokes.length).toBeGreaterThan(((T.castOff + T.cross) / STROKE_S) * 2 * 0.8);
-  expect(new Set(strokes.map((e) => e.index))).toEqual(new Set([0, 1]));
-  expect(ev.some((e) => e.clip === 'creak')).toBe(false);
+test('poles (1840–1925): no stroke sound (user 2026-10-02: a steady thump and hiss); the knock stays; no creak', () => {
+  const ev = run(poles, 2 * leg);
+  expect(ev.map((e) => e.clip)).toEqual(['knock', 'knock']);
 });
 test('moored (1986): nothing at all', () => {
   expect(run({ ...ropes, moored: true }, 2 * leg)).toEqual([]);

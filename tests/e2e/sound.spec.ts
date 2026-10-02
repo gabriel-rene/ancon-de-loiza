@@ -31,7 +31,7 @@ test('sound: off at start, no sound chunk; the button turns it on and the choice
   await page.waitForFunction(() => window.__ANCON_SOUND__ === undefined);
 });
 
-test('sound: 1840 shore fires one-shots (pole strokes and birds)', async ({ page }) => {
+test('sound: 1840 shore fires one-shots (birds)', async ({ page }) => {
   await page.goto('?era=1840&q=low');
   await ready(page);
   await page.getByRole('button', { name: 'Sound' }).click();

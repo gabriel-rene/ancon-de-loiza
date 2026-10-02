@@ -92,6 +92,8 @@ export function isOffFront(f: Front, az: number, pol: number, dist: number, zoom
 export const VIEW_GLIDE_S = 1.5;
 /** camera-controls smoothTime: its critically damped glide settles in ~3.3x this, so programmatic moves take ~VIEW_GLIDE_S. */
 export const VIEW_SMOOTH_TIME = 0.45;
+/** camera-controls' own draggingSmoothTime default; 0 under reduced motion (spec 7b §3.2). */
+export const DRAG_SMOOTH_TIME = 0.125;
 /** Glide progress 0 → 1 at `seconds` into a view change. */
 export const glideK = (seconds: number) => smooth(clamp01(seconds / VIEW_GLIDE_S));
 

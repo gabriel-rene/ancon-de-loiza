@@ -1,12 +1,28 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
 /* Spec 7a §5: a drag on the scene looks around; it never scrolls or zooms the page. */
 canvas { display: block; touch-action: none; }
+/* Spec 7b §2.1: the scene frame fills the window; Tab reaches it. The ring is an overlay above the canvas: an outline on
+   the frame would sit under R3F's child wrapper (position: relative; overflow: hidden). */
+.scene { position: fixed; inset: 0; }
+.scene:focus { outline: none; }
+.scene:focus-visible::after { content: ''; position: absolute; inset: 4px; border: 2px solid #f2c46d; border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(12, 15, 15, 0.65), 0 0 0 1px rgba(12, 15, 15, 0.65); pointer-events: none; z-index: 1; }
+.skip-link { position: fixed; z-index: 50; left: 12px; top: max(12px, env(safe-area-inset-top)); padding: 12px 14px; border-radius: 10px;
+  background: #f4ecdf; color: #1b1a17; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; transform: translateY(calc(-100% - 24px - env(safe-area-inset-top))); }
+.skip-link:focus { transform: none; outline: 2px solid #f2c46d; outline-offset: 2px; }
 
-.title-card { position: fixed; left: 24px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 115px); color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
-.title-card__kicker { text-transform: uppercase; letter-spacing: 0.24em; font-size: 11px; opacity: 0.8; }
+/* Spec 7b §3.1: one glass backing under every text-over-scene surface, so contrast holds on any sky. */
+.title-card { position: fixed; z-index: 2; left: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 120px); max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 12px; border-radius: 10px;
+  background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; pointer-events: none; }
+.title-card__kicker { margin: 0; font: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: 0.24em; }
 .title-card__era { font-size: 22px; margin-top: 4px; }
-.osm-credit { position: fixed; right: 10px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); z-index: 10; color: rgba(244,236,223,0.85); font: 400 11px/1.3 ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
-.osm-credit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(244,236,223,0.45); }
+/* The credit is a licence requirement: keep it legible and keyboard-reachable. */
+.osm-credit { position: fixed; right: 10px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); z-index: 10; padding: 3px 8px; border-radius: 6px;
+  background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: #f4ecdf; font: 400 11px/1.3 ui-sans-serif, system-ui, sans-serif; }
+.osm-credit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(244,236,223,0.6); }
+.osm-credit a:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }
 
 /* drei's <StatsGl> strips its own inline position:fixed style; restore it so the panel overlays the canvas. */
 .stats-gl { position: fixed !important; top: 8px; left: 8px; z-index: 20; }
@@ -14,14 +30,14 @@ canvas { display: block; touch-action: none; }
 /* True-scale timeline (spec 6a §2): line with dots at real years, labels spread along it, a draggable knob. */
 .timeline { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 15;
   width: min(880px, calc(100vw - 16px)); box-sizing: border-box; padding: 8px 6px 4px; border-radius: 12px;
-  background: rgba(12, 15, 15, 0.42); border: 1px solid rgba(244, 236, 223, 0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  background: var(--glass); border: 1px solid rgba(244, 236, 223, 0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .timeline__scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: 10px 10px 0; }
 .timeline__scroll::-webkit-scrollbar { display: none; }
 .timeline__track { position: relative; width: 100%; height: 62px; }
 .timeline--two-rows .timeline__track { height: 110px; }
-.timeline__line { position: absolute; left: 0; right: 0; top: 1px; height: 2px; background: rgba(244, 236, 223, 0.35); border-radius: 1px; }
+.timeline__line { position: absolute; left: 0; right: 0; top: 1px; height: 2px; background: rgba(244, 236, 223, 0.65); border-radius: 1px; }
 .timeline__leaders { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
-.timeline__leaders line { stroke: rgba(244, 236, 223, 0.35); stroke-width: 1; }
+.timeline__leaders line { stroke: rgba(244, 236, 223, 0.65); stroke-width: 1; }
 .timeline__dot { fill: #f4ecdf; }
 .timeline__btn { position: absolute; min-height: 48px; min-width: 44px; padding: 4px 8px; border: 0; border-radius: 9px; background: transparent; color: #f4ecdf;
   font: 600 14px/1.1 ui-serif, Georgia, serif; letter-spacing: 0.02em; cursor: pointer; touch-action: manipulation; white-space: nowrap;
@@ -29,22 +45,22 @@ canvas { display: block; touch-action: none; }
 .timeline__btn:hover, .timeline__btn--target { background: rgba(244, 236, 223, 0.1); }
 .timeline__btn[aria-current='true'] { background: #f4ecdf; color: #1b1a17; }
 .timeline__btn:focus-visible { outline: 2px solid #f2c46d; outline-offset: 1px; }
-.timeline__label { font: 500 10px/1.1 ui-sans-serif, system-ui, sans-serif; opacity: 0.75; }
+.timeline__label { font: 500 10px/1.1 ui-sans-serif, system-ui, sans-serif; opacity: 0.92; }
 .timeline__knob { position: absolute; top: -8px; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; background: #f2c46d;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45); cursor: grab; touch-action: none; }
 .timeline__knob::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .timeline__knob:active { cursor: grabbing; }
 /* A two-row timeline is taller: lift the credit (a licence requirement) and the title card clear of it. */
-body:has(.timeline--two-rows) .title-card { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 159px); }
+body:has(.timeline--two-rows) .title-card { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 164px); }
 body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 138px); }
 @media (max-width: 639px) { .timeline__track { width: 220vw; } }
 @media (prefers-reduced-motion: reduce) { .timeline__btn { transition: none; } }
 
 .toolbar { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 21; display: flex; gap: 8px; }
-.toolbar__lang, .toolbar__group { display: flex; gap: 2px; padding: 0 2px; border-radius: 10px; background: rgba(12, 15, 15, 0.55);
+.toolbar__lang, .toolbar__group { display: flex; gap: 2px; padding: 0 2px; border-radius: 10px; background: var(--glass);
   border: 1px solid rgba(244, 236, 223, 0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .toolbar__btn { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid rgba(244, 236, 223, 0.14); border-radius: 10px;
-  background: rgba(12, 15, 15, 0.55); color: #f4ecdf; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em;
+  background: var(--glass); color: #f4ecdf; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em;
   cursor: pointer; touch-action: manipulation; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .toolbar__btn:has(.toolbar__icon) { display: inline-flex; align-items: center; gap: 7px; }
 .toolbar__icon { flex: none; }
@@ -89,15 +105,15 @@ body:has(.timeline--two-rows) .info-panel { bottom: calc(max(12px, env(safe-area
 @media (prefers-reduced-motion: reduce) { .info-panel { animation: none; } }
 
 /* Era dip (spec 6a §3): a soft sepia haze with the big year, under the timeline and toolbar so they stay usable. */
-:root { --era-dip: radial-gradient(ellipse at 50% 45%, #8a7556 0%, #5e4d38 60%, #3f3426 100%); }
+:root { --era-dip: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%); --glass: rgba(12, 15, 15, 0.65); }
 .era-dip { position: fixed; inset: 0; z-index: 12; pointer-events: none; background: var(--era-dip);
   display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f4ecdf; }
 .era-dip__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; }
-.era-dip__label { margin-top: 10px; font: 500 clamp(16px, 2.4vw, 24px)/1.2 ui-serif, Georgia, serif; letter-spacing: 0.08em; opacity: 0.85; }
+.era-dip__label { margin-top: 10px; font: 500 clamp(16px, 2.4vw, 24px)/1.2 ui-serif, Georgia, serif; letter-spacing: 0.08em; }
 @media (prefers-reduced-motion: reduce) { .era-dip { display: none; } }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.scene-fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+.scene-fallback { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
   background: linear-gradient(#2a3a44, #1b1a17); color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; text-align: center; }
 
 /* ?fps=1 (spec 7a §5): small, top right, under the safe area; never takes taps. */

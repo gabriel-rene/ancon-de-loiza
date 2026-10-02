@@ -8,7 +8,7 @@ export function TitleCard() {
   return (
     <>
       <div className="title-card">
-        <div className="title-card__kicker">El Ancón de Loíza</div>
+        <h1 className="title-card__kicker">El Ancón de Loíza</h1>
         <div className="title-card__era">{t(era.years)} · {t(era.label)}</div>
       </div>
       {/* ODbL 1.0 attribution for the OpenStreetMap-derived geography (src/data/geo/README.md). */}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>El Ancón de Loíza</title>
+  <rect width="128" height="128" rx="24" fill="#5e4d38"/>
+  <path transform="translate(31.2 18.5) scale(0.82)" fill="#f4ecdf" fill-rule="evenodd" d="M20 0 L60 0 L80 111 L54 111 L52 90 L28 90 L26 111 L0 111 ZM40 35 L47.5 63 L32.5 63 Z"/>
+</svg>

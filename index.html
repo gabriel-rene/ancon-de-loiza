@@ -1,16 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>El Ancón de Loíza</title>
-    <meta name="description" content="A historically accurate 3D reconstruction of the Ancón de Loíza river ferry, Puerto Rico, 1820s–1986." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#3f3426" />
+    <meta name="description" content="El ancón del Río Grande de Loíza, Puerto Rico, en 3D, de 1840 a 1986. · The Loíza river ferry, Puerto Rico, in 3D, 1840–1986." />
+    <link rel="canonical" href="https://gabriel-rene.github.io/ancon-de-loiza/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="El Ancón de Loíza" />
+    <meta property="og:title" content="El Ancón de Loíza" />
+    <meta property="og:description" content="El ancón del Río Grande de Loíza, Puerto Rico, en 3D, de 1840 a 1986. · The Loíza river ferry, Puerto Rico, in 3D, 1840–1986." />
+    <meta property="og:url" content="https://gabriel-rene.github.io/ancon-de-loiza/" />
+    <meta property="og:image" content="https://gabriel-rene.github.io/ancon-de-loiza/share-card.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="El ancón cruzando el río al atardecer, 1975 · The ferry crossing the river at golden hour, 1975" />
+    <meta property="og:locale" content="es_PR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
     <style>
       /* Load card (spec 7a §4): shown before the bundle runs; same tone as the era dip (.era-dip in src/styles.css). */
       #load-card { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at 50% 45%, #8a7556 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
+        background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
       #load-card.load-card--out { opacity: 0; pointer-events: none; }
-      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; opacity: 0.85; }
+      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; }
       .load-card__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin-top: 8px; }
       .load-card__bar { width: min(220px, 50vw); height: 2px; margin-top: 22px; background: rgba(244, 236, 223, 0.25); border-radius: 1px; overflow: hidden; }
       .load-card__fill { width: 0; height: 100%; background: #f4ecdf; transition: width 0.4s ease; }
@@ -18,10 +35,24 @@
       body[data-load='scene'] .load-card__fill { width: 67%; }
       body[data-ready] .load-card__fill { width: 100%; }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .noscript { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+        padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%);
+        color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
+      .noscript__title { font: 500 28px/1.2 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin: 0 0 8px; }
+      .noscript a { color: #f2c46d; }
       @media (prefers-reduced-motion: reduce) { #load-card, .load-card__fill { transition: none; } }
     </style>
+    <noscript><style>#load-card { display: none; }</style></noscript>
   </head>
   <body>
+    <noscript>
+      <div class="noscript">
+        <p class="noscript__title">El Ancón de Loíza</p>
+        <p>Este sitio necesita JavaScript y WebGL para mostrar la escena 3D.</p>
+        <p lang="en">This site needs JavaScript and WebGL to show the 3D scene.</p>
+        <p><a href="https://github.com/gabriel-rene/ancon-de-loiza/blob/main/docs/research/ancon-research.md">Investigación y fuentes · Research and sources</a></p>
+      </div>
+    </noscript>
     <div id="load-card" role="status">
       <div class="load-card__kicker">El Ancón de Loíza</div>
       <div class="load-card__year" id="load-card-year">1975</div>

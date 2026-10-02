@@ -41,3 +41,17 @@ test('the knob and dots are hidden from screen readers', () => {
   expect(container.querySelector('.timeline__knob')!.getAttribute('aria-hidden')).toBe('true');
   expect(container.querySelector('.timeline__leaders')!.getAttribute('aria-hidden')).toBe('true');
 });
+test('← → do not change the era from the scene, the Facts panel or the Quality menu (spec 7b §2.2)', () => {
+  render(<>
+    <Timeline />
+    <div data-scene="" tabIndex={0} data-testid="scene" />
+    <section className="info-panel"><button type="button" data-testid="panel-btn">x</button></section>
+    <div className="quality__menu"><button type="button" data-testid="menu-item">y</button></div>
+  </>);
+  for (const id of ['scene', 'panel-btn', 'menu-item']) {
+    fireEvent.keyDown(screen.getByTestId(id), { key: 'ArrowRight' });
+    expect(useStore.getState().eraId, id).toBe('1975');
+  }
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  expect(useStore.getState().eraId).toBe('1984');
+});

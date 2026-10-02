@@ -40,6 +40,9 @@ export function Toolbar() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, close]);
+  // Spec 7b §2.5: without the scene, the facts are the page; open them once.
+  const sceneFailed = useStore((s) => s.sceneFailed);
+  useEffect(() => { if (sceneFailed) setOpen(true); }, [sceneFailed]);
   const chooseLang = (l: Lang) => {
     if (l === useStore.getState().lang) return;
     useStore.getState().setLang(l);

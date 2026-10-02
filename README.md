@@ -1,12 +1,33 @@
 # El Ancón de Loíza
 
-A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza** — the hand-powered river ferry that crossed the Río Grande de Loíza, Puerto Rico, from the 1820s until the PR-187 bridge ("Puente de la Restauración") replaced it in 1985–86.
+![El Ancón de Loíza at golden hour, 1975](public/share-card.jpg)
 
-Pick an era. Watch the crossing, the mangroves, the town, and the ferry itself change across 160 years.
+A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza** — the hand-powered river ferry that crossed the Río Grande de Loíza, Puerto Rico, from the 1820s until the PR-187 bridge ("Puente de la Restauración") replaced it in 1985–86. In Spanish and English.
 
 **Live:** https://gabriel-rene.github.io/ancon-de-loiza/
 
-> Status: **Phase 3** — the hand-powered ferry per era — poled barges, the growing rope-hauled platform, the 1980s steel barge and the idle 1986 barge — crossing between the real landings with its crew and passengers; a decade picker switches eras. It sails through the Phase 1–2b world: real terrain, river, sea, sky, sun, haze and water, with red, black and white mangroves, coconut palms, casuarinas, buttonwood, sea grape, almendros and ground cover (grasses, reeds, beach morning glory) per era. No buildings yet. See the [roadmap](#roadmap).
+## What you can do
+
+- **Pick an era** on the timeline, 1840 to 1986: the ferry, the crew, the landings, the town, the plants, the animals and the traffic change with it.
+- **Three views:** Ride (on the deck), Shore (standing on the Loíza landing) and Sky. Drag to look around; the view stays where you leave it; Recenter brings it back.
+- **Facts:** 3–6 sourced facts per era, each with its source links. Inferred items are labelled.
+- **Sound** (off by default) and **Quality** (Auto, High, Medium, Low).
+
+### Keyboard
+
+| Key | Does |
+|---|---|
+| Tab | Moves through the controls; the first stop skips to the timeline |
+| ← → | Previous / next era (when the scene, Facts or the Quality menu do not have focus) |
+| ← → ↑ ↓ on the scene (Tab to it) | Look around |
+| + − on the scene | Zoom |
+| 1 · 2 · 3 | Ride · Shore · Sky |
+| R | Recenter |
+| Esc | Closes Facts or the Quality menu |
+
+### Accessibility
+
+Every control works by keyboard and has a spoken name; era changes are announced. With *reduce motion* set in the system, era changes and camera moves are instant (the ferry and the river keep moving: they are the subject). Text over the scene meets WCAG AA contrast. Without WebGL the page still shows the facts for every era.
 
 ## Research
 
@@ -14,28 +35,30 @@ All scene details come from a sourced dossier: [`docs/research/ancon-research.md
 
 ## Design
 
-[`docs/superpowers/specs/2026-09-26-ancon-loiza-design.md`](docs/superpowers/specs/2026-09-26-ancon-loiza-design.md)
+[`docs/superpowers/specs/2026-09-26-ancon-loiza-design.md`](docs/superpowers/specs/2026-09-26-ancon-loiza-design.md), with one spec per phase in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the rulings for each phase in [`docs/superpowers/notes/`](docs/superpowers/notes/).
 
 ## Roadmap
 
 - [x] Phase 0 — Repo, research, design, plan
 - [x] Phase 1 — Terrain, river, sky, light, water
-- [ ] Phase 2 — Vegetation (2a, 2b done: mangroves, palms, casuarinas, buttonwood, sea grape, almendros, ground cover; 2c next)
-- [x] Phase 3 — The ancón, per era (crossing loop, crew, decade picker)
-- [ ] Phase 4 — Infrastructure per era
-- [ ] Phase 5 — Fauna
-- [ ] Phase 6 — Timeline UI, sourced facts, sound, cameras
-- [ ] Phase 7 — Performance, mobile, polish, launch
+- [x] Phase 2 — Vegetation: mangroves, palms, casuarinas, buttonwood, sea grape, almendros, ground cover, cane and era landscapes
+- [x] Phase 3 — The ancón per era: crossing loop, crew, era picker; 3b: sourced facts panel
+- [x] Phase 4 — The landings, the town, the ferry's load and the 1986 bridge traffic
+- [x] Phase 5 — Birds and water life
+- [x] Phase 6 — True-scale timeline, era fade, three views (6a); sound (6b)
+- [x] Phase 7 — Phones and speed (7a); accessibility and launch (7b)
 
-Phase 3 ran before Phase 2b: the ferry is the subject, so it came first; 2b's remaining species and polish follow.
+Open items (fact checks, art notes) are listed in the rulings notes of each phase.
 
 ## Development
 
 `npm run dev` · `npm test` · `npm run build` · `npm run e2e` (Playwright on the production build; the GPU leak probe is tagged `@slow`, and `npm run e2e:fast` skips it with `--grep-invert @slow`).
 
+Launch images are made by hand and committed: `node scripts/make-icons.ts` (favicon PNGs from `public/favicon.svg`) and `node scripts/make-share-card.ts` (with `npm run preview` running).
+
 ## Stack
 
-Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zustand. Deployed to GitHub Pages.
+Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zustand. All 3D models and sound are made in code. Deployed to GitHub Pages.
 
 ## Acknowledgements
 

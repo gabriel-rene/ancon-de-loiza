@@ -69,8 +69,8 @@ export class SoundRig {
     c.clock = pose.clock; c.phase = s.phase; c.tLeg = s.tLeg; c.effort = s.effort;
     this.ferryPos.copy(pose.position);
     const sp = ctx.spec;
-    if (!this.spec || this.spec.propulsion !== sp.propulsion || this.spec.crew !== sp.crew || this.spec.load !== sp.timings.load || this.spec.moored !== sp.moored)
-      this.spec = { propulsion: sp.propulsion, crew: sp.crew, moored: sp.moored, load: sp.timings.load };
+    if (!this.spec || this.spec.propulsion !== sp.propulsion || this.spec.moored !== sp.moored)
+      this.spec = { propulsion: sp.propulsion, moored: sp.moored };
     this.fresh = true;
   }
 

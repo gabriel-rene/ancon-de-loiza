@@ -33,12 +33,19 @@ export function QualityMenu() {
     return () => window.removeEventListener('pointerdown', away);
   }, [open]);
   const onKey = (e: React.KeyboardEvent, i: number) => {
-    const move = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-    if (move) { e.preventDefault(); items.current[(i + move + CHOICES.length) % CHOICES.length]?.focus(); }
+    const n = CHOICES.length;
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1
+      : e.key === 'ArrowDown' ? (i + 1) % n : e.key === 'ArrowUp' ? (i - 1 + n) % n : -1;
+    if (to >= 0) { e.preventDefault(); items.current[to]?.focus(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
   };
+  // Spec 7b §2.4: Tab out closes the menu. A null relatedTarget (a tap that focuses nothing) is left to the pointerdown check.
+  const onBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const to = e.relatedTarget;
+    if (open && to instanceof Node && !e.currentTarget.contains(to)) setOpen(false);
+  };
   return (
-    <div className="quality">
+    <div className="quality" onBlur={onBlur}>
       <button ref={btn} type="button" className="toolbar__btn" aria-haspopup="menu" aria-expanded={open}
         aria-label={`${t(STRINGS.quality)}: ${label}`} onClick={() => setOpen(!open)}>
         {label}

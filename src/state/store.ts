@@ -6,6 +6,7 @@ import { detectLang, type Lang } from '../i18n/text';
 import { loadSoundPref, saveSoundPref } from '../sound/prefs';
 import { loadQualityPref } from './qualityPrefs';
 import { parseUrlState, type CameraPreset, type DebugView } from './url';
+import type { LookStep } from '../scene/lookKeys';
 
 interface AppState {
   eraId: EraId; timeOfDay: number; camera: CameraPreset; quality: Quality; debug: boolean; frozen: boolean;
@@ -15,6 +16,10 @@ interface AppState {
   offFront: boolean; setOffFront: (v: boolean) => void;
   /** Bumped by recenter(); Cameras glides back to the front framing on each bump. */
   recenterSeq: number; recenter: () => void;
+  /** Spec 7b §2.1: bumped by look(); Cameras applies `lookStep` on each bump. */
+  lookStep: LookStep | null; lookSeq: number; look: (s: LookStep) => void;
+  /** Spec 7b §2.5: the 3D scene failed (no WebGL); Facts opens by itself. */
+  sceneFailed: boolean; setSceneFailed: () => void;
   /** Spec 6b §3: off by default, remembered in localStorage. */
   soundOn: boolean; setSound: (on: boolean) => void;
   /** Spec 7a §2.2: who chose the tier; only 'auto' runs the governor. */
@@ -41,7 +46,7 @@ export const shiftTime = (t: number, from: EraId, to: EraId) => Math.min(24, Mat
 export const useStore = create<AppState>((set) => ({
   eraId: DEFAULT_ERA, timeOfDay: defaultTime(fromUrl.eraId ?? DEFAULT_ERA), camera: 'ride', quality: startQuality.quality, qualityMode: startQuality.mode, fps: false, debug: false, frozen: false, debugView: undefined,
   crossingStart: null, crossingSpeed: 1, showAncon: true, perf: false, lang: detectLang(typeof navigator !== 'undefined' ? navigator.language : undefined),
-  offFront: false, recenterSeq: 0, soundOn: loadSoundPref(),
+  offFront: false, recenterSeq: 0, lookStep: null, lookSeq: 0, sceneFailed: false, soundOn: loadSoundPref(),
   ...fromUrl,
   setEra: (eraId) => set((s) => ({ eraId, timeOfDay: shiftTime(s.timeOfDay, s.eraId, eraId) })),
   setTime: (timeOfDay) => set({ timeOfDay }),
@@ -53,6 +58,8 @@ export const useStore = create<AppState>((set) => ({
   setSound: (soundOn) => { saveSoundPref(soundOn); set({ soundOn }); },
   setOffFront: (offFront) => set((s) => (s.offFront === offFront ? s : { offFront })),
   recenter: () => set((s) => ({ recenterSeq: s.recenterSeq + 1 })),
+  look: (lookStep) => set((s) => ({ lookStep, lookSeq: s.lookSeq + 1 })),
+  setSceneFailed: () => set({ sceneFailed: true }),
 }));
 
 export const useEra = () => getEra(useStore((s) => s.eraId));

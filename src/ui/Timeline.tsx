@@ -5,7 +5,7 @@ import { useT } from '../i18n/useT';
 import { useStore } from '../state/store';
 import { pendingEra, requestEra, useDip } from './dipController';
 import { prefersReducedMotion } from './motion';
-import { isTypingTarget, stepEra } from './picker';
+import { eraKeysAllowed, isTypingTarget, stepEra } from './picker';
 import { layoutLabels, nearestIndex, yearFrac } from './timelineLayout';
 
 const FRACS = ERAS.map((e) => yearFrac(Number(e.id)));
@@ -47,7 +47,7 @@ export function Timeline() {
   // Arrow keys step from the era last chosen (so two quick presses move two eras, even mid-dip).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || isTypingTarget(e.target)) return;
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || isTypingTarget(e.target) || !eraKeysAllowed(e.target)) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       if (requestEra(stepEra(pendingEra(), e.key === 'ArrowLeft' ? -1 : 1))) e.preventDefault();
     };
@@ -79,7 +79,7 @@ export function Timeline() {
 
   const knobX = dragX ?? xs[ci];
   return (
-    <nav className={`timeline${twoRows ? ' timeline--two-rows' : ''}`} aria-label={t(STRINGS.chooseEra)}>
+    <nav id="timeline" className={`timeline${twoRows ? ' timeline--two-rows' : ''}`} aria-label={t(STRINGS.chooseEra)}>
       <div ref={scroll} className="timeline__scroll">
         <div ref={track} className="timeline__track">
           <div className="timeline__line" />
