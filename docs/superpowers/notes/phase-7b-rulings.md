@@ -19,6 +19,10 @@ Spec: [`../specs/2026-10-02-phase-7b-launch-design.md`](../specs/2026-10-02-phas
 - **One look-key sign for all views.** "Right" turns the picture right in Ride, Sky and Shore. Shore's inverted drag ("grab the world") is pointer-only. A unit test pins the sign per view. (2026-10-02)
 - **R1: skip-link e2e starts from a fresh load.** After the 24-Tab sweep the test reloads the page, then presses Tab and Enter. `page.locator('body').focus()` does not work, because Chrome keeps the sequential-focus start point on the last focused element. (2026-10-02)
 - **R2: React blur test.** If `fireEvent.blur` does not reach React's `onBlur` (React listens to `focusout`), the test uses `fireEvent.focusOut` with the same `relatedTarget`. (2026-10-02)
+- **Recenter live text is "Centrar disponible".** The spec said "Recentrar disponible"; the text now matches the "Centrar" button. (2026-10-02)
+- **Pointer clicks do not focus the scene frame (final review).** Mouse users keep ← → for eras; keyboard users Tab in to look. (2026-10-02)
+- **The phase5 snapshot baselines were stale** from earlier phases (old toolbar and timeline), so the refresh cannot show that only §3.1 changed. (2026-10-02)
+- **Scene focus ring is drawn as an `::after` overlay.** An outline on the frame is hidden under the R3F canvas wrapper. (2026-10-02)
 - **Co-author trailer.** Each commit carries the `Co-Authored-By` line of the model that wrote it. (2026-10-02)
 
 ## Found while building
@@ -41,8 +45,6 @@ Spec: [`../specs/2026-10-02-phase-7b-launch-design.md`](../specs/2026-10-02-phas
 
 ### Deferred minors (from the reviews; none blocks merge)
 
-- The skip link, hidden by `translateY(-200%)`, may leave a sliver of a few pixels on devices with a large top safe-area inset.
-- The skip link's `href="#timeline"` has no matching id; focus is moved in code.
 - `reduced` motion is read at render time, not live when the OS setting changes (same as the rest of the app).
 - The camera look effect in `Cameras.tsx` has no unit test; it is covered by the e2e and a browser check.
 - Switching language while off-front re-announces "Recenter available" in the new language.

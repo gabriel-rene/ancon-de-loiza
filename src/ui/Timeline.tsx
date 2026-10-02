@@ -79,7 +79,7 @@ export function Timeline() {
 
   const knobX = dragX ?? xs[ci];
   return (
-    <nav className={`timeline${twoRows ? ' timeline--two-rows' : ''}`} aria-label={t(STRINGS.chooseEra)}>
+    <nav id="timeline" className={`timeline${twoRows ? ' timeline--two-rows' : ''}`} aria-label={t(STRINGS.chooseEra)}>
       <div ref={scroll} className="timeline__scroll">
         <div ref={track} className="timeline__track">
           <div className="timeline__line" />

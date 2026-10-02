@@ -10,7 +10,7 @@ A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza**
 
 - **Pick an era** on the timeline, 1840 to 1986: the ferry, the crew, the landings, the town, the plants, the animals and the traffic change with it.
 - **Three views:** Ride (on the deck), Shore (standing on the Loíza landing) and Sky. Drag to look around; the view stays where you leave it; Recenter brings it back.
-- **Facts:** 3–5 sourced facts per era, each with its source links. Inferred items are labelled.
+- **Facts:** 3–6 sourced facts per era, each with its source links. Inferred items are labelled.
 - **Sound** (off by default) and **Quality** (Auto, High, Medium, Low).
 
 ### Keyboard
@@ -18,8 +18,8 @@ A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza**
 | Key | Does |
 |---|---|
 | Tab | Moves through the controls; the first stop skips to the timeline |
-| ← → | Previous / next era (when the scene does not have focus) |
-| ← → ↑ ↓ on the scene | Look around |
+| ← → | Previous / next era (when the scene, Facts or the Quality menu do not have focus) |
+| ← → ↑ ↓ on the scene (Tab to it) | Look around |
 | + − on the scene | Zoom |
 | 1 · 2 · 3 | Ride · Shore · Sky |
 | R | Recenter |
