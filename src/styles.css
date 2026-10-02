@@ -1,5 +1,6 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
-canvas { display: block; }
+/* Spec 7a §5: a drag on the scene looks around; it never scrolls or zooms the page. */
+canvas { display: block; touch-action: none; }
 
 .title-card { position: fixed; left: 24px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 115px); color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 12px rgba(0,0,0,0.45); pointer-events: none; }
 .title-card__kicker { text-transform: uppercase; letter-spacing: 0.24em; font-size: 11px; opacity: 0.8; }

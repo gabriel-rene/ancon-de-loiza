@@ -26,8 +26,9 @@ export function QualityGovernor() {
   useFrame((_, dt) => {
     if (mode !== 'auto' || !window.__ANCON_READY__) return;
     const fake = window.__ANCON_FAKE_FPS__;
-    const paused = document.hidden || eraDip.busy() || dt > 0.5;
-    if (gov.tick(fake ? 1 / fake : dt, 1, paused) !== 'down') return;
+    const frame = fake ? 1 / fake : dt;   // the hook replaces the hitch guard's dt too, or a slow software GPU would pause it forever
+    const paused = document.hidden || eraDip.busy() || frame > 0.5;
+    if (gov.tick(frame, 1, paused) !== 'down') return;
     const next = stepDown(useStore.getState().quality);
     if (next && requestQuality(next)) { steps.current++; window.__ANCON_QUALITY__ = { tier: quality, mode, steps: steps.current }; }
   });
