@@ -34,7 +34,7 @@ Spec: [`../specs/2026-10-02-phase-7b-launch-design.md`](../specs/2026-10-02-phas
 
 ## Open items for the user
 
-- **Share card image waits for your approval.** The title overlaps the bottom of the front cars in `public/share-card.jpg`. The image was sent to you in chat; merge waits for your word. (2026-10-02)
+- **Share card image approved by the user as is** (2026-10-02), with the title slightly over the bottom of the front cars.
 
 ### iPhone checklist (user)
 
