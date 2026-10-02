@@ -4,6 +4,8 @@ import type { Bilingual } from './text';
 export const STRINGS = {
   chooseEra: { es: 'Escoge una época', en: 'Choose an era' },
   facts: { es: 'Datos', en: 'Facts' },
+  quality: { es: 'Calidad', en: 'Quality' },
+  auto: { es: 'Auto', en: 'Auto' },
   close: { es: 'Cerrar', en: 'Close' },
   sources: { es: 'Fuentes', en: 'Sources' },
   inferred: { es: 'Inferido', en: 'Inferred' },

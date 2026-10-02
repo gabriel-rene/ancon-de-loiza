@@ -52,6 +52,16 @@ body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area
 .toolbar__btn:focus-visible, .info-panel__close:focus-visible, .info-panel a:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }
 @media (max-width: 639px) { .toolbar { right: 12px; flex-wrap: wrap; } .toolbar__btn--seg { padding: 0 8px; } }
 
+/* Quality button and menu (spec 7a §3). */
+.quality { position: relative; }
+.quality__menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 25; display: flex; flex-direction: column; min-width: 140px; padding: 4px;
+  border-radius: 10px; background: rgba(20, 19, 17, 0.94); border: 1px solid rgba(244, 236, 223, 0.14); }
+.quality__item { min-height: 44px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: #f4ecdf; text-align: left;
+  font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
+.quality__item[aria-checked='true'] { background: #f4ecdf; color: #1b1a17; }
+.quality__item:focus-visible { outline: 2px solid #f2c46d; outline-offset: 1px; }
+@media (max-width: 639px) { .quality__menu { left: auto; right: 0; } }
+
 .info-panel { position: fixed; z-index: 20; top: calc(max(12px, env(safe-area-inset-top)) + 56px); right: 12px;
   bottom: calc(max(12px, env(safe-area-inset-bottom)) + 112px); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
   overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 18px; border-radius: 14px;
