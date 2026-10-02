@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { QUALITY_NAMES, STRINGS } from '../i18n/strings';
 import { useT } from '../i18n/useT';
 import type { QualityChoice } from '../quality';
 import { useStore } from '../state/store';
+import { menuLeft } from './menuPlacement';
 import { pickQuality } from './qualityPick';
 
 const CHOICES: QualityChoice[] = ['auto', 'high', 'medium', 'low'];
@@ -14,11 +15,16 @@ export function QualityMenu() {
   const mode = useStore((s) => s.qualityMode);
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLButtonElement | null)[]>([]);
   const current: QualityChoice = mode === 'auto' ? 'auto' : quality;
   const name = (c: QualityChoice) => (c === 'auto' ? t(STRINGS.auto) : t(QUALITY_NAMES[c]));
   const label = mode === 'auto' ? `${t(STRINGS.auto)} · ${t(QUALITY_NAMES[quality])}` : t(QUALITY_NAMES[quality]);
   const close = () => { setOpen(false); btn.current?.focus(); };
+  useLayoutEffect(() => {   // keep the menu on screen at any width (spec 7a §3)
+    const b = btn.current, m = menu.current;
+    if (open && b && m) m.style.left = `${menuLeft(b.getBoundingClientRect().left, m.getBoundingClientRect().width, window.innerWidth)}px`;
+  }, [open]);
   useEffect(() => { if (open) items.current[CHOICES.indexOf(current)]?.focus(); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps -- focus once on open
   useEffect(() => {
     if (!open) return;
@@ -38,7 +44,7 @@ export function QualityMenu() {
         {label}
       </button>
       {open && (
-        <div className="quality__menu" role="menu" aria-label={t(STRINGS.quality)}>
+        <div ref={menu} className="quality__menu" role="menu" aria-label={t(STRINGS.quality)}>
           {CHOICES.map((c, i) => (
             <button key={c} ref={(el) => { items.current[i] = el; }} type="button" role="menuitemradio" aria-checked={c === current}
               className="quality__item" onKeyDown={(e) => onKey(e, i)} onClick={() => { pickQuality(c); close(); }}>

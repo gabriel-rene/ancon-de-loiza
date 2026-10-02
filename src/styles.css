@@ -60,7 +60,6 @@ body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area
   font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; cursor: pointer; touch-action: manipulation; }
 .quality__item[aria-checked='true'] { background: #f4ecdf; color: #1b1a17; }
 .quality__item:focus-visible { outline: 2px solid #f2c46d; outline-offset: 1px; }
-@media (max-width: 639px) { .quality__menu { left: auto; right: 0; } }
 
 .info-panel { position: fixed; z-index: 20; top: calc(max(12px, env(safe-area-inset-top)) + 56px); right: 12px;
   bottom: calc(max(12px, env(safe-area-inset-bottom)) + 112px); width: min(400px, calc(100vw - 24px)); box-sizing: border-box;
