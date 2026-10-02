@@ -33,3 +33,20 @@ test('steps go on body[data-load]; dismiss fades then removes, or removes at onc
   expect(document.getElementById('load-card')).toBeNull();
   expect(() => dismissLoadCard(true)).not.toThrow();
 });
+test('onGone fires after removal: after 700 ms on the fade path, at once when reduced or when there is no card', () => {
+  vi.useFakeTimers();
+  document.body.innerHTML = '<div id="load-card"></div>';
+  const faded = vi.fn(() => expect(document.getElementById('load-card')).toBeNull());
+  dismissLoadCard(false, faded);
+  vi.advanceTimersByTime(699);
+  expect(faded).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  expect(faded).toHaveBeenCalledTimes(1);
+  document.body.innerHTML = '<div id="load-card"></div>';
+  const reduced = vi.fn(() => expect(document.getElementById('load-card')).toBeNull());
+  dismissLoadCard(true, reduced);
+  expect(reduced).toHaveBeenCalledTimes(1);
+  const none = vi.fn();
+  dismissLoadCard(false, none);
+  expect(none).toHaveBeenCalledTimes(1);
+});
