@@ -18,6 +18,14 @@ test('a focusable group named for the scene, the era and the keys; follows era a
   expect(g.getAttribute('aria-label')).toBe('Vista 3D del ancón, 1840. Flechas para mirar alrededor.');
 });
 
+test('a mouse press on the frame does not focus it, so a click keeps the page era keys', () => {
+  render(<SceneFrame><canvas /></SceneFrame>);
+  const g = screen.getByRole('group');
+  const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+  act(() => { g.dispatchEvent(ev); });
+  expect(ev.defaultPrevented).toBe(true);
+});
+
 test('the title card is the page h1', () => {
   render(<TitleCard />);
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('El Ancón de Loíza');

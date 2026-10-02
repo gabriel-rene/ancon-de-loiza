@@ -31,13 +31,37 @@ test('arrows on the scene look around and leave the era; arrows elsewhere change
   await ready(page);
   const recenter = page.getByRole('button', { name: 'Recenter' });
   await expect(recenter).toBeHidden();
-  await page.getByRole('group', { name: /^3D view of the ferry/ }).focus();
+  const scene = page.getByRole('group', { name: /^3D view of the ferry/ });
+  // Tab into the scene (keyboard focus, so :focus-visible applies) and check the gold ring is painted above the canvas.
+  for (let i = 0; i < 24 && !(await scene.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press('Tab');
+  await expect(scene).toBeFocused();
+  const ring = await scene.evaluate((el) => getComputedStyle(el, '::after').borderTopColor);
+  expect(ring).toBe('rgb(242, 196, 109)');
+  const vp = page.viewportSize()!;
+  const shot = await page.screenshot({ clip: { x: 3, y: Math.round(vp.height / 2), width: 5, height: 1 } });
+  const px = await page.evaluate(async (b64) => {
+    const img = new Image();
+    await new Promise<void>((res) => { img.onload = () => res(); img.src = `data:image/png;base64,${b64}`; });
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d')!; ctx.drawImage(img, 0, 0);
+    return Array.from({ length: img.width }, (_, x) => Array.from(ctx.getImageData(x, 0, 1, 1).data));
+  }, shot.toString('base64'));
+  expect(px.some(([r, g, b]) => r > 200 && g > 170 && b < 140), `ring pixels ${JSON.stringify(px)}`).toBe(true);
   for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
   await expect(recenter).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveURL(/era=1975/);
   await page.keyboard.press('r');
   await expect(recenter).toBeHidden({ timeout: 10_000 });
   await page.getByRole('button', { name: 'Facts' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/era=1984/);
+});
+
+test('a click on the scene does not take the era arrows from the page', async ({ page }) => {
+  await page.goto('?era=1975&freeze=1&q=low&lang=en');
+  await ready(page);
+  await page.mouse.click(720, 300);
+  await expect(page.getByRole('group', { name: /^3D view of the ferry/ })).not.toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/era=1984/);
 });

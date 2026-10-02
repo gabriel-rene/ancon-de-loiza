@@ -18,7 +18,9 @@ export function SceneFrame({ children }: { children: ReactNode }) {
     useStore.getState().look(s);
   };
   return (
-    <div className="scene" data-scene="" role="group" tabIndex={0} onKeyDown={onKeyDown}
+    // Spec 7b §2.2: the scene owns the arrows only when keyboard users Tab in; a click or drag must not focus it,
+    // so mouse users keep the page's era keys. camera-controls uses pointer events, so dragging still works.
+    <div className="scene" data-scene="" role="group" tabIndex={0} onKeyDown={onKeyDown} onMouseDown={(e) => e.preventDefault()}
       aria-label={`${t(STRINGS.sceneLabel)}, ${era.id}. ${t(STRINGS.sceneKeys)}`}>
       {children}
     </div>

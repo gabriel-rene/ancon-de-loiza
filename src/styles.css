@@ -1,16 +1,18 @@
 html, body, #root { margin: 0; height: 100%; background: #0c0f0f; overflow: hidden; }
 /* Spec 7a §5: a drag on the scene looks around; it never scrolls or zooms the page. */
 canvas { display: block; touch-action: none; }
-/* Spec 7b §2.1: the scene frame fills the window; Tab reaches it and the ring sits inside its edge. */
+/* Spec 7b §2.1: the scene frame fills the window; Tab reaches it. The ring is an overlay above the canvas: an outline on
+   the frame would sit under R3F's child wrapper (position: relative; overflow: hidden). */
 .scene { position: fixed; inset: 0; }
 .scene:focus { outline: none; }
-.scene:focus-visible { outline: 2px solid #f2c46d; outline-offset: -4px; }
+.scene:focus-visible::after { content: ''; position: absolute; inset: 4px; border: 2px solid #f2c46d; border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(12, 15, 15, 0.65), 0 0 0 1px rgba(12, 15, 15, 0.65); pointer-events: none; z-index: 1; }
 .skip-link { position: fixed; z-index: 50; left: 12px; top: max(12px, env(safe-area-inset-top)); padding: 12px 14px; border-radius: 10px;
-  background: #f4ecdf; color: #1b1a17; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; transform: translateY(-200%); }
+  background: #f4ecdf; color: #1b1a17; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; transform: translateY(calc(-100% - 24px - env(safe-area-inset-top))); }
 .skip-link:focus { transform: none; outline: 2px solid #f2c46d; outline-offset: 2px; }
 
 /* Spec 7b §3.1: one glass backing under every text-over-scene surface, so contrast holds on any sky. */
-.title-card { position: fixed; z-index: 2; left: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 115px); padding: 8px 12px; border-radius: 10px;
+.title-card { position: fixed; z-index: 2; left: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 120px); max-width: calc(100vw - 32px); box-sizing: border-box; padding: 8px 12px; border-radius: 10px;
   background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   color: #f4ecdf; font: 500 13px/1.4 ui-serif, Georgia, serif; letter-spacing: 0.04em; pointer-events: none; }
 .title-card__kicker { margin: 0; font: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: 0.24em; }
@@ -49,7 +51,7 @@ canvas { display: block; touch-action: none; }
 .timeline__knob::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .timeline__knob:active { cursor: grabbing; }
 /* A two-row timeline is taller: lift the credit (a licence requirement) and the title card clear of it. */
-body:has(.timeline--two-rows) .title-card { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 159px); }
+body:has(.timeline--two-rows) .title-card { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 164px); }
 body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 138px); }
 @media (max-width: 639px) { .timeline__track { width: 220vw; } }
 @media (prefers-reduced-motion: reduce) { .timeline__btn { transition: none; } }
