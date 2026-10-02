@@ -30,3 +30,10 @@ export const VIEW_NAMES: Record<'ride' | 'shore' | 'sky', Bilingual> = {
   shore: { es: 'Orilla', en: 'Shore' },
   sky: { es: 'Cielo', en: 'Sky' },
 };
+
+/** Quality tier names (spec 7a §3). */
+export const QUALITY_NAMES: Record<'high' | 'medium' | 'low', Bilingual> = {
+  high: { es: 'Alta', en: 'High' },
+  medium: { es: 'Media', en: 'Medium' },
+  low: { es: 'Baja', en: 'Low' },
+};
