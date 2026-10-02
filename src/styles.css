@@ -40,7 +40,7 @@ body:has(.timeline--two-rows) .osm-credit { bottom: calc(max(12px, env(safe-area
 @media (max-width: 639px) { .timeline__track { width: 220vw; } }
 @media (prefers-reduced-motion: reduce) { .timeline__btn { transition: none; } }
 
-.toolbar { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 20; display: flex; gap: 8px; }
+.toolbar { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 21; display: flex; gap: 8px; }
 .toolbar__lang, .toolbar__group { display: flex; gap: 2px; padding: 0 2px; border-radius: 10px; background: rgba(12, 15, 15, 0.55);
   border: 1px solid rgba(244, 236, 223, 0.14); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .toolbar__btn { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid rgba(244, 236, 223, 0.14); border-radius: 10px;

@@ -40,6 +40,17 @@ test.describe('phone', () => {
     expect(await page.evaluate(() => window.__ANCON_QUALITY__?.steps)).toBe(1);
   });
 
+  test('the open Facts sheet does not cover the quality menu', async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.setViewportSize({ width: 402, height: 600 });   // short enough that the sheet covers Low (the sheet top is ~192 px, Low sits at 201-245)
+    await page.goto('?era=1975&freeze=1&q=medium&lang=en');
+    await ready(page);
+    await page.getByRole('button', { name: 'Facts' }).click();
+    await page.getByRole('button', { name: /^Quality/ }).click();
+    await page.getByRole('menuitemradio', { name: 'Low' }).click();   // Low is the item the sheet covers; a covered item would hit the sheet and close the menu instead
+    await page.waitForFunction(() => window.__ANCON_QUALITY__?.tier === 'low', null, { timeout: 30_000 });
+  });
+
   test('the canvas takes the drag (touch-action none)', async ({ page }) => {
     await page.goto('?era=1975&freeze=1&q=low');
     await ready(page);

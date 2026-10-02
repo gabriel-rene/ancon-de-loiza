@@ -24,6 +24,8 @@ export function QualityGovernor() {
   useEffect(() => { gov.reset(quality); }, [gov, quality, eraId, mode]);
   useEffect(() => { window.__ANCON_QUALITY__ = { tier: quality, mode, steps: steps.current }; }, [quality, mode]);
   useFrame((_, dt) => {
+    // Spec 7a §2.3: a dip that ends with no tier/mode/era change (Auto picked mid-fade) must not leave the governor in 'pending'.
+    if (gov.stage === 'pending' && !eraDip.busy()) gov.reset(useStore.getState().quality);
     if (mode !== 'auto' || !window.__ANCON_READY__) return;
     const fake = window.__ANCON_FAKE_FPS__;
     const frame = fake ? 1 / fake : dt;   // the hook replaces the hitch guard's dt too, or a slow software GPU would pause it forever
