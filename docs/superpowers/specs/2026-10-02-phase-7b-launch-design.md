@@ -65,7 +65,7 @@ Audit baseline (2026-10-02): every control is already a native button; focus rin
 
 - **One backing token** `--glass: rgba(12, 15, 15, 0.65)` — the lowest alpha that keeps `#f4ecdf` at 4.5:1 over pure white. Used by the title card, the map credit, the timeline, and the toolbar buttons and groups (today 0.55; added here because the toolbar fails the same worst case).
 - **Title card and map credit:** a blurred `--glass` pill, not only a text shadow. The 11px kicker opacity goes to 1.
-- **Timeline:** backing from `rgba(12,15,15,0.42)` to `--glass`. The era sublabel opacity from 0.75 to at least 0.9. The rail line and leaders go to alpha 0.6 (3:1 against the backing).
+- **Timeline:** backing from `rgba(12,15,15,0.42)` to `--glass`. The rail line and leaders go to alpha 0.65 (3:1 against the backing); the era sublabel goes to opacity 0.92 and the map credit text to solid `#f4ecdf`.
 - **Load card and era dip:** the gradient's centre stop goes from `#8a7556` to `#75624a` (in `index.html` and `--era-dip`), and the small kicker and the dip label go to opacity 1, so they reach 4.5:1; the big year stays as it is.
 - **Measured, not guessed:** a unit test computes the contrast ratio for each listed text/backing pair from the CSS values (worst case: backing alone over pure white sky, i.e. the backing alpha blended on `#ffffff`).
 
