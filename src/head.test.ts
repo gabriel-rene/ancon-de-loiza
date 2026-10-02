@@ -17,3 +17,37 @@ test('the favicon is the sign\'s A', () => {
   expect(readFileSync('public/favicon.svg', 'utf8')).toContain(`d="${a}"`);
 });
 test('the page language defaults to Spanish', () => has(/<html lang="es">/));
+
+const SITE = 'https://gabriel-rene.github.io/ancon-de-loiza/';
+/** Width and height from a baseline/progressive JPEG's SOF marker. */
+function jpegSize(b: Buffer) {
+  let i = 2;
+  while (i < b.length) {
+    const m = b[i + 1], len = b.readUInt16BE(i + 2);
+    if (m >= 0xc0 && m <= 0xc2) return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
+    i += 2 + len;
+  }
+  throw new Error('no SOF marker');
+}
+test('share card meta (spec 7b §5.2)', () => {
+  has(new RegExp(`<link rel="canonical" href="${SITE}" />`));
+  has(new RegExp(`<meta property="og:url" content="${SITE}" />`));
+  has(/<meta property="og:type" content="website" \/>/);
+  has(/<meta property="og:site_name" content="El Ancón de Loíza" \/>/);
+  has(/<meta property="og:title" content="El Ancón de Loíza" \/>/);
+  has(new RegExp(`<meta property="og:image" content="${SITE}share-card\\.jpg" />`));
+  has(/<meta property="og:image:width" content="1200" \/>/);
+  has(/<meta property="og:image:height" content="630" \/>/);
+  has(/<meta property="og:image:alt" content="[^"]+" \/>/);
+  has(/<meta property="og:locale" content="es_PR" \/>/);
+  has(/<meta property="og:locale:alternate" content="en_US" \/>/);
+  has(/<meta name="twitter:card" content="summary_large_image" \/>/);
+  const desc = /<meta name="description" content="([^"]+)" \/>/.exec(html)![1];
+  expect(/<meta property="og:description" content="([^"]+)" \/>/.exec(html)![1]).toBe(desc);
+  expect(desc.indexOf('ancón')).toBeLessThan(desc.indexOf('ferry'));   // Spanish first
+});
+test('the share card is a 1200×630 JPEG under 300 KB', () => {
+  const b = readFileSync('public/share-card.jpg');
+  expect(jpegSize(b)).toEqual({ w: 1200, h: 630 });
+  expect(b.length).toBeLessThan(300_000);
+});
