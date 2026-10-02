@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 926 200" width="926" height="200">
+  <title>El Ancón de Loíza</title>
+  <defs>
+    <path id="glyph-A" d="M20 0 L60 0 L80 111 L54 111 L52 90 L28 90 L26 111 L0 111 ZM40 35 L47.5 63 L32.5 63 Z"/>
+    <path id="glyph-N" d="M0 0 L26 0 L42 39 L42 0 L70 0 L70 111 L44 111 L28 72 L28 111 L0 111 Z"/>
+    <path id="glyph-O" d="M32 -1 C53 -1 64 18 64 58 C64 98 53 116 32 116 C11 116 0 98 0 58 C0 18 11 -1 32 -1 ZM32 41.5 C38.5 41.5 42.5 50 42.5 66 C42.5 82 38.5 90.5 32 90.5 C25.5 90.5 21.5 82 21.5 66 C21.5 50 25.5 41.5 32 41.5 Z"/>
+    <path id="glyph-C" d="M64 47 L64 14 C61 4 50 -1 32 -1 C11 -1 0 18 0 58 C0 98 11 116 32 116 C50 116 61 111 64 102 L64 88 L45 88 C33.5 88 26 79.5 26 67.5 C26 55.5 33.5 47 45 47 Z"/>
+    <path id="glyph-L" d="M0 0 L22 0 L22 67 L55 67 L55 111 L0 111 Z"/>
+    <path id="glyph-I" d="M0 0 L25 0 L25 111 L0 111 Z"/>
+    <path id="glyph-Z" d="M0 0 L57 0 L57 25 L32 66 L58 66 L58 111 L0 111 L0 66 L25 25 L0 25 Z"/>
+  </defs>
+  <g id="neighbor-panels">
+    <rect x="0" y="30" width="34" height="140" fill="#1E4A33"/>
+    <rect x="0" y="108" width="34" height="3" fill="#E7ECE3"/>
+    <rect x="892" y="30" width="34" height="140" fill="#1E4A33"/>
+    <rect x="892" y="108" width="34" height="3" fill="#E7ECE3"/>
+  </g>
+  <rect id="panel" x="36" y="30" width="854" height="140" fill="#E7ECE3" stroke="#C9D0C6" stroke-width="2"/>
+  <g id="ANCON-LOIZA" fill="#B7834F" fill-rule="evenodd" stroke="#3E5F2B" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke">
+    <use href="#glyph-A" x="133" y="41"/>
+    <use href="#glyph-N" x="212" y="41"/>
+    <use href="#glyph-C" x="286" y="41"/>
+    <use href="#glyph-O" x="357" y="41"/>
+    <use href="#glyph-N" x="423" y="41"/>
+    <use href="#glyph-L" x="580" y="41"/>
+    <use href="#glyph-O" x="635" y="41"/>
+    <use href="#glyph-I" x="701" y="41"/>
+    <use href="#glyph-Z" x="731" y="41"/>
+    <use href="#glyph-A" x="787" y="41"/>
+  </g>
+  <path id="El" transform="translate(54 47) scale(1.05)" d="M30 10 C26 2 12 2 11 12 C10 19 16 23 23 23 M23 23 C10 22 2 30 4 40 C6 50 20 54 31 46 C42 38 55 18 55 4 C55 -6 46 -7 45 4 C43 18 43 40 47 47 C50 53 60 53 68 46" fill="none" stroke="#3E5F2B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="De" transform="translate(508 58)" d="M10 8 C9 18 9 28 9 38 M2 11 C12 2 33 0 36 19 C38 35 22 41 5 38 M44 26 C52 26 60 24 60 18 C60 11 50 10 46 18 C42 27 46 39 56 38 C60 37 62 35 64 33" fill="none" stroke="#3E5F2B" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
