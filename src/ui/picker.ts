@@ -20,6 +20,12 @@ export function isTypingTarget(t: EventTarget | null): boolean {
   return t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
 }
 
+/** Spec 7b §2.2: ← → step the era only from the page — not from the scene (look keys), the Facts panel or the Quality menu. */
+export function eraKeysAllowed(t: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(t instanceof Element)) return true;
+  return t.closest('[data-scene], .info-panel, .quality__menu') === null;
+}
+
 /** New search string with `cam` set; other params survive. */
 export function withCam(search: string, cam: string): string {
   const p = new URLSearchParams(search);
