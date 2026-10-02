@@ -33,7 +33,7 @@ Audit baseline (2026-10-02): every control is already a native button; focus rin
   - The same limits as the drag apply in every view (polar clamp, Shore's look-in-place, Ride's orbit clamp).
   - **"Right" means the picture turns right** in every view, also in Shore, which "grabs the world" with the pointer. A unit test pins the sign per view.
   - Recenter (R) shows and works the same as after a drag.
-- Code: one pure function `lookKey(key, view, riding) → { dAz, dPol, dZoom } | null` in `src/scene/lookKeys.ts`; `Cameras.tsx` applies it with `CameraControls.rotate` / `zoom` (transition on unless reduced motion). In Ride a key step counts as a drag for the rig (its `dragging` flag is set until the step settles), so the rig keeps the new angle like it keeps a dragged one.
+- Code: one pure function `lookKey(key, view, riding) → { dAz, dPol, dZoom } | null` in `src/scene/lookKeys.ts`; `Cameras.tsx` applies it with `CameraControls.rotate` / `zoom` (transition on unless reduced motion). In Ride the rig picks the step up through its existing input check (it compares where the controls hold the camera with its own last eye), so it keeps the new angle like a dragged one.
 
 ### 2.2 Who owns the arrow keys
 
@@ -63,9 +63,10 @@ Audit baseline (2026-10-02): every control is already a native button; focus rin
 
 ### 3.1 Contrast (WCAG AA: 4.5:1 text, 3:1 non-text UI)
 
-- **Title card and map credit:** a soft dark backing (a blurred `rgba(12,15,15,~0.45)` pill or gradient), not only a text shadow. The 11px kicker opacity goes to 1.
-- **Timeline:** backing from `rgba(12,15,15,0.42)` to about `0.6`. The era sublabel opacity from 0.75 to at least 0.9. The rail line and leaders reach 3:1 against the backing.
-- **Load card and era dip:** the small kicker (13px) and the dip label reach 4.5:1 on the brown, by darkening the gradient behind the text or raising the text weight/opacity; the big year stays as it is.
+- **One backing token** `--glass: rgba(12, 15, 15, 0.65)` — the lowest alpha that keeps `#f4ecdf` at 4.5:1 over pure white. Used by the title card, the map credit, the timeline, and the toolbar buttons and groups (today 0.55; added here because the toolbar fails the same worst case).
+- **Title card and map credit:** a blurred `--glass` pill, not only a text shadow. The 11px kicker opacity goes to 1.
+- **Timeline:** backing from `rgba(12,15,15,0.42)` to `--glass`. The era sublabel opacity from 0.75 to at least 0.9. The rail line and leaders go to alpha 0.6 (3:1 against the backing).
+- **Load card and era dip:** the gradient's centre stop goes from `#8a7556` to `#75624a` (in `index.html` and `--era-dip`), and the small kicker and the dip label go to opacity 1, so they reach 4.5:1; the big year stays as it is.
 - **Measured, not guessed:** a unit test computes the contrast ratio for each listed text/backing pair from the CSS values (worst case: backing alone over pure white sky, i.e. the backing alpha blended on `#ffffff`).
 
 ### 3.2 Reduced motion
@@ -92,7 +93,7 @@ All new static files live in a new `public/` folder (Vite copies it to `dist/` w
 ### 5.2 Share card
 
 - `public/share-card.jpg`, 1200×630, under 300 KB.
-- Picture: the default view (Ride, golden hour, era 1975) from the production build with `?freeze=1&q=high`, framed so the ferry and the crew are in the left two thirds.
+- Picture: the default view (Ride, golden hour, era 1975) from the production build with `?freeze=1&q=high`. The user approves the image before merge.
 - Text: "El Ancón de Loíza" in the load-card serif, cream, bottom left, with "1840–1986" under it, on a soft dark gradient. No other words.
 - Made by `scripts/make-share-card.ts` (Playwright against `npm run preview`: one screenshot of the scene, then one screenshot of a small HTML page that sets the text over it). Run by hand; the image is committed.
 - `index.html` meta:
