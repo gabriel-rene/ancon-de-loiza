@@ -51,3 +51,14 @@ test('the share card is a 1200×630 JPEG under 300 KB', () => {
   expect(jpegSize(b)).toEqual({ w: 1200, h: 630 });
   expect(b.length).toBeLessThan(300_000);
 });
+test('404 page: both languages, a link home, the favicon, no index, no script (spec 7b §5.3)', () => {
+  const p = readFileSync('public/404.html', 'utf8');
+  expect(p).toMatch(/^<!doctype html>/i);
+  expect(p).toContain('<html lang="es">');
+  expect(p).toContain('<meta name="robots" content="noindex" />');
+  expect(p).toContain('href="/ancon-de-loiza/favicon.svg"');
+  expect(p).toContain('href="/ancon-de-loiza/"');
+  expect(p).toContain('Esta página no existe.');
+  expect(p).toContain('This page does not exist.');
+  expect(p).not.toMatch(/<script/i);
+});
