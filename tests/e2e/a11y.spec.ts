@@ -44,9 +44,21 @@ test('arrows on the scene look around and leave the era; arrows elsewhere change
 
 test('head: icons, share card and the 404 page are served', async ({ page, request }) => {
   await page.goto('?freeze=1&q=low');
-  for (const f of ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'share-card.jpg', '404.html']) {
-    expect((await request.get(f)).status(), f).toBe(200);
+  // vite preview answers any unknown path with 200 text/html (SPA fallback), so check the content type too.
+  const files: Array<[string, RegExp]> = [
+    ['favicon.svg', /image\/svg\+xml/],
+    ['favicon-32.png', /image\/png/],
+    ['apple-touch-icon.png', /image\/png/],
+    ['share-card.jpg', /image\/jpeg/],
+  ];
+  for (const [f, type] of files) {
+    const res = await request.get(f);
+    expect(res.status(), f).toBe(200);
+    expect(res.headers()['content-type'], f).toMatch(type);
   }
+  const notFound = await request.get('404.html');
+  expect(notFound.status(), '404.html').toBe(200);
+  expect(await notFound.text(), '404.html').toContain('Esta página no existe.');
   await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', '/ancon-de-loiza/favicon.svg');
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://gabriel-rene.github.io/ancon-de-loiza/share-card.jpg');
 });
