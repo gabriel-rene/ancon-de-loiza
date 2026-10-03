@@ -8,7 +8,8 @@ import { actorFrame, castActors, createActorFrame } from './crew';
 import { landingClearings } from './geometry';
 import { computeVesselPose, createVesselPose } from './pose';
 import { WATER_Y } from '../geo/constants';
-import { clampForRender, RIDE, RIDE_ORBIT, RideRig, rideView, rideYaw } from './rideCamera';
+import { landmarkXZ } from '../data/landmarks';
+import { clampForRender, RIDE, RIDE_ORBIT, RideRig, rideView, rideYaw, wrapPi } from './rideCamera';
 import { guideLocal, ropeRig } from './rigging';
 import { seatAnchors } from './seats';
 import { ctxFor, fields512 } from './testing';
@@ -26,7 +27,17 @@ test('rideYaw: behind the trailing end on each leg, a slow continuous swing whil
     expect(Math.abs(y - prev)).toBeLessThan(0.02); expect(y).toBeGreaterThanOrEqual(prev - 1e-12);
     prev = y;
   }
-  expect(rideYaw(500, true)).toBe(0);
+  expect(rideYaw(500, true)).toBe(RIDE.mooredYaw);
+  expect(rideYaw(5, true)).toBe(RIDE.mooredYaw);   // no swing while moored
+});
+test('moored (1986), the ride view looks from the Loíza landing at the PR-187 bridge (6a open item 6)', () => {
+  const c = ctxFor('1986'), pos = new THREE.Vector3(), tgt = new THREE.Vector3();
+  const [sx, sz] = landmarkXZ('bridgeSouth'), [nx, nz] = landmarkXZ('bridgeNorth'), mid = [(sx + nx) / 2, (sz + nz) / 2];
+  for (const clock of [0, 95, 500]) {
+    rideView(computeVesselPose(clock, c, createVesselPose()), c.layout, rideYaw(clock, c.spec.moored), pos, tgt);
+    const look = Math.atan2(tgt.z - pos.z, tgt.x - pos.x), toBridge = Math.atan2(mid[1] - pos.z, mid[0] - pos.x);
+    expect(Math.abs(wrapPi(look - toBridge)) * 180 / Math.PI, `@${clock}`).toBeLessThan(8);
+  }
 });
 test('rideView: behind and above the trailing end, looking ahead, on both legs', () => {
   for (const c of [MID, L + MID]) {

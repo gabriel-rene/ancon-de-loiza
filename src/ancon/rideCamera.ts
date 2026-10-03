@@ -5,12 +5,16 @@ import { clamp01, smooth as sm } from './ease';
 import type { PoseContext, VesselPose } from './pose';
 import type { DeckLayout } from './spec';
 
-/** Third-person deck camera: behind the trailing end, raised, a little to one side, looking over the crew ahead. */
-export const RIDE = { back: 8, up: 4.2, side: 2.6, ahead: 22, lookY: 0.4, minClear: 1.8 };
+/**
+ * Third-person deck camera: behind the trailing end, raised, a little to one side, looking over the crew ahead.
+ * `mooredYaw`: the fixed orbit angle while moored (1986) — turned upstream from the Loíza landing so the
+ * PR-187 bridge, the era's subject, is in frame (ruling for 6a open item 6; pinned by rideCamera.test).
+ */
+export const RIDE = { back: 8, up: 4.2, side: 2.6, ahead: 22, lookY: 0.4, minClear: 1.8, mooredYaw: 0.95 };
 
 /** Orbit angle about the deck: π·(legs done), easing half a turn across unload + the next load. */
 export function rideYaw(clock: number, moored: boolean, T: CrossingTimings = CROSSING_TIMINGS): number {
-  if (moored) return 0;
+  if (moored) return RIDE.mooredYaw;
   const L = legDuration(T), U = T.unload, W = T.unload + T.load;
   const k = Math.floor(clock / L), tau = clock - k * L;
   if (tau < T.load) return Math.PI * (k - 1) + Math.PI * sm((tau + U) / W);
