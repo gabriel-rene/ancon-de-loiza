@@ -1,5 +1,7 @@
+import signSvg from '../../docs/assets/el-ancon-de-loiza-sign.svg?raw';
 import type { RoadSurface } from '../data/eras';
 import { cellRng } from '../vegetation/rng';
+import { ATLAS, REGIONS, type SignRegion } from './signAtlas';
 
 /*
  * Procedural infrastructure textures (browser only: 2D canvas). Concrete is painted near-white so the
@@ -73,4 +75,95 @@ export function paintRoad(s: RoadSurface): HTMLCanvasElement {
   const n = s === 'gravel' ? 16000 : 7000;
   for (let i = 0; i < n; i++) { const v = r() < 0.5 ? 40 : 230; g.fillStyle = rgba(v, v * 0.97, v * 0.9, s === 'gravel' ? 0.3 : 0.08); g.fillRect(r() * W, r() * H, 2, 2); }
   return c;
+}
+
+/** One run of sign-painter lettering: text, colour, CSS font (size set by `letter`). */
+interface Run { text: string; color: string; font?: string; gap?: number }
+const BLOCK = '900 100px "Arial Black", "Helvetica Neue", Arial, sans-serif';
+/**
+ * Paint `runs` on one line inside region `r`: letters `letter` × the region height tall, squeezed
+ * sideways (never stretched) to fit 92 % of its width, like hand-lettering fitted to a wall.
+ */
+function letter(g: CanvasRenderingContext2D, r: SignRegion, runs: Run[], size: number, base = 0.72, outline?: string) {
+  const [x, y, w, h] = REGIONS[r], px = size * h;
+  const fontOf = (u: Run) => (u.font ?? BLOCK).replace('100px', `${px.toFixed(0)}px`);
+  const widths = runs.map((u) => { g.font = fontOf(u); return g.measureText(u.text).width; });
+  const total = widths.reduce((a, b, i) => a + b + (i ? (runs[i].gap ?? 0.35) * px : 0), 0), k = Math.min(1, (0.92 * w) / total);
+  g.save(); g.translate(x + (w - total * k) / 2, y + base * h); g.scale(k, 1);
+  let cx = 0;
+  runs.forEach((u, i) => {
+    if (i) cx += (u.gap ?? 0.35) * px;
+    g.font = fontOf(u);
+    if (outline) { g.strokeStyle = outline; g.lineWidth = px * 0.08; g.lineJoin = 'round'; g.strokeText(u.text, cx, 0); }
+    g.fillStyle = u.color; g.fillText(u.text, cx, 0);
+    cx += widths[i];
+  });
+  g.restore();
+}
+/** Sun, rain and salt over a region: faded patches, run-off streaks, flecks of bare ground. */
+function weather(g: CanvasRenderingContext2D, r: SignRegion, seed: number, amount = 1) {
+  const [x, y, w, h] = REGIONS[r], rng = cellRng(0, seed, 8120);
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+  for (let i = 0; i < 30 * amount; i++) {
+    const cx = x + rng() * w, cy = y + rng() * h, rad = 20 + 80 * rng(), grd = g.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    grd.addColorStop(0, rgba(240, 236, 226, 0.08 + 0.1 * rng())); grd.addColorStop(1, rgba(240, 236, 226, 0));
+    g.fillStyle = grd; g.fillRect(cx - rad, cy - rad, 2 * rad, 2 * rad);
+  }
+  for (let i = 0; i < 50 * amount; i++) { g.fillStyle = rgba(70, 60, 48, 0.04 + 0.06 * rng()); g.fillRect(x + rng() * w, y + rng() * h * 0.4, 2 + 3 * rng(), h * (0.2 + 0.6 * rng())); }
+  for (let i = 0; i < 1500 * amount; i++) { const v = rng() < 0.5 ? 60 : 235; g.fillStyle = rgba(v, v, v, 0.07); g.fillRect(x + rng() * w, y + rng() * h, 2, 2); }
+  g.restore();
+}
+const fill = (g: CanvasRenderingContext2D, r: SignRegion, color: string) => { const [x, y, w, h] = REGIONS[r]; g.fillStyle = color; g.fillRect(x, y, w, h); };
+
+/**
+ * The station's lettering (signAtlas.ts), after the 1970s–80s photos: the bar's front wall, its cream room,
+ * the ferry's weekend-trips board, the striped awning of the Cortijo house, and the "El ANCON de LOIZA"
+ * sign drawn from docs/assets. The SVG loads asynchronously; `ready` resolves once it is painted in.
+ */
+export function paintSigns(): { canvas: HTMLCanvasElement; ready: Promise<void> } {
+  const [c, g] = canvas(ATLAS.w, ATLAS.h);
+  g.fillStyle = '#e7ece3'; g.fillRect(0, 0, ATLAS.w, ATLAS.h);
+  fill(g, 'barFront', '#7a2b2c');
+  letter(g, 'barFront', [
+    { text: 'BAR RESTAURANT.', color: '#b4cf8c', gap: 0 }, { text: 'EL ANCON', color: '#eea48f', gap: 0.25 },
+    { text: 'Mariscos', color: '#f1ece6', font: 'italic 700 100px "Brush Script MT", "Snell Roundhand", cursive', gap: 0.45 },
+    { text: 'HIELO', color: '#a6d4cf', gap: 0.2 },
+  ], 0.5, 0.7);
+  weather(g, 'barFront', 1, 1.4);
+  fill(g, 'barRest', '#e9e1cb');
+  letter(g, 'barRest', [{ text: 'BAR REST.', color: '#4c8f6d', gap: 0 }, { text: 'EL ANCON', color: '#c8432f' }], 0.6, 0.78);
+  weather(g, 'barRest', 2);
+  fill(g, 'hielo', '#e9e1cb');
+  letter(g, 'hielo', [{ text: 'HIELO', color: '#8fb6cf' }], 0.62, 0.8, '#3d5a6c');
+  weather(g, 'hielo', 3);
+  {
+    const [x, y, w, h] = REGIONS.paseos;
+    fill(g, 'paseos', '#f3efe6');
+    g.strokeStyle = '#b8322a'; g.lineWidth = 5; g.strokeRect(x + 6, y + 6, w - 12, h - 12);
+    const line = (t: string, color: string, cy: number, size: number) => {
+      g.font = `800 ${size}px Arial, sans-serif`; const tw = g.measureText(t).width, k = Math.min(1, (w - 40) / tw);
+      g.save(); g.translate(x + w / 2 - (tw * k) / 2, y + cy); g.scale(k, 1); g.fillStyle = color; g.fillText(t, 0, 0); g.restore();
+    };
+    line('PASEOS FINES DE SEMANA', '#2a2622', 52, 44);
+    line('DIAS FERIADOS   TARIFA $2.00', '#2a2622', 112, 34);
+    line('PASEOS A GRUPOS POR ACUERDO', '#b8322a', 172, 34);
+    weather(g, 'paseos', 4, 0.6);
+  }
+  {
+    const [x, y, w, h] = REGIONS.stripes, n = 16;
+    for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? '#efe8da' : '#c4402f'; g.fillRect(x + (i * w) / n, y, w / n + 1, h); }
+    weather(g, 'stripes', 5, 0.5);
+  }
+  const ready = new Promise<void>((done) => {
+    const img = new Image();
+    img.onload = () => {
+      const [x, y, w, h] = REGIONS.loiza;
+      g.drawImage(img, 0, 30, 926, 140, x, y, w, h);
+      weather(g, 'loiza', 6, 0.8);
+      done();
+    };
+    img.onerror = () => done();
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(signSvg)}`;
+  });
+  return { canvas: c, ready };
 }

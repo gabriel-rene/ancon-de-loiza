@@ -19,7 +19,7 @@ const BRIDGE_WAY_POINTS = bridgeWay(G);
 
 /**
  * Phase 4a: roads, landings, station and bridge for the current era. Geometry is built once per era and
- * tier (≤ 5 merged meshes + ≤ 2 road strips, one per surface); minor roads and trodden dirt go to the terrain as the
+ * tier (≤ 6 merged meshes + ≤ 2 road strips, one per surface); minor roads and trodden dirt go to the terrain as the
  * uGround mask. Heights read the tier's rendered terrain (`near`); water tests read the fixed 512
  * placement fields, like the ferry, so nothing moves between tiers.
  */

@@ -4,15 +4,15 @@ import type { XZ } from '../data/geo/types';
 
 /**
  * One PartBuilder per material for all of an era's infrastructure (landings, station, bridge): each
- * builder merges into one mesh, so 4a costs one draw call per material in use (≤ 5) plus the road strip.
+ * builder merges into one mesh, so 4a costs one draw call per material in use (≤ 6) plus the road strip.
  */
-export type InfraMaterialId = 'wood' | 'concrete' | 'zinc' | 'thatch' | 'iron';
-export const INFRA_MATERIALS: readonly InfraMaterialId[] = ['wood', 'concrete', 'zinc', 'thatch', 'iron'];
+export type InfraMaterialId = 'wood' | 'concrete' | 'zinc' | 'thatch' | 'iron' | 'sign';
+export const INFRA_MATERIALS: readonly InfraMaterialId[] = ['wood', 'concrete', 'zinc', 'thatch', 'iron', 'sign'];
 export type Builders = Record<InfraMaterialId, PartBuilder>;
 export type GroundAt = (x: number, z: number) => number;
 
 export const makeBuilders = (): Builders =>
-  ({ wood: new PartBuilder(), concrete: new PartBuilder(), zinc: new PartBuilder(), thatch: new PartBuilder(), iron: new PartBuilder() });
+  ({ wood: new PartBuilder(), concrete: new PartBuilder(), zinc: new PartBuilder(), thatch: new PartBuilder(), iron: new PartBuilder(), sign: new PartBuilder() });
 
 export function finish(b: Builders) {
   const out: Partial<Record<InfraMaterialId, THREE.BufferGeometry>> = {};

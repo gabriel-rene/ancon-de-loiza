@@ -99,7 +99,7 @@ describe('eras', () => {
     const col = <K extends keyof (typeof ERAS)[number]['infrastructure']>(k: K) => ERAS.map((e) => e.infrastructure[k].value);
     expect(col('roadSurface')).toEqual(['sand', 'sand', 'sand', 'gravel', 'asphalt', 'asphalt', 'asphalt', 'asphalt']);
     expect(col('landing')).toEqual(['bank', 'bank', 'bank', 'timber', 'timber', 'concrete', 'concrete', 'concrete']);
-    expect(col('station')).toEqual(['shelter', 'shelter', 'woodThatch', 'woodZinc', 'woodZinc', 'concrete', 'concrete', 'concrete']);
+    expect(col('station')).toEqual(['shelter', 'shelter', 'woodThatch', 'woodZinc', 'woodZinc', 'concrete', 'concreteCanopy', 'concreteCanopy']);
     expect(col('neighbourHouse')).toEqual([false, false, false, true, true, true, false, false]);
     expect(col('bridge')).toEqual(['none', 'none', 'none', 'none', 'none', 'none', 'building', 'open']);
     // Sourced facts (spec 4a §2, fact-checked): the 1960s house [S4], the demolition [S4], the bridge dates [S1][S3][S4].

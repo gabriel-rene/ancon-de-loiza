@@ -23,7 +23,7 @@ export interface RoadStrip { surface: RoadSurface; geometry: THREE.BufferGeometr
 /** Spec 4a §5. */
 export const LIMITS = { drawCalls: 12, triangles: 40000 } as const;
 
-/** All of one era's infrastructure: ≤ 5 merged meshes (one per material) plus ≤ 2 story-road strips. Pure. */
+/** All of one era's infrastructure: ≤ 6 merged meshes (one per material) plus ≤ 2 story-road strips. Pure. */
 export function buildInfrastructure(i: InfraInput): InfraOutput {
   const b = makeBuilders(), v = i.infra, [east, west] = i.pads;
   buildLanding(b, east, v.landing.value, 1);

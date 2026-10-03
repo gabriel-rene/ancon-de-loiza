@@ -109,7 +109,7 @@ describe('era town', () => {
       const dryAt = (x: number, z: number) => waterAt(f, x, z) === WATER.LAND && sampleField(f, f.shore, x, z) >= 2;
       const [east] = landingPadsFor(bank), v = e.infrastructure, gone = v.bridge.value !== 'none' && !v.neighbourHouse.value;
       const st = stationLayout(east, v.station.value, gone, upstreamSign(east, bridgeWay(G)), dryAt);
-      const station = [st.house, st.terrace, st.shelter, v.neighbourHouse.value ? st.neighbour : null].filter(Boolean) as Footprint[];
+      const station = [st.house, st.bar, st.canopy, st.shelter, v.neighbourHouse.value ? st.neighbour : null].filter(Boolean) as Footprint[];
       expect(station.length).toBeGreaterThan(0);
       for (const h of t.houses) {
         expect(rectsOverlap(h.fp, reach), `${e.id} ${h.id} church`).toBe(false);
