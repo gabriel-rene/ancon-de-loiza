@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import geo from '../data/geo/loiza.json';
 import type { GeoBundle } from '../data/geo/types';
 import { landmarkXZ } from '../data/landmarks';
-import { buildFields, sampleField, WATER, SEA_SEED } from './fields';
+import { buildFields, LANDCLS, sampleField, WATER, SEA_SEED } from './fields';
 
 const f = buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 0 });
 const at = (arr: Float32Array | Uint8Array, [x, z]: [number, number]) => {
@@ -24,6 +24,16 @@ describe('real fields', () => {
   test('shore distance is negative in water, positive on land', () => {
     expect(at(f.shore, [0, 0])).toBeLessThan(0);
     expect(at(f.shore, landmarkXZ('church'))).toBeGreaterThan(0);
+  });
+  test('the inland OSM sand lot east of the town is sandy ground, not a bare beach (6a open item 5)', () => {
+    const k = (([x, z]: [number, number]) => Math.floor((z - f.grid.minZ) / f.grid.cell) * f.grid.size + Math.floor((x - f.grid.minX) / f.grid.cell))([525, 130]);
+    expect(f.landCls[k]).toBe(LANDCLS.SAND);
+    expect(f.seaDist[k]).toBeGreaterThan(150);
+    const sand = f.info[k * 4] / 255;
+    expect(sand).toBeGreaterThan(0.2);
+    expect(sand).toBeLessThan(0.6);
+    const beach = (([x, z]: [number, number]) => Math.floor((z - f.grid.minZ) / f.grid.cell) * f.grid.size + Math.floor((x - f.grid.minX) / f.grid.cell))(SEA_SEED);
+    expect(f.seaDist[beach]).toBe(0);   // the beach rule is untouched: sand by the sea stays full sand
   });
   test('bankOffset widens the river', () => {
     const wide = buildFields(geo as unknown as GeoBundle, { extent: 2560, size: 256, bankOffset: 10 });

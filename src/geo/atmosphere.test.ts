@@ -59,3 +59,10 @@ test('ambient (environment-map) fill is meaningfully dimmer at high sun than gol
 test('midday grade keeps most of its saturation, avoiding a washed-out look', () => {
   expect(atmosphereFor(60).saturation).toBeGreaterThanOrEqual(1.1);
 });
+test('sky fill lifts shadows by day (never black blocks under houses) and is off at night', () => {
+  expect(atmosphereFor(-10).fillIntensity).toBe(0);
+  const golden = atmosphereFor(8), high = atmosphereFor(50);
+  expect(golden.fillIntensity).toBeGreaterThan(0.2);
+  expect(golden.fillIntensity).toBeLessThan(golden.sunIntensity / 4);   // a fill, not a second sun
+  expect(high.fillIntensity).toBeGreaterThan(0.2);
+});

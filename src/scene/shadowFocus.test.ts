@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { shadowFocus } from './shadowFocus';
+import { shadowFocus, shadowHalfFor, shadowSetupFor } from './shadowFocus';
 
 const SUN: [number, number, number] = [-0.6, 0.35, 0.72];
 const n = (v: number[]) => { const l = Math.hypot(...v); return v.map((x) => x / l) as [number, number, number]; };
@@ -28,4 +28,20 @@ test('small camera moves do not move the shadow grid off texel multiples (no shi
   const d = a.map((v, i) => v - b[i]);
   const k = (d[0] * right[0] + d[1] * right[1] + d[2] * right[2]) / texel;
   expect(Math.abs(k - Math.round(k))).toBeLessThan(1e-6);
+});
+
+test('shadowHalfFor: deck-height cameras keep the tier extent; a high (Sky) camera widens it to cover what it sees, capped', () => {
+  for (const y of [2, 10, 30]) expect(shadowHalfFor(140, y)).toBe(140);
+  expect(shadowHalfFor(140, 380)).toBe(600);       // Sky view: the whole town and the groves, not a 280 m strip
+  expect(shadowHalfFor(110, 380)).toBe(600);
+  expect(shadowHalfFor(0, 380)).toBe(0);           // low tier: no shadows stays no shadows
+  let prev = shadowHalfFor(140, 0);
+  for (let y = 0; y <= 1000; y += 5) { const h = shadowHalfFor(140, y); expect(h).toBeGreaterThanOrEqual(prev); expect(h - prev).toBeLessThan(10); prev = h; }
+});
+
+test('shadowSetupFor: a high camera trades map resolution for a soft penumbra (aerial shadows are smudges, not blocks)', () => {
+  expect(shadowSetupFor(140, 4096, 10)).toEqual({ half: 140, mapSize: 4096, radius: 1 });
+  expect(shadowSetupFor(140, 4096, 380)).toEqual({ half: 600, mapSize: 1024, radius: 4 });
+  expect(shadowSetupFor(110, 2048, 380)).toEqual({ half: 600, mapSize: 512, radius: 4 });
+  expect(shadowSetupFor(0, 0, 380)).toEqual({ half: 0, mapSize: 0, radius: 1 });
 });
