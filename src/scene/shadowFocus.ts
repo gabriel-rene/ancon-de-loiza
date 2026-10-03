@@ -23,6 +23,33 @@ function normInto(out: V3, a: V3): void {
   out[0] = a[0] / l; out[1] = a[1] / l; out[2] = a[2] / l;
 }
 
+/** Camera heights (m) between which the shadow extent grows from the tier's `half` toward SHADOW_HALF_MAX. */
+export const SHADOW_GROW = { from: 40, perMetre: 1.8, max: 600 };
+/**
+ * Shadow half-extent for a camera at height `y`: the tier's `half` at deck height; a high camera (Sky view,
+ * ~380 m) widens it so the map covers the town and the groves it looks at instead of a strip, and the far
+ * shadows soften with the coarser texel (6a open items 3 and 4). 0 (no shadows) stays 0.
+ */
+export function shadowHalfFor(half: number, y: number): number {
+  if (half <= 0) return 0;
+  return Math.max(half, Math.min(SHADOW_GROW.max, (y - SHADOW_GROW.from) * SHADOW_GROW.perMetre));
+}
+
+export interface ShadowSetup { half: number; mapSize: number; radius: number }
+/** Settings for a high camera soften the far shadows: the extent widens, the map texel grows and PCF blurs it. */
+export const SHADOW_HIGH = { mapDiv: 4, radius: 4 };
+/**
+ * The shadow map's extent, resolution and PCF radius for a camera at height `y`. Once the extent has grown past
+ * the tier's (a high camera), a quarter-size map with a wider PCF radius turns crisp blocks under houses and
+ * groves into the soft smudges of an aerial photo. The swap happens inside the era dip or a view change.
+ */
+export function shadowSetupFor(half: number, mapSize: number, y: number): ShadowSetup {
+  const h = shadowHalfFor(half, y);
+  if (h <= 0 || mapSize <= 0) return { half: 0, mapSize: 0, radius: 1 };
+  if (h <= half) return { half: h, mapSize, radius: 1 };
+  return { half: h, mapSize: mapSize / SHADOW_HIGH.mapDiv, radius: SHADOW_HIGH.radius };
+}
+
 /**
  * Where to aim a single directional shadow map so it covers what the camera looks at.
  * Focus = where the view ray meets y=0, clamped to [20, 0.9·half] m ahead (horizontal views

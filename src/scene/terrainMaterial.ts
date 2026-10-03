@@ -20,11 +20,21 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
       varying vec3 vW; varying vec3 vNw;
       ${SNOISE_GLSL}
       void main(){
-        vec4 m = texture2D(uInfo, (vW.xz - uRect.xy) / uRect.z);
+        // Land-class weights (sand, mud, forest) come from rasterised OSM polygons with straight edges and
+        // one flat value inside. Warp the lookup by ~±22 m of low-frequency noise so the edges wander
+        // like real field margins, whatever the cell size (6a open items 2 and 5).
+        // One noise call (snoise is the shader's main cost at 2× DPR): its value and its negation push the
+        // lookup along the two diagonals, enough to break every straight edge.
+        float w = snoise(vW.xz * 0.022 + 3.0);
+        vec2 warp = vec2(w, w * (0.4 - 0.6 * sign(w))) * 22.0;
+        vec4 m = texture2D(uInfo, (vW.xz + warp - uRect.xy) / uRect.z);
         float n0 = snoise(vW.xz * 0.006 + 11.0) * 0.5 + 0.5;   // ~170 m patches: lush vs dry pasture
         float n = snoise(vW.xz * 0.06) * 0.5 + 0.5;
         float n2 = snoise(vW.xz * 0.7) * 0.5 + 0.5;
         float n3 = snoise(vW.xz * 3.1) * 0.5 + 0.5;
+        // Woodland floor is not one flat dark tint: the dry-pasture patches (n0) thin it to glades (item 2).
+        float glade = smoothstep(0.55, 0.85, n0 + 0.15 * (n - 0.5));
+        m.b *= 1.0 - 0.5 * glade;
         vec3 lush = mix(vec3(0.07,0.17,0.03), vec3(0.13,0.24,0.05), n);
         vec3 dry = mix(vec3(0.21,0.22,0.07), vec3(0.30,0.27,0.10), n);
         vec3 grass = mix(lush, dry, 0.2 + 0.45 * smoothstep(0.3, 0.85, n0)) * mix(0.85, 1.1, n3);
@@ -39,8 +49,9 @@ export function makeTerrainMaterial(info: THREE.Texture, rect: THREE.Vector4) {
         vec2 lu = (vW.xz - uLitterRect.xy) / uLitterRect.z;
         float inL = step(0.0, lu.x) * step(lu.x, 1.0) * step(0.0, lu.y) * step(lu.y, 1.0);
         float litter = texture2D(uLitter, lu).r * inL * (1.0 - m.g);
-        vec3 needles = mix(vec3(0.13,0.075,0.04), vec3(0.21,0.13,0.07), n2) * mix(0.85, 1.1, n3);
-        c = mix(c, needles, 0.85 * litter);
+        // Lighter and thinner than the first cut: from the Sky view a belt read as one dark blob (item 4).
+        vec3 needles = mix(vec3(0.20,0.12,0.06), vec3(0.28,0.18,0.09), n2) * mix(0.85, 1.1, n3);
+        c = mix(c, needles, 0.6 * litter);
         // Far ground cover: same habitat weights as the near clumps, tinted in past their radius.
         vec2 cu = (vW.xz - uCoverRect.xy) / uCoverRect.z;
         float inC = step(0.0, cu.x) * step(cu.x, 1.0) * step(0.0, cu.y) * step(cu.y, 1.0);

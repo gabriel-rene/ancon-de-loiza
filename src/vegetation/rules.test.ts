@@ -37,6 +37,17 @@ describe('habitat rules', () => {
     expect(RULES.grass.density(site({ landCls: LANDCLS.WETLAND }))).toBe(0);
     expect(RULES.reeds.density(site({ riverDist: 60 }))).toBe(0);
   });
+  test('inland OSM woodland (wood/scrub) carries a thin stand of palms and almendros; open pasture stays open (6a item 2)', () => {
+    const wood = site({ landCls: LANDCLS.WOOD, seaDist: 500, riverDist: 300 }), scrub = { ...wood, landCls: LANDCLS.SCRUB }, open = { ...wood, landCls: LANDCLS.GRASS };
+    expect(RULES.coconut.density(wood)).toBeGreaterThan(0.05);
+    expect(RULES.coconut.density(wood)).toBeLessThan(0.3);
+    expect(RULES.coconut.density(scrub)).toBeGreaterThan(0);
+    expect(RULES.coconut.density(scrub)).toBeLessThan(RULES.coconut.density(wood));
+    expect(RULES.coconut.density(open)).toBe(0);
+    expect(RULES.almendro.density(wood)).toBeGreaterThan(0.05);
+    expect(RULES.almendro.density(wood)).toBeLessThan(0.2);
+    expect(RULES.almendro.density(open)).toBe(0);
+  });
   test('ground cover is its own layer', () => {
     expect([...GROUND_ORDER].sort()).toEqual(['grass', 'morningGlory', 'reeds']);
   });

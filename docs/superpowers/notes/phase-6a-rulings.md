@@ -135,3 +135,40 @@ The 36 shots were not committed (53 MB). They are in the session scratchpad, `�
 4. **Sky front view, 1900–1986: dark soft blob in the bottom-right corner**, below the OSM credit (e.g. `1935-sky.png`). It is probably a near, out-of-focus canopy or bird; it was not identified.
 5. **Sky, 1840 at 180°: a lone grey oval patch** on the grass west of the farm block, near a road. Possibly a dirt patch with no object on it.
 6. **Ride 1986:** the barge is empty at `c=95`, and the bridge is not in the frame. This is the known open item from Phase 5 ("1986 ride view misses bridge").
+
+## Open items 2–6: fixed 2026-10-02 (branch `art-6a`)
+
+User ruling 2026-10-02: fix all five (item 1 was already fixed). Shots taken with `scripts/dev/turn.mjs` (the
+360° helper, now committed) on the real GPU at 1440×900, `q=high`, `freeze=1`, `c=95`.
+
+2. **Empty land, hard polygon edges.** Two causes. (a) The OSM land polygons (wood, scrub, sand, wetland) are
+   rasterised with straight edges and one flat value inside. The ground shader now warps the lookup by ±22 m
+   of low-frequency noise, so every edge wanders like a field margin, and the dry-pasture noise thins the
+   woodland tint into glades. (b) No tree rule had an inland habitat, so the wood/scrub polygons were dark
+   paint with nothing on them. Coconut (0.1 wood, 0.05 scrub — Loíza is plantation country) and almendro
+   (0.1 wood) now grow there in thin groves. Counts stay inside the ±25 % budget in `placement.test.ts`.
+   Cane fields keep their straight edges: real fields have them.
+3. **Houses on dark columns.** Three causes, all in the Sky view. The shadow map (±140 m) covered only a strip
+   of what a 380 m-high camera sees, so the town had crisp 7 cm-texel shadows and the rest of the land had
+   none; the shadows were near black (no fill light; the PMREM sky alone); and a crisp block attached to the
+   house base reads as a plinth. Now `shadowSetupFor` widens the extent with camera height (to ±600 m),
+   drops the map to a quarter size with PCF radius 4 above the tier extent — aerial shadows become soft
+   smudges — and a hemisphere fill (`fillIntensity` 0.6 by day, sky `fogAway` from above, warm earth from
+   below) lifts shadows off black. Ride and Shore keep the full-resolution map (camera under 40 m).
+   The zocos stay: wooden houses on posts are correct for Loíza.
+4. **Dark soft blob, bottom right.** Identified: the cast shadow of the casuarina belt on the inland sand lot
+   east of the town (13–26 m trees at a low sun), not litter, not a bird. `q=low` (no shadows) removes it.
+   It stays as a real shadow; the needle floor is lighter and thinner (0.6, lighter browns) and the fixes in
+   item 3 soften it. Grass-to-blob ratio 2.15 → 1.84.
+5. **Grey oval in 1840.** Identified: the OSM `sand` polygon at (525, 130), 500 m from the sea, the same lot
+   the casuarinas stand on from 1900. `fields.ts` now gives inland sand (seaDist > 150 m) weight 0.4 — sandy
+   ground, not a bare beach — and the warp in item 2 feathers its edge. Pinned by `fields.test.ts`.
+6. **1986 ride view.** User ruling: the barge stays empty (out of service by 1986); the camera turns to the
+   bridge. `RIDE.mooredYaw` (0.95 rad) aims the moored ride view upstream from the Loíza landing; a test
+   pins it to within 8° of the PR-187 bridge landmarks. The bridge is 244 m away, thin and backlit: in
+   frame, not big. The barge cannot get closer. This closes the Phase 4b/4c/5 "ride misses the bridge" item.
+
+Frame rate (perf.mjs, production build, DPR 2, high, paired runs against a `main` build on :4174 — the Mac
+drifts ±2 fps between runs, so only pairs count): Ride 61.3 → 60.4, Shore 65.4 → 64.1, Sky 45.5 → 44.9
+(within 5 %). A first cut of the shader cost Sky 6.7 %: four extra `snoise` calls per ground pixel at 2× DPR.
+Cut to one (the warp uses one noise value along two diagonals; the glades reuse the pasture noise).

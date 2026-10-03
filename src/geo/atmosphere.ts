@@ -4,6 +4,8 @@ export interface Atmosphere {
   /** Haze colour looking away from the sun (cooler: blue-lavender at golden hour). */
   fogAway: RGB;
   envIntensity: number; turbidity: number; rayleigh: number; mie: number; mieG: number;
+  /** Hemisphere fill (sky `fogAway` from above, warm ground bounce from below): lifts shadows off black. */
+  fillIntensity: number;
   /** Horizon haze laid over the sky dome (0..1). */
   skyHaze: number;
   /** Haze mixed into the water's (un-fogged) mirror reflection (0..1). */
@@ -42,6 +44,7 @@ export function atmosphereFor(elevation: number): Atmosphere {
     fogAway,
     fogDensity: lerp(0.00042, 0.00016, high),
     envIntensity: lerp(0.1, lerp(1.1, 0.75, high), day),
+    fillIntensity: elevation <= -2 ? 0 : lerp(0.0, 0.6, day),
     turbidity: lerp(7, 4, high),
     rayleigh: lerp(2.2, 1.2, high),
     mie: lerp(0.008, 0.004, high),

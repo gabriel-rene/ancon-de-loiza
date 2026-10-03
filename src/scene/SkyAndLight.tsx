@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import type { Atmosphere } from '../geo/atmosphere';
-import { shadowFocus, type ShadowFocusResult } from './shadowFocus';
+import { shadowFocus, shadowSetupFor, type ShadowFocusResult, type ShadowSetup } from './shadowFocus';
 import { patchSkyShader } from './skyShader';
 import type { Sun } from './useSun';
 
@@ -58,28 +58,42 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
   // shadow-camera-* JSX props) because changing them requires an explicit
   // updateProjectionMatrix() call — R3F's prop diffing sets the fields but does not call it,
   // so without this effect the frustum goes stale after a quality change (shadowHalf/shadowMap).
+  const now = useRef({ half: 0, mapSize: 0, radius: 1 });
+  const apply = (l: THREE.DirectionalLight, s: ShadowSetup) => {
+    const cam = l.shadow.camera, n = now.current;
+    cam.left = -s.half; cam.right = s.half;
+    cam.top = s.half; cam.bottom = -s.half;
+    cam.near = 10; cam.far = 4000;
+    cam.updateProjectionMatrix();
+    l.shadow.radius = s.radius;
+    if (s.mapSize !== n.mapSize) {
+      // The shadow map render target is sized from mapSize at creation time and isn't resized
+      // in place; dispose it so three recreates it (at the new mapSize) on the next frame.
+      l.shadow.mapSize.set(s.mapSize || 1, s.mapSize || 1);
+      if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; }
+    }
+    l.shadow.needsUpdate = true;
+    n.half = s.half; n.mapSize = s.mapSize; n.radius = s.radius;
+  };
   useEffect(() => {
     const l = light.current;
     if (!l) return;
-    const cam = l.shadow.camera;
-    cam.left = -shadowHalf; cam.right = shadowHalf;
-    cam.top = shadowHalf; cam.bottom = -shadowHalf;
-    cam.near = 10; cam.far = 4000;
-    cam.updateProjectionMatrix();
-    // The shadow map render target is sized from mapSize at creation time and isn't resized
-    // in place; dispose it so three recreates it (at the current mapSize) on the next frame.
-    if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; }
-    l.shadow.needsUpdate = true;
-  }, [shadowHalf, shadowMap]);
+    now.current.mapSize = -1;   // force the map to be rebuilt at the tier's size
+    apply(l, shadowSetupFor(shadowHalf, shadowMap, camera.position.y));
+  }, [shadowHalf, shadowMap]);   // the camera height is re-read every frame below
 
   useFrame(() => {
     const l = light.current;
     if (!l || shadowHalf <= 0) return;
+    // Extent, map size and blur follow the camera height (a high Sky camera widens and softens the map);
+    // the frustum and map are only rebuilt when they change.
+    const s = shadowSetupFor(shadowHalf, shadowMap, camera.position.y), n = now.current;
+    if (s.half !== n.half || s.mapSize !== n.mapSize) apply(l, s);
     camPosArr[0] = camera.position.x; camPosArr[1] = camera.position.y; camPosArr[2] = camera.position.z;
     camera.getWorldDirection(tmpDir);
     camDirArr[0] = tmpDir.x; camDirArr[1] = tmpDir.y; camDirArr[2] = tmpDir.z;
     sunDirArr[0] = sun.dir.x; sunDirArr[1] = sun.dir.y; sunDirArr[2] = sun.dir.z;
-    shadowFocus(camPosArr, camDirArr, sunDirArr, shadowHalf, shadowMap || 1, focusOut);
+    shadowFocus(camPosArr, camDirArr, sunDirArr, s.half, s.mapSize || 1, focusOut);
     l.position.set(focusOut.position[0], focusOut.position[1], focusOut.position[2]);
     l.target.position.set(focusOut.target[0], focusOut.target[1], focusOut.target[2]);
     l.target.updateMatrixWorld();
@@ -93,12 +107,14 @@ export function SkyAndLight({ sun, shadowMap, shadowHalf }: { sun: Sun; shadowMa
     <>
       <SkyDome dir={sun.dir} atm={atm} />
       <Environment resolution={128} frames={1}>{envSky}</Environment>
+      {/* Sky fill: the PMREM sky alone left shadows black, so houses and groves seen from the Sky view stood
+          on dark blocks (6a open items 3 and 4). Cool sky from above, warm earth bounce from below. */}
+      <hemisphereLight color={new THREE.Color(...atm.fogAway)} groundColor={new THREE.Color(0.30, 0.22, 0.12)} intensity={atm.fillIntensity} />
       <directionalLight
         ref={light}
         color={new THREE.Color(...atm.sunColor)}
         intensity={atm.sunIntensity}
         castShadow={shadowMap > 0}
-        shadow-mapSize={[shadowMap || 1, shadowMap || 1]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.6}
       />

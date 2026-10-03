@@ -63,14 +63,16 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       return Math.max(band, wet) * (1 - s.town);
     },
   },
-  // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards.
+  // Cocos nucifera: coastal sand strip, some on river banks, sparse in town yards, and thin groves on the
+  // inland woodland polygons (OSM wood/scrub) so they are not flat dark ground from the Sky view (6a item 2).
   coconut: {
     spacing: 8, radius: 2.5, scale: [0.8, 1.2], variants: 3, rot: 0.3, clump: { scale: 70, strength: 0.85, size: 0.08, octave: true, coverage: { k: 1.3, groveDensity: 0.8 } },
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 5 || s.height < 0.3 || s.landCls === LANDCLS.WETLAND) return 0;
       const coast = s.seaDist > 12 ? 1 - smooth(180, 320, s.seaDist) : 0;
       const bank = 0.25 * (1 - smooth(10, 40, s.riverDist)) * smooth(4, 8, s.riverDist);
-      return Math.min(1, 0.55 * coast + bank + 0.18 * s.town);
+      const wood = s.landCls === LANDCLS.WOOD ? 0.1 : s.landCls === LANDCLS.SCRUB ? 0.05 : 0;
+      return Math.min(1, 0.55 * coast + bank + wood + 0.18 * s.town);
     },
   },
   // Casuarina equisetifolia ("piñones"): dunes and sand behind the beach.
@@ -117,13 +119,14 @@ export const RULES: Record<SpeciesId, SpeciesRule> = {
       return 0.25 * band * dry * (1 - s.town);
     },
   },
-  // Terminalia catappa: river banks near the landings and town yards (S1).
+  // Terminalia catappa: river banks near the landings and town yards (S1); a few in the inland woodland.
   almendro: {
     spacing: 14, radius: 4, scale: [0.8, 1.2], variants: 3, rot: Math.PI, clump: { scale: 60, strength: 0.5, size: 0.1 }, trunk: 0.5,
     density: (s) => {
       if (s.water !== WATER.LAND || s.roadDist < 4 || s.landCls === LANDCLS.WETLAND) return 0;
       const bank = (1 - smooth(15, 45, s.riverDist)) * smooth(4, 8, s.riverDist);
-      return Math.min(1, 0.35 * bank + 0.25 * s.town);
+      const wood = s.landCls === LANDCLS.WOOD ? 0.1 : 0;
+      return Math.min(1, 0.35 * bank + wood + 0.25 * s.town);
     },
   },
   // Coccoloba uvifera: beach edge and dunes, seaward of the casuarinas (S22).

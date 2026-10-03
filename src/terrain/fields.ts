@@ -65,7 +65,10 @@ export function buildFields(geo: GeoBundle, opts: { extent: number; size: number
     seaDist[k] = toSea[k] * g.cell;
     height[k] = water[k] ? -waterDepth(water[k], -s) : landHeight(s, seaDist[k], landCls[k], x, z);
 
-    const sand = landCls[k] === LANDCLS.SAND || (seaDist[k] < 70 && height[k] < 2.5) ? 1 : 0;
+    // Beach and dune sand is full sand; an OSM sand lot well inland (the one east of the town is 500 m
+    // from the sea) is sandy ground with thin grass, not a bare pale oval (6a open item 5).
+    const beach = seaDist[k] < 70 && height[k] < 2.5;
+    const sand = beach ? 1 : landCls[k] === LANDCLS.SAND ? (seaDist[k] < 150 ? 1 : 0.4) : 0;
     const mud = landCls[k] === LANDCLS.WETLAND ? 0.7 : water[k] === WATER.LAND && s < 6 && seaDist[k] > 40 ? 1 - s / 6 : 0;
     const forest = landCls[k] === LANDCLS.WOOD || landCls[k] === LANDCLS.SCRUB ? 0.85 : 0;
     info.set([sand * 255, mud * 255, forest * 255, 255], k * 4);
