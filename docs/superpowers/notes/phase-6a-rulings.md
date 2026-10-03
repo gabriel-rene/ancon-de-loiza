@@ -172,3 +172,7 @@ Frame rate (perf.mjs, production build, DPR 2, high, paired runs against a `main
 drifts ±2 fps between runs, so only pairs count): Ride 61.3 → 60.4, Shore 65.4 → 64.1, Sky 45.5 → 44.9
 (within 5 %). A first cut of the shader cost Sky 6.7 %: four extra `snoise` calls per ground pixel at 2× DPR.
 Cut to one (the warp uses one noise value along two diagonals; the glades reuse the pasture noise).
+
+Tests: 809 unit tests. `e2e:fast` under 6 workers (44.9 min): 52 passed, 8 SwiftShader load timeouts
+(the same class as the 7b run) — all 8 pass alone with `--workers=1`. Snapshot shots in
+`tests/snapshots/phase5/` re-taken.
