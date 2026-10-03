@@ -36,12 +36,12 @@ Spec: [`../specs/2026-10-02-phase-7b-launch-design.md`](../specs/2026-10-02-phas
 
 - **Share card image approved by the user as is** (2026-10-02), with the title slightly over the bottom of the front cars.
 
-### iPhone checklist (user)
+### iPhone checklist (user) — all 4 passed 2026-10-02
 
-- [ ] Paste https://gabriel-rene.github.io/ancon-de-loiza/ in Messages: the share card shows.
-- [ ] Safari tab shows the A favicon; Add to Home Screen shows the brown A icon.
-- [ ] https://gabriel-rene.github.io/ancon-de-loiza/nope shows the 404 page; its button goes home.
-- [ ] VoiceOver reads the title (heading level 1), the timeline, and the scene label.
+- [x] Paste https://gabriel-rene.github.io/ancon-de-loiza/ in Messages: the share card shows.
+- [x] Safari tab shows the A favicon; Add to Home Screen shows the brown A icon.
+- [x] https://gabriel-rene.github.io/ancon-de-loiza/nope shows the 404 page; its button goes home.
+- [x] VoiceOver reads the title (heading level 1), the timeline, and the scene label.
 
 ### Deferred minors (from the reviews; none blocks merge)
 
