@@ -21,7 +21,8 @@ export interface Landscape {
 
 export type RoadSurface = 'sand' | 'gravel' | 'asphalt';
 export type LandingLook = 'bank' | 'timber' | 'concrete';
-export type StationLook = 'shelter' | 'woodThatch' | 'woodZinc' | 'concrete';
+/** `concreteCanopy` = `concrete` plus the steel canopy over the ramp, the sign moved onto it (1980s photos). */
+export type StationLook = 'shelter' | 'woodThatch' | 'woodZinc' | 'concrete' | 'concreteCanopy';
 export type BridgeState = 'none' | 'building' | 'open';
 export interface Infrastructure {
   roadSurface: Sourced<RoadSurface>; landing: Sourced<LandingLook>; station: Sourced<StationLook>;
@@ -229,7 +230,9 @@ const ANCON = {
 // OSM data). The Cortijos ran the ancón from 1920 (S1); their house was built in the 1960s (S4; concrete is
 // inferred), with the bar's river terrace (S4; shown from 1975, inferred). A house beside the landing was
 // demolished for the bridge (S4; when is not dated). The reinforced-concrete bridge rose in the early 1980s
-// (S4) and was in service by 1986 (S1; S3 gives 1985).
+// (S4) and was in service by 1986 (S1; S3 gives 1985). The bar's shape, the Cortijo house across the street
+// and the steel canopy with the El Ancón de Loíza sign follow the family's 1970s–80s photos (user, 2026-10-03);
+// the canopy is shown only once the photos date it (the bridge stands behind it), so from 1984.
 const road = (v: RoadSurface): Sourced<RoadSurface> =>
   v === 'sand' ? s(v, ['S3'], 'M', true) : s(v, ['S30'], 'L', true);
 const landing = (v: LandingLook) => s(v, [], 'L', true);
@@ -238,6 +241,7 @@ const STATION = {
   woodThatch: s<StationLook>('woodThatch', ['S1'], 'L', true),
   woodZinc: s<StationLook>('woodZinc', ['S1', 'S4'], 'L', true),
   concrete: s<StationLook>('concrete', ['S4'], 'M'),
+  concreteCanopy: s<StationLook>('concreteCanopy', ['S4'], 'M'),
 };
 const NEIGHBOUR_NONE = s(false, [], 'L', true), NEIGHBOUR = s(true, ['S4'], 'L', true), NEIGHBOUR_GONE = s(false, ['S4'], 'M');
 const NO_BRIDGE = s<BridgeState>('none', ['S1'], 'H');
@@ -248,9 +252,9 @@ const INFRA = {
   '1935': { roadSurface: road('gravel'), landing: landing('timber'), station: STATION.woodZinc, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
   '1959': { roadSurface: road('asphalt'), landing: landing('timber'), station: STATION.woodZinc, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
   '1975': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR, bridge: NO_BRIDGE },
-  '1984': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
+  '1984': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concreteCanopy, neighbourHouse: NEIGHBOUR_GONE,
     bridge: s<BridgeState>('building', ['S4'], 'H') },
-  '1986': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concrete, neighbourHouse: NEIGHBOUR_GONE,
+  '1986': { roadSurface: road('asphalt'), landing: landing('concrete'), station: STATION.concreteCanopy, neighbourHouse: NEIGHBOUR_GONE,
     bridge: s<BridgeState>('open', ['S1'], 'H') },
 } satisfies Record<EraId, Infrastructure>;
 

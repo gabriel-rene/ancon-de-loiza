@@ -30,7 +30,7 @@ describe('one era of infrastructure', () => {
     expect(o.roads.length).toBeGreaterThan(0);
     expect(o.roads.map((r) => r.surface).sort()).toEqual([...new Set(i.roads.story.map((r) => r.surface))].sort());
     const f = placementFields(e.river.bankOffset.value), [clear] = landingClearings(crossingGeometry(f));
-    const s = o.station, fps = [s.house, s.terrace, s.shelter, e.infrastructure.neighbourHouse.value ? s.neighbour : null];
+    const s = o.station, fps = [s.house, s.bar, s.canopy, s.shelter, e.infrastructure.neighbourHouse.value ? s.neighbour : null];
     for (const fp of fps) if (fp) for (const [x, z] of corners(fp)) {
       expect(Math.hypot(x - clear[0], z - clear[1]), `${e.id}`).toBeLessThanOrEqual(LANDING_CLEARING[0]);
       expect(i.dryAt(x, z), `${e.id} corner on dry ground`).toBe(true);
