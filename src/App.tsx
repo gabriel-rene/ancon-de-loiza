@@ -1,12 +1,13 @@
 import { StatsGl } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { QUALITY } from './quality';
 import { Cameras } from './scene/Cameras';
 import { FrameSampler, RendererInfo } from './scene/FrameSampler';
 import { QualityGovernor } from './scene/QualityGovernor';
 import { ReadySignal } from './scene/ReadySignal';
+import { ShaderWarmup } from './scene/ShaderWarmup';
 import { World } from './scene/World';
 import { useStore } from './state/store';
 import { Timeline } from './ui/Timeline';
@@ -27,6 +28,9 @@ export function App() {
   const perf = useStore((s) => s.perf);
   const lang = useStore((s) => s.lang);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  // No frames until the shaders are built (ShaderWarmup): a frame before that links them one by one on the main thread.
+  const [warm, setWarm] = useState(false);
+  const onWarm = useCallback(() => setWarm(true), []);
   return (
     <>
       <SkipLink />
@@ -36,12 +40,14 @@ export function App() {
         <SceneBoundary>
           <SceneFrame>
             <Canvas
+              frameloop={warm ? 'always' : 'never'}
               dpr={q.dpr}
               shadows={q.shadowMap > 0 ? 'percentage' : false}
               camera={{ fov: 42, near: 1.5, far: 40000, position: [600, 450, 700] }}
               gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
             >
               <World />
+              <ShaderWarmup onDone={onWarm} />
               <Cameras />
               <ReadySignal />
               <DipFrameSignal />
