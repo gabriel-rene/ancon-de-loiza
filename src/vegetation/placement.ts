@@ -81,6 +81,30 @@ export function habitatMask(f: WorldFields, m: VegMasks, species: SpeciesId, bui
   return out;
 }
 
+/**
+ * Summed-area table of a habitat mask ((n+1)² entries): `anyHabitat` tells in O(1) if a cell rectangle holds any
+ * habitat, so placeSpecies skips the empty map (sea, far land) without drawing a candidate. Cached per mask.
+ */
+const satCache = new WeakMap<Uint8Array, Int32Array>();
+function habitatSat(hab: Uint8Array, n: number) {
+  let sat = satCache.get(hab);
+  if (sat) return sat;
+  sat = new Int32Array((n + 1) * (n + 1));
+  for (let j = 0; j < n; j++) {
+    let row = 0;
+    for (let i = 0; i < n; i++) { row += hab[j * n + i]; sat[(j + 1) * (n + 1) + i + 1] = sat[j * (n + 1) + i + 1] + row; }
+  }
+  satCache.set(hab, sat);
+  return sat;
+}
+/** Any habitat in cells [i0, i1] × [j0, j1] (clamped to the grid)? */
+function anyHabitat(sat: Int32Array, n: number, i0: number, i1: number, j0: number, j1: number) {
+  i0 = Math.max(0, i0); j0 = Math.max(0, j0); i1 = Math.min(n - 1, i1); j1 = Math.min(n - 1, j1);
+  if (i0 > i1 || j0 > j1) return false;
+  const w = n + 1;
+  return sat[(j1 + 1) * w + i1 + 1] - sat[j0 * w + i1 + 1] - sat[(j1 + 1) * w + i0] + sat[j0 * w + i0] > 0;
+}
+
 /** Build the habitat masks of `species` now (e.g. ground cover's, outside the frame loop). */
 export function warmHabitat(f: WorldFields, m: VegMasks, species: readonly SpeciesId[]) {
   for (const s of species) habitatMask(f, m, s);
@@ -104,46 +128,58 @@ export function placeSpecies(f: WorldFields, m: VegMasks, species: SpeciesId, op
   const salt = species.length * 7919 + species.charCodeAt(0);
   const { scale: cs, strength: cstr, size: csize, octave, gap, coverage } = rule.clump;
   const noiseSeed = opts.seed * 977 + salt;
-  const hab = habitatMask(f, m, species);
+  const hab = habitatMask(f, m, species), sat = habitatSat(hab, g.size);
   const b = opts.bounds;
+  // First/last field cell a candidate's jittered position can reach along one axis (candidate index c), padded by one for rounding.
+  const lo = (c: number) => Math.floor((c + 0.5 - JITTER / 2) * sp / g.cell) - 1, hi = (c: number) => Math.floor((c + 0.5 + JITTER / 2) * sp / g.cell) + 1;
   const i0 = b ? Math.max(0, Math.floor((b[0] - g.minX) / sp) - 1) : 0, i1 = b ? Math.min(n - 1, Math.floor((b[2] - g.minX) / sp) + 1) : n - 1;
   const j0 = b ? Math.max(0, Math.floor((b[1] - g.minZ) / sp) - 1) : 0, j1 = b ? Math.min(n - 1, Math.floor((b[3] - g.minZ) / sp) + 1) : n - 1;
-  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-    const r = _cand.reset(i, j, opts.seed * 131 + salt);
-    const x = g.minX + (i + 0.5 + JITTER * (r.next() - 0.5)) * sp, z = g.minZ + (j + 0.5 + JITTER * (r.next() - 0.5)) * sp;
-    const accept = r.next(), rot = (2 * r.next() - 1) * rule.rot, sc = r.next(), variant = Math.floor(r.next() * rule.variants);
-    if (b && (x < b[0] || x >= b[2] || z < b[1] || z >= b[3])) continue;
-    const gi = Math.floor((x - g.minX) / g.cell), gj = Math.floor((z - g.minZ) / g.cell);
-    if (gi < 0 || gj < 0 || gi >= g.size || gj >= g.size || !hab[gj * g.size + gi]) continue;
-    if (opts.skip?.(x, z)) continue;
-    const s = siteAt(f, m, x, z);
-    if (!s) continue;
-    const d = rule.density(s) * opts.density * (1 - s.clear);
-    if (d <= 0) continue;
-    let cn = valueNoise(x, z, cs, noiseSeed);
-    if (octave) cn = Math.min(1, Math.max(0, cn * (0.6 + 0.8 * valueNoise(x, z, cs / 3, noiseSeed + 17))));
-    let acceptProb: number;
-    if (coverage) {
-      // Grove coverage: the *area fraction* that is grove scales with d (task-9 R11), not the
-      // acceptance rate inside it — so low-density habitat still produces dense little clusters
-      // with real open ground between them, instead of a uniformly thinned scatter.
-      const cutoff = 1 - Math.min(1, d * coverage.k);
-      acceptProb = cn > cutoff ? Math.min(1, coverage.groveDensity) : 0;
-    } else if (gap !== undefined) {
-      // Threshold-shaped: real zero-acceptance gaps below the cut, dense groves above it. `strength`
-      // sets the transition's sharpness (higher = narrower, more binary gap-vs-grove edge).
-      const w = Math.max(0.03, 0.5 * (1 - cstr) + 0.05);
-      const t = Math.min(1, Math.max(0, (cn - (gap - w)) / (2 * w)));
-      acceptProb = d * (t * t * (3 - 2 * t));
-    } else {
-      acceptProb = d * (1 - cstr + 2 * cstr * cn);
+  for (let j = j0; j <= j1; j++) {
+    const gj0 = lo(j), gj1 = hi(j);
+    if (!anyHabitat(sat, g.size, 0, g.size - 1, gj0, gj1)) continue;
+    for (let i = i0; i <= i1; i++) {
+      // A candidate with no habitat in reach is rejected below whatever it draws; each cell's stream is independent, so skipping it changes nothing.
+      if (!anyHabitat(sat, g.size, lo(i), hi(i), gj0, gj1)) continue;
+      const r = _cand.reset(i, j, opts.seed * 131 + salt);
+      const x = g.minX + (i + 0.5 + JITTER * (r.next() - 0.5)) * sp, z = g.minZ + (j + 0.5 + JITTER * (r.next() - 0.5)) * sp;
+      if (b && (x < b[0] || x >= b[2] || z < b[1] || z >= b[3])) continue;
+      const gi = Math.floor((x - g.minX) / g.cell), gj = Math.floor((z - g.minZ) / g.cell);
+      if (gi < 0 || gj < 0 || gi >= g.size || gj >= g.size || !hab[gj * g.size + gi]) continue;
+      if (opts.skip?.(x, z)) continue;
+      // Drawn only for survivors, in the stream's fixed order (same values as drawing them all up front).
+      const accept = r.next(), rot = (2 * r.next() - 1) * rule.rot, sc = r.next(), variant = Math.floor(r.next() * rule.variants);
+      const s = siteAt(f, m, x, z);
+      if (!s) continue;
+      const d = rule.density(s) * opts.density * (1 - s.clear);
+      if (d <= 0) continue;
+      // Most candidates fail on `accept` even at the clump noise's best (cn = 1): reject those before sampling noise.
+      // The bound is acceptProb at its largest (plus a hair for rounding), so no accepted candidate is lost.
+      if (accept >= (coverage ? Math.min(1, coverage.groveDensity) : gap !== undefined ? d : d * (1 + cstr)) * (1 + 1e-9)) continue;
+      let cn = valueNoise(x, z, cs, noiseSeed);
+      if (octave) cn = Math.min(1, Math.max(0, cn * (0.6 + 0.8 * valueNoise(x, z, cs / 3, noiseSeed + 17))));
+      let acceptProb: number;
+      if (coverage) {
+        // Grove coverage: the *area fraction* that is grove scales with d (task-9 R11), not the
+        // acceptance rate inside it — so low-density habitat still produces dense little clusters
+        // with real open ground between them, instead of a uniformly thinned scatter.
+        const cutoff = 1 - Math.min(1, d * coverage.k);
+        acceptProb = cn > cutoff ? Math.min(1, coverage.groveDensity) : 0;
+      } else if (gap !== undefined) {
+        // Threshold-shaped: real zero-acceptance gaps below the cut, dense groves above it. `strength`
+        // sets the transition's sharpness (higher = narrower, more binary gap-vs-grove edge).
+        const w = Math.max(0.03, 0.5 * (1 - cstr) + 0.05);
+        const t = Math.min(1, Math.max(0, (cn - (gap - w)) / (2 * w)));
+        acceptProb = d * (t * t * (3 - 2 * t));
+      } else {
+        acceptProb = d * (1 - cstr + 2 * cstr * cn);
+      }
+      if (accept >= acceptProb) continue;
+      if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
+      if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
+      opts.occupancy?.mark(x, z, rule.radius);
+      const scale = (rule.scale[0] + (rule.scale[1] - rule.scale[0]) * sc) * (1 + csize * (2 * cn - 1));
+      out.push({ x, y: Math.max(s.height, -0.3), z, rot, scale, variant });
     }
-    if (accept >= acceptProb) continue;
-    if (opts.occupancy && !opts.occupancy.free(x, z, rule.radius)) continue;
-    if (opts.blocked && !opts.blocked.free(x, z, Math.max(1, rule.radius))) continue;
-    opts.occupancy?.mark(x, z, rule.radius);
-    const scale = (rule.scale[0] + (rule.scale[1] - rule.scale[0]) * sc) * (1 + csize * (2 * cn - 1));
-    out.push({ x, y: Math.max(s.height, -0.3), z, rot, scale, variant });
   }
   return out;
 }
