@@ -27,6 +27,8 @@ export const STRINGS = {
   skipToTimeline: { es: 'Saltar a la línea del tiempo', en: 'Skip to timeline' },
   sceneLabel: { es: 'Vista 3D del ancón', en: '3D view of the ferry' },
   sceneKeys: { es: 'Flechas para mirar alrededor.', en: 'Arrow keys look around.' },
+  research: { es: 'Investigación y fuentes completas', en: 'Full research and sources' },
+  dragHint: { es: 'Arrastra para mirar alrededor', en: 'Drag to look around' },
   recenterAvailable: { es: 'Centrar disponible', en: 'Recenter available' },
 } satisfies Record<string, Bilingual>;
 

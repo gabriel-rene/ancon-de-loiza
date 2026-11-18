@@ -55,3 +55,15 @@ test('← → do not change the era from the scene, the Facts panel or the Quali
   fireEvent.keyDown(document.body, { key: 'ArrowRight' });
   expect(useStore.getState().eraId).toBe('1984');
 });
+test('each stop shows its year; the era name and span ride in the hover label, anchored inside the window at both ends', () => {
+  render(<Timeline />);
+  const btns = within(screen.getByRole('navigation')).getAllByRole('button');
+  expect(btns.map((b) => b.textContent)).toEqual(['1840', '1900', '1925', '1935', '1959', '1975', '1984', '1986']);
+  expect(btns[3].getAttribute('data-tip')).toBe('The ropes · 1930s–1940s');
+  expect(btns.map((b) => b.getAttribute('data-edge'))).toEqual(['start', 'start', null, null, null, null, 'end', 'end']);
+  expect(btns[3].hasAttribute('title')).toBe(false);          // no second, native tooltip
+});
+test('decade ticks mark the true scale, 1820 to 1980', () => {
+  const { container } = render(<Timeline />);
+  expect(container.querySelectorAll('.timeline__decade')).toHaveLength(17);
+});

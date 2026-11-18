@@ -12,7 +12,7 @@ const browser = await chromium.launch({ args });
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
 await page.goto(url);
 await page.waitForFunction(() => (window as unknown as { __ANCON_READY__?: boolean }).__ANCON_READY__ === true, null, { timeout: 180_000 });
-await page.addStyleTag({ content: 'header, nav, .timeline, .title-card, .osm-credit, .skip-link, .fps-readout { display: none !important; }' });
+await page.addStyleTag({ content: 'header, nav, .timeline, .title-card, .scrim, .drag-hint, .osm-credit, .skip-link, .fps-readout { display: none !important; }' });
 await page.waitForTimeout(1500);
 const scene = (await page.screenshot({ type: 'png' })).toString('base64');
 

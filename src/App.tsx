@@ -11,6 +11,8 @@ import { World } from './scene/World';
 import { useStore } from './state/store';
 import { Timeline } from './ui/Timeline';
 import { SoundGate } from './sound/SoundGate';
+import { Brand } from './ui/Brand';
+import { DragHint } from './ui/DragHint';
 import { DipFrameSignal, EraAnnouncer, EraDipOverlay } from './ui/EraDip';
 import { FpsReadout } from './ui/FpsReadout';
 import { SceneBoundary } from './ui/SceneBoundary';
@@ -18,6 +20,7 @@ import { SceneFrame } from './ui/SceneFrame';
 import { SkipLink } from './ui/SkipLink';
 import { TitleCard } from './ui/TitleCard';
 import { Toolbar } from './ui/Toolbar';
+import { useIdle } from './ui/useIdle';
 
 const DebugPanel = lazy(() => import('./ui/DebugPanel').then((m) => ({ default: m.DebugPanel })));
 
@@ -27,11 +30,13 @@ export function App() {
   const perf = useStore((s) => s.perf);
   const lang = useStore((s) => s.lang);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useIdle();
   return (
     <>
       <SkipLink />
-      <header><Toolbar /></header>
+      <header><Brand /><Toolbar /></header>
       <main>
+        <div className="scrim" aria-hidden="true" />
         <TitleCard />
         <SceneBoundary>
           <SceneFrame>
@@ -54,6 +59,7 @@ export function App() {
           </SceneFrame>
           <EraDipOverlay />
         </SceneBoundary>
+        <DragHint />
       </main>
       <EraAnnouncer />
       <Timeline />
