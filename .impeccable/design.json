@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T00:00:00Z",
+  "title": "Design System: El Ancón de Loíza",
+  "extensions": {
+    "colorMeta": {
+      "green": { "role": "primary", "displayName": "Bottle Green", "canonical": "#1e4a33", "tonalRamp": ["#0b1f15", "#123524", "#1e4a33", "#28603f", "#3f7d59", "#6fa286", "#a9c8b6", "#dfece4"] },
+      "green-deep": { "role": "primary", "displayName": "Deep Green", "canonical": "#123524", "tonalRamp": ["#08140e", "#0d281b", "#123524", "#1e4a33", "#356b4e", "#66957b", "#a3c2b0", "#dceae2"] },
+      "cream": { "role": "primary", "displayName": "Sign Cream", "canonical": "#e7ece3", "tonalRamp": ["#262b24", "#454c42", "#687165", "#8e978a", "#b3bbaf", "#d0d7cb", "#e7ece3", "#f4f7f1"] },
+      "ochre": { "role": "secondary", "displayName": "Painted Ochre", "canonical": "#b7834f", "tonalRamp": ["#2e1b09", "#52320f", "#7a4d21", "#9a6a39", "#b7834f", "#c79461", "#dcb893", "#f2e3d2"] },
+      "ochre-ink": { "role": "secondary", "displayName": "Ochre Ink", "canonical": "#7a4d21", "tonalRamp": ["#2e1b09", "#52320f", "#7a4d21", "#9a6a39", "#b7834f", "#c79461", "#dcb893", "#f2e3d2"] },
+      "gold": { "role": "tertiary", "displayName": "Sun Gold", "canonical": "#f2c46d", "tonalRamp": ["#33240a", "#5c4314", "#8a6722", "#b88c37", "#dcaa4e", "#f2c46d", "#f7d99f", "#fcefd6"] },
+      "ink": { "role": "neutral", "displayName": "Green-Black Ink", "canonical": "#08140e", "tonalRamp": ["#08140e", "#14261c", "#263a2f", "#3d4f44", "#5e6f65", "#8a988f", "#b9c3bc", "#e3e8e4"] },
+      "field-centre": { "role": "neutral", "displayName": "Green Field, centre stop", "canonical": "#2a5f43" },
+      "field-edge": { "role": "neutral", "displayName": "Green Field, edge stop", "canonical": "#143625" },
+      "green-hover": { "role": "primary", "displayName": "Placard hover", "canonical": "#28603f" },
+      "cream-hover": { "role": "primary", "displayName": "Pressed placard hover", "canonical": "#f4f7f1" },
+      "ochre-hover": { "role": "secondary", "displayName": "Facts placard hover", "canonical": "#c79461" },
+      "board-ink": { "role": "neutral", "displayName": "Board Ink", "canonical": "#14261c" },
+      "board-meta": { "role": "neutral", "displayName": "Board Meta", "canonical": "#3d4f44" },
+      "scrim": { "role": "neutral", "displayName": "Scrim (small text)", "canonical": "rgba(8, 20, 14, 0.72)" },
+      "scrim-large": { "role": "neutral", "displayName": "Scrim (large text)", "canonical": "rgba(8, 20, 14, 0.56)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The year on the era dip. Archivo 900 at 66% width, fixed digit cells." },
+      "headline": { "displayName": "Headline", "purpose": "The era year bottom left; also the board header year (34px), fact numerals (22px) and load card year." },
+      "title": { "displayName": "Title", "purpose": "Era name, in the reading voice at weight 700." },
+      "body": { "displayName": "Body", "purpose": "Fact text on the cream board, max 62ch." },
+      "meta": { "displayName": "Meta", "purpose": "Source lines and notes on the board (13px); map credit (11px)." },
+      "label": { "displayName": "Label", "purpose": "Placards and menu items: uppercase sign voice at 82% width. Small labels use 84% width at 12–13px." },
+      "stop": { "displayName": "Stop", "purpose": "Year labels on the route line: 800 at 72% width, tabular numerals." }
+    },
+    "shadows": [
+      { "name": "placard", "value": "inset 0 0 0 2px #1e4a33, inset 0 0 0 3px rgba(231, 236, 227, 0.5), 0 1px 0 rgba(8, 20, 14, 0.5), 0 8px 18px -10px rgba(8, 20, 14, 0.7)", "purpose": "Inner keyline plus a hard edge and a tight drop under every green placard." },
+      { "name": "placard-pressed", "value": "inset 0 0 0 2px #e7ece3, inset 0 0 0 3px rgba(18, 53, 36, 0.45)", "purpose": "Keyline only; a pressed placard has no drop shadow." },
+      { "name": "placard-facts", "value": "inset 0 0 0 2px #b7834f, inset 0 0 0 3px rgba(8, 20, 14, 0.45), 0 1px 0 rgba(8, 20, 14, 0.5), 0 8px 18px -10px rgba(8, 20, 14, 0.7)", "purpose": "The ochre Facts placard." },
+      { "name": "placard-facts-open", "value": "inset 0 0 0 2px #08140e, 0 0 0 2px #b7834f", "purpose": "Facts placard while the board is open." },
+      { "name": "menu", "value": "0 1px 0 rgba(8, 20, 14, 0.5), 0 18px 36px -14px rgba(8, 20, 14, 0.8)", "purpose": "Quality menu." },
+      { "name": "board", "value": "0 30px 60px -24px rgba(8, 20, 14, 0.75), 0 2px 0 rgba(8, 20, 14, 0.35)", "purpose": "Facts board." },
+      { "name": "marker", "value": "0 0 0 3px rgba(8, 20, 14, 0.6), 0 2px 8px rgba(8, 20, 14, 0.5)", "purpose": "Dark ring so the gold route marker reads on any sky." },
+      { "name": "sign", "value": "drop-shadow(0 2px 5px rgba(8, 20, 14, 0.45))", "purpose": "Filter on the station sign image." },
+      { "name": "year", "value": "0 2px 18px rgba(8, 20, 14, 0.5)", "purpose": "Text shadow on the era year over the scene." },
+      { "name": "hint", "value": "inset 0 0 0 2px #1e4a33, inset 0 0 0 3px rgba(231, 236, 227, 0.5), 0 10px 24px -12px rgba(8, 20, 14, 0.7)", "purpose": "Drag hint placard." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Standard easing (--ease) for settle, rise, marker moves and the board." },
+      { "name": "ease-draw", "value": "cubic-bezier(0.3, 0, 0.2, 1)", "purpose": "The route line drawing itself on arrival (1400ms, delay 200ms)." },
+      { "name": "settle-press", "value": "260ms var(--ease), from translateY(-3px)", "purpose": "A placard or stop that becomes chosen lifts and settles; colour cuts." },
+      { "name": "placard-in", "value": "320ms (Recenter) / 220ms (menu) var(--ease), from opacity 0 translateY(6px)", "purpose": "A placard or menu that appears." },
+      { "name": "arrival-settle", "value": "900ms var(--ease), from opacity 0 translateY(-10px); sign delay 150ms, utility placards 300ms", "purpose": "Top objects settle once the scene is ready." },
+      { "name": "arrival-rise", "value": "900ms var(--ease), from opacity 0 translateY(12px); era words 650ms, action placards 700ms", "purpose": "Bottom objects rise on arrival." },
+      { "name": "cell-up", "value": "800ms var(--ease), from translateY(105%), delay 380ms + i × 70ms", "purpose": "Year digits rise inside their fixed cells on arrival and on each era change." },
+      { "name": "stop-in", "value": "600ms var(--ease), delay 260ms + x × 1250ms", "purpose": "Each route stop lands as the drawn line reaches it (x = position 0–1)." },
+      { "name": "marker-move", "value": "700ms var(--ease)", "purpose": "Route marker and progress line travel to the chosen stop; none while dragged." },
+      { "name": "era-dip", "value": "close 300ms, hold until 2 frames (cap 1000ms), open 300ms; clip-path inset from top and bottom, smoothstep", "purpose": "Two green leaves close on the horizon and open on the new era." },
+      { "name": "year-count", "value": "380ms, cubic ease-out", "purpose": "The dip year counts through the years between the two eras." },
+      { "name": "board-in", "value": "420ms var(--ease), from opacity 0 translateX(28px); narrow: translateY(24px)", "purpose": "Facts board entry." },
+      { "name": "fact-in", "value": "520ms var(--ease), from opacity 0 translateY(10px), delay 90ms + i × 55ms", "purpose": "Facts follow the board in order." },
+      { "name": "idle-fade", "value": "after 7000ms still: opacity 0 over 1400ms; wake: 320ms ease", "purpose": "Placards step back on mouse devices; not while hovered, focused, or with the board or menu open." },
+      { "name": "drag-hint", "value": "delay 3200ms, in 600ms, stay 7000ms, out 400ms; arrow sway 2.4s ease-in-out", "purpose": "One gesture hint, once per session." },
+      { "name": "load-card", "value": "bar steps 500ms var(--ease) to 33% / 67% / 100%; card fades 600ms ease", "purpose": "Load progress on the green field." },
+      { "name": "reduced-motion", "value": "animation: none; transition: none; era dip display: none; idle fade off", "purpose": "prefers-reduced-motion: reduce makes every change instant." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "759px" },
+      { "name": "route-scroll", "value": "639px" },
+      { "name": "hint-raise", "value": "1099px" },
+      { "name": "sign-small", "value": "380px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Placard",
+      "kind": "button",
+      "refersTo": "placard",
+      "description": "The standard control: a small green painted board with a cream keyline. Turns cream when pressed or open.",
+      "html": "<button class=\"ds-placard\" aria-pressed=\"false\">Sonido</button> <button class=\"ds-placard\" aria-pressed=\"true\">Sonido</button>",
+      "css": ".ds-placard { min-height: 44px; min-width: 44px; padding: 1px 15px 0; border: 0; border-radius: 3px; background: #1e4a33; color: #e7ece3; font: 700 13.5px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 82%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; box-shadow: inset 0 0 0 2px #1e4a33, inset 0 0 0 3px rgba(231, 236, 227, 0.5), 0 1px 0 rgba(8, 20, 14, 0.5), 0 8px 18px -10px rgba(8, 20, 14, 0.7); transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-placard:hover { background: #28603f; } .ds-placard:active { transform: translateY(1px); } .ds-placard[aria-pressed='true'] { background: #e7ece3; color: #123524; box-shadow: inset 0 0 0 2px #e7ece3, inset 0 0 0 3px rgba(18, 53, 36, 0.45); } .ds-placard[aria-pressed='true']:hover { background: #f4f7f1; } .ds-placard:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }"
+    },
+    {
+      "name": "Facts placard",
+      "kind": "button",
+      "refersTo": "placard-facts",
+      "description": "The one ochre placard. It opens the facts board.",
+      "html": "<button class=\"ds-placard-facts\">Datos</button>",
+      "css": ".ds-placard-facts { min-height: 44px; min-width: 44px; padding: 1px 15px 0; border: 0; border-radius: 3px; background: #b7834f; color: #08140e; font: 700 13.5px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 82%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; box-shadow: inset 0 0 0 2px #b7834f, inset 0 0 0 3px rgba(8, 20, 14, 0.45), 0 1px 0 rgba(8, 20, 14, 0.5), 0 8px 18px -10px rgba(8, 20, 14, 0.7); transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-placard-facts:hover { background: #c79461; } .ds-placard-facts:active { transform: translateY(1px); } .ds-placard-facts:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }"
+    },
+    {
+      "name": "Placard group (views)",
+      "kind": "nav",
+      "refersTo": "placard",
+      "description": "Ride / Shore / Sky on one green board with one keyline. The chosen view is cream.",
+      "html": "<div class=\"ds-group\" role=\"group\"><button class=\"ds-seg\" aria-pressed=\"true\">A bordo</button><button class=\"ds-seg\" aria-pressed=\"false\">Orilla</button><button class=\"ds-seg\" aria-pressed=\"false\">Cielo</button></div>",
+      "css": ".ds-group { display: inline-flex; border-radius: 3px; background: #1e4a33; box-shadow: inset 0 0 0 2px #1e4a33, inset 0 0 0 3px rgba(231, 236, 227, 0.5), 0 1px 0 rgba(8, 20, 14, 0.5), 0 8px 18px -10px rgba(8, 20, 14, 0.7); } .ds-seg { min-height: 44px; min-width: 44px; padding: 1px 12px 0; border: 0; border-radius: 3px; background: transparent; color: #e7ece3; font: 700 13.5px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 82%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-seg:hover { background: rgba(231, 236, 227, 0.12); } .ds-seg:active { transform: translateY(1px); } .ds-seg[aria-pressed='true'] { background: #e7ece3; color: #123524; box-shadow: inset 0 0 0 2px #e7ece3, inset 0 0 0 3px rgba(18, 53, 36, 0.45); } .ds-seg[aria-pressed='true']:hover { background: #f4f7f1; } .ds-seg:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quality menu",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "Deep green board of radio items; the checked item is cream with a drawn tick.",
+      "html": "<div class=\"ds-menu\" role=\"menu\"><button class=\"ds-menu-item\" role=\"menuitemradio\" aria-checked=\"true\">Auto</button><button class=\"ds-menu-item\" role=\"menuitemradio\" aria-checked=\"false\">Alta</button><button class=\"ds-menu-item\" role=\"menuitemradio\" aria-checked=\"false\">Media</button><button class=\"ds-menu-item\" role=\"menuitemradio\" aria-checked=\"false\">Baja</button></div>",
+      "css": ".ds-menu { display: inline-flex; flex-direction: column; min-width: 168px; padding: 5px; border-radius: 3px; background: #123524; box-shadow: 0 1px 0 rgba(8, 20, 14, 0.5), 0 18px 36px -14px rgba(8, 20, 14, 0.8); } .ds-menu-item { position: relative; min-height: 44px; padding: 1px 14px 0 38px; border: 0; border-radius: 2px; background: transparent; color: #e7ece3; text-align: left; font: 700 13.5px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 82%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; } .ds-menu-item:hover { background: rgba(231, 236, 227, 0.12); } .ds-menu-item[aria-checked='true'] { background: #e7ece3; color: #123524; } .ds-menu-item[aria-checked='true']::before { content: ''; position: absolute; left: 15px; top: 50%; width: 11px; height: 6px; margin-top: -6px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); } .ds-menu-item:focus-visible { outline: 2px solid #f2c46d; outline-offset: 2px; }"
+    },
+    {
+      "name": "Era title",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "The year in fixed digit cells with the era name and span beside it. Sits on the scrim.",
+      "html": "<div class=\"ds-era\"><span class=\"ds-era-year\"><span>1</span><span>9</span><span>7</span><span>5</span></span><span class=\"ds-era-words\"><span class=\"ds-era-label\">El ancón de los Cortijo</span><span class=\"ds-era-span\">Años 1970</span></span></div>",
+      "css": ".ds-era { display: flex; align-items: flex-end; gap: 16px; padding: 28px 20px 18px; background: rgba(8, 20, 14, 0.72); color: #e7ece3; } .ds-era-year { display: flex; font: 900 72px/0.8 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 68%; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; text-shadow: 0 2px 18px rgba(8, 20, 14, 0.5); } .ds-era-year > span { display: block; width: 0.5em; text-align: center; } .ds-era-words { display: flex; flex-direction: column; gap: 5px; padding-bottom: 1px; } .ds-era-label { font: 700 22px/1.12 'Archivo', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.005em; } .ds-era-span { font: 600 13px/1.2 'Archivo', 'Arial Narrow', sans-serif; font-stretch: 84%; letter-spacing: 0.09em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Route line",
+      "kind": "nav",
+      "refersTo": "route-stop",
+      "description": "True-scale line with year stops and a gold marker. The current stop is a cream chip.",
+      "html": "<div class=\"ds-route\"><div class=\"ds-route-line\"></div><div class=\"ds-route-progress\"></div><div class=\"ds-route-knob\"></div><button class=\"ds-route-stop\" style=\"left:6%\"><span>1840</span></button><button class=\"ds-route-stop\" style=\"left:40%\"><span>1900</span></button><button class=\"ds-route-stop\" aria-current=\"true\" style=\"left:74%\"><span>1975</span></button></div>",
+      "css": ".ds-route { position: relative; height: 72px; margin: 14px 22px 0; background: transparent; } .ds-route::before { content: ''; position: absolute; inset: -14px -22px 0; background: rgba(8, 20, 14, 0.72); } .ds-route-line { position: absolute; left: -22px; right: -22px; top: 0; height: 2px; background: rgba(231, 236, 227, 0.66); } .ds-route-progress { position: absolute; left: -22px; top: 0; width: calc(78% + 22px); height: 2px; background: #e7ece3; } .ds-route-knob { position: absolute; top: -7px; left: 78%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #f2c46d; box-shadow: 0 0 0 3px rgba(8, 20, 14, 0.6), 0 2px 8px rgba(8, 20, 14, 0.5); cursor: grab; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-route-knob:hover { transform: scale(1.15); } .ds-route-stop { position: absolute; top: 10px; min-height: 48px; min-width: 44px; padding: 6px 0 4px; border: 0; border-radius: 2px; background: transparent; color: #e7ece3; font: 800 16px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 72%; letter-spacing: 0.03em; font-variant-numeric: tabular-nums lining-nums; cursor: pointer; display: flex; align-items: flex-start; justify-content: center; } .ds-route-stop span { display: block; padding: 7px 6px 6px; border-radius: 2px; } .ds-route-stop:hover span { background: rgba(231, 236, 227, 0.16); } .ds-route-stop:active span { transform: translateY(1px); } .ds-route-stop[aria-current='true'] span { background: #e7ece3; color: #123524; } .ds-route-stop:focus-visible { outline: none; } .ds-route-stop:focus-visible span { outline: 2px solid #f2c46d; outline-offset: 2px; }"
+    },
+    {
+      "name": "Facts board",
+      "kind": "card",
+      "refersTo": "facts-board",
+      "description": "The one panel: cream board, green header rail, numbered facts with their sources beside them.",
+      "html": "<section class=\"ds-board\"><header class=\"ds-board-head\"><h2><span class=\"ds-board-year\">1975</span><span class=\"ds-board-label\">El ancón de los Cortijo</span></h2><button class=\"ds-board-close\" aria-label=\"Cerrar\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M3 3l10 10M13 3L3 13\"/></svg></button></header><div class=\"ds-board-body\"><ol><li><p>Texto del dato, en la voz de lectura.</p><p class=\"ds-board-meta\"><span class=\"ds-stamp\">Inferido</span>Fuentes: <a href=\"#\">Título de la fuente</a></p></li><li><p>Otro dato con su fuente al lado.</p><p class=\"ds-board-meta\">Fuentes: <a href=\"#\">Título de la fuente</a></p></li></ol></div></section>",
+      "css": ".ds-board { width: 430px; max-width: 100%; display: flex; flex-direction: column; border-radius: 4px; overflow: hidden; background: #e7ece3; color: #14261c; box-shadow: 0 30px 60px -24px rgba(8, 20, 14, 0.75), 0 2px 0 rgba(8, 20, 14, 0.35); font: 400 16px/1.55 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-board-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 10px 12px 20px; background: #1e4a33; color: #e7ece3; } .ds-board-head h2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; margin: 0; font: inherit; } .ds-board-year { font: 900 34px/0.9 'Archivo', 'Arial Narrow', sans-serif; font-stretch: 68%; font-variant-numeric: tabular-nums lining-nums; } .ds-board-label { font: 700 17px/1.2 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-board-close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: inherit; cursor: pointer; transition: background-color 160ms ease; } .ds-board-close:hover { background: rgba(231, 236, 227, 0.16); } .ds-board-close:focus-visible { outline: 2px solid #f2c46d; outline-offset: -2px; } .ds-board-body { padding: 6px 22px 28px 20px; } .ds-board ol { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: fact; } .ds-board li { counter-increment: fact; position: relative; padding: 15px 0 16px 32px; border-top: 1px solid rgba(18, 53, 36, 0.16); } .ds-board li:first-child { border-top: 0; } .ds-board li::before { content: counter(fact); position: absolute; left: 0; top: 15px; width: 24px; color: #7a4d21; font: 900 22px/1.15 'Archivo', 'Arial Narrow', sans-serif; font-stretch: 68%; font-variant-numeric: tabular-nums lining-nums; } .ds-board p { margin: 0; max-width: 62ch; } .ds-board .ds-board-meta { margin-top: 7px; font-size: 13px; line-height: 1.5; color: #3d4f44; } .ds-board a { color: #123524; text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: rgba(18, 53, 36, 0.45); text-underline-offset: 3px; transition: text-decoration-color 140ms ease; } .ds-board a:hover { text-decoration-color: currentColor; } .ds-board a:focus-visible { outline: 2px solid #1e4a33; outline-offset: 2px; border-radius: 1px; } .ds-stamp { display: inline-block; margin-right: 8px; padding: 3px 6px 2px; border-radius: 2px; border: 1.5px solid currentColor; color: #7a4d21; font: 800 11px/1 'Archivo', 'Arial Narrow', sans-serif; font-stretch: 84%; letter-spacing: 0.1em; text-transform: uppercase; transform: rotate(-2deg); }"
+    },
+    {
+      "name": "Green field (era dip)",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "The field that covers loading, era changes, the no-WebGL fallback and the 404 page, with the display year.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-field-year\"><span>1</span><span>9</span><span>5</span><span>9</span></div><div class=\"ds-field-label\">Nombre de la época</div></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px; background: radial-gradient(ellipse at 50% 42%, #2a5f43 0%, #1e4a33 55%, #143625 100%); color: #e7ece3; } .ds-field-year { display: flex; font: 900 140px/0.8 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 66%; font-variant-numeric: tabular-nums lining-nums; } .ds-field-year > span { display: block; width: 0.5em; text-align: center; } .ds-field-label { margin-top: 18px; font: 700 20px/1.2 'Archivo', ui-sans-serif, system-ui, sans-serif; text-align: center; padding: 0 24px; }"
+    },
+    {
+      "name": "Drag hint",
+      "kind": "chip",
+      "refersTo": "drag-hint",
+      "description": "One gesture hint, once per session. Leaves on the first drag.",
+      "html": "<div class=\"ds-hint\"><svg viewBox=\"0 0 24 12\" width=\"24\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 6h20M6 2L2 6l4 4M18 2l4 4-4 4\"/></svg>Arrastra para mirar</div>",
+      "css": ".ds-hint { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px 9px; border-radius: 3px; background: #1e4a33; color: #e7ece3; font: 700 12.5px/1 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 84%; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; box-shadow: inset 0 0 0 2px #1e4a33, inset 0 0 0 3px rgba(231, 236, 227, 0.5), 0 10px 24px -12px rgba(8, 20, 14, 0.7); } .ds-hint svg { flex: none; animation: ds-hint-sway 2.4s ease-in-out infinite; } @keyframes ds-hint-sway { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } } @media (prefers-reduced-motion: reduce) { .ds-hint svg { animation: none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Landing's Own Signage",
+    "overview": "The overlay is the ferry landing's painted signage, hung over a full-window 3D scene. It has a station sign, small painted placards, a route line with year stops, and one cream facts board. The scene is the subject. The overlay names the year, offers the controls, and steps back.\n\nEvery colour comes from the owner's approved sign vector (docs/assets/el-ancon-de-loiza-sign.svg): bottle green, sign cream, painted ochre. Sun gold marks focus and the route marker. One type family, Archivo, speaks in two voices: narrow and heavy for signs and years, normal width for reading.\n\nObjects are opaque paint, not glass. Text that sits straight on the scene gets a green-black scrim so it reads on any sky. This system applies to the HTML overlay only (src/styles.css, src/ui/*, the load card in index.html, public/404.html). The 3D scene has its own art direction.",
+    "keyCharacteristics": [
+      "Full-bleed scene; controls sit at the four corners and the bottom edge.",
+      "Painted placards with an inner cream keyline. Radii are 2–4px.",
+      "Years are heavy narrow numerals in fixed digit cells.",
+      "State changes are colour cuts with a small lift-and-settle, never a glide.",
+      "One green field covers loading, era changes, the no-WebGL fallback and the 404 page."
+    ],
+    "rules": [
+      { "name": "The Sign Palette Rule", "body": "--green, --cream and --ochre must equal fills in the sign vector. A unit test fails if they drift.", "section": "colors" },
+      { "name": "The One Ochre Rule", "body": "Ochre as a ground appears once: the Facts placard. It marks the way to the sourced content.", "section": "colors" },
+      { "name": "The Gold Is Not Paint Rule", "body": "Gold marks focus, the route marker and selection. It is never a placard ground or a text colour on the scene.", "section": "colors" },
+      { "name": "The Fixed Cell Rule", "body": "Each digit of a year sits in a cell 0.5em wide with tabular-nums lining-nums. A digit changes in place. Nothing slides sideways.", "section": "typography" },
+      { "name": "The Two Voices Rule", "body": "Narrow width means \"this is painted on a sign\": years, labels, stamps. Normal width means \"read this\": era names, facts, sources. Do not set sentences in the sign voice.", "section": "typography" },
+      { "name": "The Own Ground Rule", "body": "A placard, menu or board carries its own opaque ground and needs no scrim. Only bare text on the scene uses the scrim.", "section": "elevation" },
+      { "name": "The Keyline Rule", "body": "Every placard has a 1px inner line, inset 2px, in the opposite sign colour at about half strength. It is drawn with inset box-shadow, not a border.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do take colours from the :root tokens. Green, cream and ochre must match the sign vector.",
+      "Do give every control its own opaque ground: green placard, cream when chosen.",
+      "Do put bare text on the scene inside the scrim zone, in cream. Small text needs 4.5:1 and large text 3:1 against the scrim over a white sky; contrast.test.ts checks this.",
+      "Do keep targets at least 44 × 44px.",
+      "Do use the gold 2px outline with 2px offset for focus on every control. Links on the cream board use a green outline.",
+      "Do set years in the sign voice at weight 900 with tabular lining numerals in fixed cells.",
+      "Do show state with a colour cut plus settle-press.",
+      "Do keep every fact's sources on the line beside it, and stamp inferred facts.",
+      "Do keep the map credit visible and keyboard-reachable; it is a licence requirement.",
+      "Do offset bottom objects with --rail-h, --stack and --lift so they clear the route line at every width.",
+      "Do announce era changes and the Recenter button through the polite live regions, and keep the skip link."
+    ],
+    "donts": [
+      "Don't use glass: no backdrop-filter, no blurred or translucent panels.",
+      "Don't add a second accent colour. Ochre is the only accent ground, and only on Facts.",
+      "Don't use rounded pills. Radii are 2–4px; only the route marker and stop dots are round.",
+      "Don't add a second panel. The facts board is the only one.",
+      "Don't use gradients on objects. The only gradients are the green field, the scrim, and edge fade masks.",
+      "Don't fade or glide a state colour, and don't slide digits sideways.",
+      "Don't shrink the route line on phones; scroll it and centre the chosen stop.",
+      "Don't fade the placards on touch devices; a hidden button could take the tap meant to wake it.",
+      "Don't add a second typeface or set sentences in the narrow sign voice.",
+      "Don't let any motion run under prefers-reduced-motion: reduce."
+    ]
+  }
+}

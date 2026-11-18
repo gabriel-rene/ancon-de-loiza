@@ -14,5 +14,5 @@ export class SceneBoundary extends Component<{ children: ReactNode }, { failed: 
 
 function SceneFallback() {
   const t = useT();
-  return <div className="scene-fallback" role="status">{t(STRINGS.noWebgl)}</div>;
+  return <div className="scene-fallback" role="status"><p>{t(STRINGS.noWebgl)}</p></div>;
 }

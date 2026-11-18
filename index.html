@@ -7,7 +7,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#3f3426" />
+    <meta name="theme-color" content="#1e4a33" />
     <meta name="description" content="El ancón del Río Grande de Loíza, Puerto Rico, en 3D, de 1840 a 1986. · The Loíza river ferry, Puerto Rico, in 3D, 1840–1986." />
     <link rel="canonical" href="https://gabriel-rene.github.io/ancon-de-loiza/" />
     <meta property="og:type" content="website" />
@@ -22,24 +22,28 @@
     <meta property="og:locale" content="es_PR" />
     <meta property="og:locale:alternate" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
     <style>
-      /* Load card (spec 7a §4): shown before the bundle runs; same tone as the era dip (.era-dip in src/styles.css). */
-      #load-card { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; transition: opacity 0.6s ease; }
+      /* Load card (spec 7a §4): shown before the bundle runs. The green field and the station sign; same field as the era dip (.era-dip in src/styles.css). */
+      @font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%;
+        src: url('/fonts/archivo-latin.woff2') format('woff2-variations'); }
+      #load-card { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box;
+        background: radial-gradient(ellipse at 50% 42%, #2a5f43 0%, #1e4a33 55%, #143625 100%); color: #e7ece3; transition: opacity 0.6s ease; }
       #load-card.load-card--out { opacity: 0; pointer-events: none; }
-      .load-card__kicker { font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; }
-      .load-card__year { font: 500 clamp(64px, 14vw, 160px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin-top: 8px; }
-      .load-card__bar { width: min(220px, 50vw); height: 2px; margin-top: 22px; background: rgba(244, 236, 223, 0.25); border-radius: 1px; overflow: hidden; }
-      .load-card__fill { width: 0; height: 100%; background: #f4ecdf; transition: width 0.4s ease; }
-      body[data-load='code'] .load-card__fill { width: 33%; }
-      body[data-load='scene'] .load-card__fill { width: 67%; }
-      body[data-ready] .load-card__fill { width: 100%; }
+      .load-card__sign { display: block; width: min(560px, 82vw); height: auto; filter: drop-shadow(0 14px 22px rgba(8, 20, 14, 0.45)); }
+      .load-card__year { margin-top: clamp(26px, 5vh, 44px); font: 900 clamp(44px, 9vw, 76px)/0.8 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 68%;
+        font-variant-numeric: tabular-nums lining-nums; }
+      .load-card__bar { width: min(560px, 82vw); height: 2px; margin-top: 22px; background: rgba(231, 236, 227, 0.28); overflow: hidden; }
+      .load-card__fill { width: 100%; height: 100%; background: #e7ece3; transform: scaleX(0); transform-origin: left center; transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+      body[data-load='code'] .load-card__fill { transform: scaleX(0.33); }
+      body[data-load='scene'] .load-card__fill { transform: scaleX(0.67); }
+      body[data-ready] .load-card__fill { transform: scaleX(1); }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
       .noscript { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-        padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%);
-        color: #f4ecdf; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; }
-      .noscript__title { font: 500 28px/1.2 ui-serif, Georgia, serif; letter-spacing: 0.04em; margin: 0 0 8px; }
-      .noscript a { color: #f2c46d; }
+        padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 42%, #2a5f43 0%, #1e4a33 55%, #143625 100%);
+        color: #e7ece3; font: 400 17px/1.5 'Archivo', ui-sans-serif, system-ui, sans-serif; }
+      .noscript img { width: min(480px, 82vw); height: auto; margin-bottom: 22px; }
+      .noscript a { color: #f2c46d; text-underline-offset: 3px; }
       @media (prefers-reduced-motion: reduce) { #load-card, .load-card__fill { transition: none; } }
     </style>
     <noscript><style>#load-card { display: none; }</style></noscript>
@@ -47,14 +51,14 @@
   <body>
     <noscript>
       <div class="noscript">
-        <p class="noscript__title">El Ancón de Loíza</p>
+        <img src="./docs/assets/el-ancon-de-loiza-sign.svg#svgView(viewBox(35,29,856,142))" alt="El Ancón de Loíza" width="856" height="142" />
         <p>Este sitio necesita JavaScript y WebGL para mostrar la escena 3D.</p>
         <p lang="en">This site needs JavaScript and WebGL to show the 3D scene.</p>
         <p><a href="https://github.com/gabriel-rene/ancon-de-loiza/blob/main/docs/research/ancon-research.md">Investigación y fuentes · Research and sources</a></p>
       </div>
     </noscript>
     <div id="load-card" role="status">
-      <div class="load-card__kicker">El Ancón de Loíza</div>
+      <img class="load-card__sign" src="./docs/assets/el-ancon-de-loiza-sign.svg#svgView(viewBox(35,29,856,142))" alt="El Ancón de Loíza" width="856" height="142" />
       <div class="load-card__year" id="load-card-year">1975</div>
       <div class="load-card__bar" aria-hidden="true"><div class="load-card__fill"></div></div>
       <span class="sr-only" id="load-card-text">Cargando</span>

@@ -34,13 +34,13 @@ export function ViewSwitch() {
       <div className="toolbar__group" role="group" aria-label={t(STRINGS.view)}>
         {PUBLIC_VIEWS.map((v, i) => (
           <button key={v} type="button" className="toolbar__btn toolbar__btn--seg" aria-pressed={camera === v}
-            aria-keyshortcuts={String(i + 1)} onClick={() => chooseView(v)}>
+            aria-keyshortcuts={String(i + 1)} data-key={i + 1} onClick={() => chooseView(v)}>
             {t(VIEW_NAMES[v])}
           </button>
         ))}
       </div>
       {offFront && (
-        <button type="button" className="toolbar__btn" aria-keyshortcuts="R" onClick={() => useStore.getState().recenter()}>
+        <button type="button" className="toolbar__btn toolbar__btn--recenter" aria-keyshortcuts="R" onClick={() => useStore.getState().recenter()}>
           {t(STRINGS.recenter)}
         </button>
       )}

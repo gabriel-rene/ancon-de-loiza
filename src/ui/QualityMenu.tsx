@@ -23,7 +23,11 @@ export function QualityMenu() {
   const close = () => { setOpen(false); btn.current?.focus(); };
   useLayoutEffect(() => {   // keep the menu on screen at any width (spec 7a §3)
     const b = btn.current, m = menu.current;
-    if (open && b && m) m.style.left = `${menuLeft(b.getBoundingClientRect().left, m.getBoundingClientRect().width, window.innerWidth)}px`;
+    if (!open || !b || !m) return;
+    const br = b.getBoundingClientRect(), mw = m.getBoundingClientRect().width;
+    // Right edges aligned (the button sits at the right margin); if that would leave the window, fall back to menuLeft.
+    const right = br.width - mw;
+    m.style.left = `${br.left + right >= 8 ? right : menuLeft(br.left, mw, window.innerWidth)}px`;
   }, [open]);
   useEffect(() => { if (open) items.current[CHOICES.indexOf(current)]?.focus(); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps -- focus once on open
   useEffect(() => {
@@ -48,7 +52,10 @@ export function QualityMenu() {
     <div className="quality" onBlur={onBlur}>
       <button ref={btn} type="button" className="toolbar__btn" aria-haspopup="menu" aria-expanded={open}
         aria-label={`${t(STRINGS.quality)}: ${label}`} onClick={() => setOpen(!open)}>
-        {label}
+        <svg className="toolbar__icon quality__bars" data-tier={quality} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+          <rect x="1.5" y="10" width="3" height="4.5" /><rect x="6.5" y="6" width="3" height="8.5" /><rect x="11.5" y="2" width="3" height="12.5" />
+        </svg>
+        <span className="toolbar__label--wide">{label}</span>
       </button>
       {open && (
         <div ref={menu} className="quality__menu" role="menu" aria-label={t(STRINGS.quality)}>
