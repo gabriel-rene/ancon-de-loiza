@@ -8,7 +8,7 @@ test('favicon set and theme colour (spec 7b §5.1)', () => {
   has(/<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml" \/>/);
   has(/<link rel="icon" href="\/favicon-32\.png" type="image\/png" sizes="32x32" \/>/);
   has(/<link rel="apple-touch-icon" href="\/apple-touch-icon\.png" \/>/);
-  has(/<meta name="theme-color" content="#3f3426" \/>/);
+  has(/<meta name="theme-color" content="#1e4a33" \/>/);
   for (const f of ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png']) expect(existsSync(`public/${f}`), f).toBe(true);
 });
 test('the favicon is the sign\'s A', () => {

@@ -26,7 +26,7 @@ function SpeakerIcon({ on }: { on: boolean }) {
   );
 }
 
-/** Top-left controls: the Facts button (owns the panel's open state) and the ES | EN switch (spec 3b §5.1). */
+/** The placards: language, sound and quality top right; Facts (owns the panel's open state, spec 3b §5.1) and the views bottom right. */
 export function Toolbar() {
   const t = useT();
   const lang = useStore((s) => s.lang);
@@ -51,25 +51,29 @@ export function Toolbar() {
   return (
     <>
       <div className="toolbar">
-        <button ref={factsBtn} type="button" className="toolbar__btn" aria-expanded={open}
-          aria-controls={open ? 'info-panel' : undefined} onClick={() => (open ? close() : setOpen(true))}>
-          {t(STRINGS.facts)}
-        </button>
-        <div className="toolbar__lang" role="group" aria-label={t(STRINGS.language)}>
-          {LANG_BUTTONS.map((b) => (
-            <button key={b.lang} type="button" lang={b.lang} className="toolbar__btn toolbar__btn--lang"
-              aria-pressed={lang === b.lang} aria-label={b.name} onClick={() => chooseLang(b.lang)}>
-              {b.short}
-            </button>
-          ))}
+        <div className="toolbar__util">
+          <div className="toolbar__lang" role="group" aria-label={t(STRINGS.language)}>
+            {LANG_BUTTONS.map((b) => (
+              <button key={b.lang} type="button" lang={b.lang} className="toolbar__btn toolbar__btn--lang"
+                aria-pressed={lang === b.lang} aria-label={b.name} onClick={() => chooseLang(b.lang)}>
+                {b.short}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="toolbar__btn" aria-pressed={soundOn}
+            onClick={() => { if (!soundOn) unlockAudio(); useStore.getState().setSound(!soundOn); }}>
+            <SpeakerIcon on={soundOn} />
+            <span className="toolbar__label--wide">{t(STRINGS.sound)}</span>
+          </button>
+          <QualityMenu />
         </div>
-        <button type="button" className="toolbar__btn" aria-pressed={soundOn}
-          onClick={() => { if (!soundOn) unlockAudio(); useStore.getState().setSound(!soundOn); }}>
-          <SpeakerIcon on={soundOn} />
-          {t(STRINGS.sound)}
-        </button>
-        <QualityMenu />
-        <ViewSwitch />
+        <div className="toolbar__actions">
+          <button ref={factsBtn} type="button" className="toolbar__btn toolbar__btn--primary" aria-expanded={open}
+            aria-controls={open ? 'info-panel' : undefined} onClick={() => (open ? close() : setOpen(true))}>
+            {t(STRINGS.facts)}
+          </button>
+          <ViewSwitch />
+        </div>
       </div>
       {open && <InfoPanel onClose={close} />}
     </>

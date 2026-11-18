@@ -8,7 +8,7 @@ A cinematic, historically accurate 3D reconstruction of the **Ancón de Loíza**
 
 ## What you can do
 
-- **Pick an era** on the timeline, 1840 to 1986: the ferry, the crew, the landings, the town, the plants, the animals and the traffic change with it.
+- **Pick an era** on the route line at the bottom, 1840 to 1986 (true scale; hover a year for the era's name; drag the gold marker): the ferry, the crew, the landings, the town, the plants, the animals and the traffic change with it.
 - **Three views:** Ride (on the deck), Shore (standing on the Loíza landing) and Sky. Drag to look around; the view stays where you leave it; Recenter brings it back.
 - **Facts:** 3–6 sourced facts per era, each with its source links. Inferred items are labelled.
 - **Sound** (off by default) and **Quality** (Auto, High, Medium, Low).
@@ -35,7 +35,9 @@ All scene details come from a sourced dossier: [`docs/research/ancon-research.md
 
 ## Design
 
-[`docs/superpowers/specs/2026-09-26-ancon-loiza-design.md`](docs/superpowers/specs/2026-09-26-ancon-loiza-design.md), with one spec per phase in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the rulings for each phase in [`docs/superpowers/notes/`](docs/superpowers/notes/).
+The interface is the landing's own painted signage: the station sign, small green placards, a cream facts board and a route line. Its colours come from the sign vector ([`docs/assets/el-ancon-de-loiza-sign.svg`](docs/assets/el-ancon-de-loiza-sign.svg)); the rules are in [`DESIGN.md`](DESIGN.md) and the product record in [`PRODUCT.md`](PRODUCT.md). `node scripts/dev/ui-shots.mjs` (with `npm run dev` running) captures every UI state at desktop and phone size.
+
+The scene: [`docs/superpowers/specs/2026-09-26-ancon-loiza-design.md`](docs/superpowers/specs/2026-09-26-ancon-loiza-design.md), with one spec per phase in [`docs/superpowers/specs/`](docs/superpowers/specs/) and the rulings for each phase in [`docs/superpowers/notes/`](docs/superpowers/notes/).
 
 ## Roadmap
 
@@ -58,7 +60,7 @@ Launch images are made by hand and committed: `node scripts/make-icons.ts` (favi
 
 ## Stack
 
-Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zustand. All 3D models and sound are made in code. Deployed to GitHub Pages.
+Vite · React · TypeScript · React Three Fiber · drei · postprocessing · zustand. All 3D models and sound are made in code. The typeface is Archivo (Omnibus-Type, SIL OFL 1.1), self-hosted in `public/fonts/`. Deployed to GitHub Pages.
 
 ## Acknowledgements
 

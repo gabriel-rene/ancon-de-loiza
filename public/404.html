@@ -6,23 +6,26 @@
     <meta name="robots" content="noindex" />
     <title>No existe · Not found — El Ancón de Loíza</title>
     <link rel="icon" href="/ancon-de-loiza/favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#3f3426" />
+    <meta name="theme-color" content="#1e4a33" />
     <style>
+      @font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%;
+        src: url('/ancon-de-loiza/fonts/archivo-latin.woff2') format('woff2-variations'); }
       html, body { margin: 0; height: 100%; }
-      body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 24px; box-sizing: border-box;
-        background: radial-gradient(ellipse at 50% 45%, #75624a 0%, #5e4d38 60%, #3f3426 100%); color: #f4ecdf; text-align: center;
-        font: 400 17px/1.5 ui-sans-serif, system-ui, sans-serif; }
-      .kicker { margin: 0; font: 500 13px/1.4 ui-serif, Georgia, serif; text-transform: uppercase; letter-spacing: 0.24em; }
-      h1 { margin: 6px 0 14px; font: 500 clamp(56px, 12vw, 120px)/1 ui-serif, Georgia, serif; letter-spacing: 0.04em; }
+      body { display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+        background: radial-gradient(ellipse at 50% 42%, #2a5f43 0%, #1e4a33 55%, #143625 100%); color: #e7ece3; text-align: center;
+        font: 400 17px/1.5 'Archivo', ui-sans-serif, system-ui, sans-serif; }
+      ::selection { background: #f2c46d; color: #08140e; }
+      h1 { margin: 0 0 22px; font: 900 clamp(120px, 30vw, 280px)/0.8 'Archivo', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-stretch: 66%;
+        font-variant-numeric: tabular-nums lining-nums; }
       p { margin: 0; }
-      a { display: inline-block; margin-top: 20px; padding: 12px 18px; border-radius: 10px; background: #f4ecdf; color: #1b1a17;
-        font-weight: 600; text-decoration: none; }
+      a { display: inline-block; margin-top: 26px; padding: 15px 18px 14px; border-radius: 3px; background: #e7ece3; color: #123524;
+        font: 700 13.5px/1 'Archivo', 'Arial Narrow', sans-serif; font-stretch: 82%; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
+      a:hover { background: #f4f7f1; }
       a:focus-visible { outline: 2px solid #f2c46d; outline-offset: 3px; }
     </style>
   </head>
   <body>
     <main>
-      <p class="kicker">El Ancón de Loíza</p>
       <h1>404</h1>
       <p>Esta página no existe.</p>
       <p lang="en">This page does not exist.</p>
